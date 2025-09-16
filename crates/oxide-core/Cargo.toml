@@ -1,0 +1,53 @@
+[package]
+name = "oxide-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "Core functionality for OxideUI framework"
+
+[dependencies]
+# State Management
+arc-swap.workspace = true
+dashmap.workspace = true
+parking_lot.workspace = true
+slotmap.workspace = true
+smallvec.workspace = true
+
+# Math
+glam.workspace = true
+euclid.workspace = true
+
+# Async
+tokio = { workspace = true, optional = true }
+futures.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Serialization
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+# Logging
+tracing.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+criterion.workspace = true
+
+[features]
+default = ["serde"]
+serde = ["dep:serde", "dep:serde_json", "glam/serde"]
+async = ["dep:tokio"]
+
+[[bench]]
+name = "layout"
+harness = false
+
+[[bench]]
+name = "state"
+harness = false

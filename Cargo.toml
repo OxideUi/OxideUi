@@ -1,0 +1,126 @@
+[workspace]
+members = [ "examples/hello_world", "examples/counter",
+    "crates/oxide-core",
+    "crates/oxide-renderer", 
+    "crates/oxide-widgets",
+    "crates/oxide-platform",
+    "crates/oxide-macros",
+]
+resolver = "2"
+
+[package]
+name = "oxide-ui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "A lightweight, secure, and reactive UI framework"
+
+[dependencies]
+oxide-core = { workspace = true }
+oxide-widgets = { workspace = true }
+oxide-platform = { workspace = true }
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["OxideUI Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/oxideui/oxide-ui"
+homepage = "https://oxideui.dev"
+documentation = "https://docs.oxideui.dev"
+readme = "README.md"
+keywords = ["gui", "ui", "graphics", "wgpu", "cross-platform"]
+categories = ["gui", "graphics", "wasm"]
+
+[workspace.dependencies]
+# Internal crates
+oxide-core = { path = "crates/oxide-core", version = "0.1.0" }
+oxide-renderer = { path = "crates/oxide-renderer", version = "0.1.0" }
+oxide-widgets = { path = "crates/oxide-widgets", version = "0.1.0" }
+oxide-platform = { path = "crates/oxide-platform", version = "0.1.0" }
+oxide-macros = { path = "crates/oxide-macros", version = "0.1.0" }
+
+# Core dependencies
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "sync", "time"] }
+futures = "0.3"
+thiserror = "1.0"
+anyhow = "1.0"
+
+# State Management
+arc-swap = "1.7"
+dashmap = "6.0"
+parking_lot = "0.12"
+slotmap = "1.0"
+smallvec = "1.13"
+
+# Math and Graphics
+glam = "0.29"
+euclid = "0.22"
+palette = "0.7"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+ron = "0.8"
+
+# Renderer
+wgpu = { version = "0.20", features = ["webgl"] }
+lyon = "1.0"
+cosmic-text = "0.12"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+bytemuck = { version = "1.16", features = ["derive"] }
+
+# Platform
+winit = { version = "0.29", features = ["serde"] }
+raw-window-handle = "0.6"
+
+# Web
+wasm-bindgen = "0.2"
+web-sys = "0.3"
+js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
+console_error_panic_hook = "0.1"
+
+# Development
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-wasm = "0.2"
+criterion = { version = "0.5", features = ["html_reports"] }
+pretty_assertions = "1.4"
+
+# Procedural macros
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.release-with-debug]
+inherits = "release"
+strip = false
+debug = true
+
+[profile.wasm]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+
+[profile.dev]
+opt-level = 1
+
+[profile.bench]
+inherits = "release"
+debug = true

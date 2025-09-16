@@ -1,0 +1,61 @@
+[package]
+name = "oxide-renderer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "GPU-accelerated renderer for OxideUI framework"
+
+[dependencies]
+oxide-core = { workspace = true }
+
+# Rendering
+wgpu.workspace = true
+lyon.workspace = true
+cosmic-text.workspace = true
+image.workspace = true
+bytemuck.workspace = true
+
+# Font Management
+ab_glyph = "0.2"
+fontdue = "0.9"
+swash = "0.1"
+
+# Math
+glam.workspace = true
+euclid.workspace = true
+palette.workspace = true
+
+# Platform
+raw-window-handle.workspace = true
+winit.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Logging
+tracing.workspace = true
+
+# Collections
+dashmap.workspace = true
+slotmap.workspace = true
+parking_lot.workspace = true
+smallvec.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+web-sys.workspace = true
+console_error_panic_hook.workspace = true
+wasm-bindgen-futures.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+pollster = "0.3"
+
+[features]
+default = []
+webgl = ["wgpu/webgl"]
+

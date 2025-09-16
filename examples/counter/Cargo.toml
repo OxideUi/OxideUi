@@ -1,0 +1,14 @@
+[package]
+name = "counter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+oxide-core = { path = "../../crates/oxide-core" }
+oxide-widgets = { path = "../../crates/oxide-widgets" }
+oxide-platform = { path = "../../crates/oxide-platform" }
+oxide-macros = { path = "../../crates/oxide-macros" }
+
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }
+anyhow = "1.0"
+parking_lot = "0.12"

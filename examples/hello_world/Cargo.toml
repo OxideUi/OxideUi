@@ -1,0 +1,10 @@
+[package]
+name = "hello_world"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+oxide-ui = { path = "../.." }
+
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }
+anyhow = "1.0"
