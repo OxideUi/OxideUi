@@ -13,6 +13,7 @@
 > The current name (`OxideUI`) is temporary and may change in future releases.  
 > If you have creative ideas or suggestions for a new name, feel free to share them by opening an **issue** or 
 > contacting us directly.
+> OxiedUI is a standalone project unrelated to other entities in the Rust world. This project is managed by the community and was created and is currently maintained by [SeregonWar](https://github.com/seregonwar).
 
 ![Logo OxideUi](https://github.com/OxideUi/OxideUi/raw/main/logos/OxideUi-org.jpg)
 
