@@ -1,6 +1,7 @@
-//! Widget library for OxideUI framework
-//!
-//! Provides a collection of reusable UI components with a declarative API.
+//! OxideUI Widgets - A comprehensive widget library for OxideUI
+//! 
+//! This crate provides a collection of UI widgets built on top of the OxideUI core framework.
+//! All widgets are designed to be composable, reactive, and performant.
 
 pub mod widget;
 pub mod button;
@@ -10,16 +11,26 @@ pub mod input;
 pub mod layout;
 pub mod theme;
 pub mod builder;
+pub mod checkbox;
+pub mod slider;
+pub mod dropdown;
+pub mod image;
+
 pub mod prelude;
 
-pub use widget::{Widget, WidgetId, WidgetState, WidgetContext};
-pub use button::{Button, ButtonStyle};
-pub use text::Text;
+// Re-export all widget types for easy access
+pub use widget::{Widget, WidgetContext, WidgetId};
+pub use button::{Button, ButtonStyle, ButtonVariant};
+pub use text::{Text, TextStyle};
 pub use container::{Container, ContainerStyle};
-pub use input::{TextInput, TextInputStyle};
-pub use layout::{Row, Column, Stack, Flex};
-pub use theme::{Theme, ThemeProvider};
+pub use input::{Input, InputStyle, InputType};
+pub use layout::{Layout, LayoutDirection, LayoutWrap};
+pub use theme::{Theme, ThemeColor, ThemeSize};
 pub use builder::WidgetBuilder;
+pub use checkbox::{Checkbox, RadioButton, CheckboxStyle};
+pub use slider::{Slider, ProgressBar, SliderStyle};
+pub use dropdown::{Dropdown, DropdownOption, DropdownStyle};
+pub use image::{Image, ImageBuilder, ImageFit, ImageSource, ImageData, ImageFormat, ImageFilter, ImageStyle};
 
 /// Initialize the widgets module
 pub fn init() -> oxide_core::Result<()> {

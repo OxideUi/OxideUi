@@ -3,16 +3,18 @@
 //! Provides text display components with various styles, formatting, and layout options.
 
 use oxide_core::{
-    layout::{Rect, Size},
-    state::{Signal, StateManager},
-    theme::{Theme, Typography},
-    types::{Color, Point},
+    layout::{Rect, Size, Constraints, Layout},
+    state::{Signal},
+    theme::{Theme, Color},
+    types::{Point},
+    event::{Event, EventResult},
 };
 use oxide_renderer::{
     vertex::{Vertex, VertexBuilder},
     batch::RenderBatch,
 };
-use std::sync::Arc;
+use crate::widget::{Widget, WidgetId, generate_id, WidgetContext};
+use std::{sync::Arc, any::Any};
 
 /// Text alignment options
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -115,14 +117,14 @@ impl Default for TextStyle {
             font_size: 14.0,
             font_weight: FontWeight::Normal,
             font_style: FontStyle::Normal,
-            color: Color::new(0.0, 0.0, 0.0, 1.0),
+            color: Color::rgba(0.0, 0.0, 0.0, 1.0),
             line_height: 1.4,
             letter_spacing: 0.0,
             word_spacing: 0.0,
             text_align: TextAlign::Left,
             vertical_align: VerticalAlign::Top,
             text_decoration: TextDecoration::None,
-            decoration_color: Color::new(0.0, 0.0, 0.0, 1.0),
+            decoration_color: Color::rgba(0.0, 0.0, 0.0, 1.0),
             text_overflow: TextOverflow::Clip,
             max_lines: None,
             selectable: false,
@@ -164,7 +166,7 @@ impl TextStyle {
     pub fn caption() -> Self {
         Self {
             font_size: 12.0,
-            color: Color::new(0.5, 0.5, 0.5, 1.0),
+            color: Color::rgba(0.5, 0.5, 0.5, 1.0),
             line_height: 1.3,
             ..Default::default()
         }
@@ -175,7 +177,7 @@ impl TextStyle {
         Self {
             font_family: "monospace".to_string(),
             font_size: 13.0,
-            color: Color::new(0.2, 0.2, 0.2, 1.0),
+            color: Color::rgba(0.2, 0.2, 0.2, 1.0),
             letter_spacing: 0.5,
             ..Default::default()
         }
@@ -184,9 +186,9 @@ impl TextStyle {
     /// Create a link style
     pub fn link() -> Self {
         Self {
-            color: Color::new(0.0, 0.4, 0.8, 1.0),
+            color: Color::rgba(0.0, 0.0, 0.0, 1.0),
             text_decoration: TextDecoration::Underline,
-            decoration_color: Color::new(0.0, 0.4, 0.8, 1.0),
+            decoration_color: Color::rgba(0.0, 0.4, 0.8, 1.0),
             ..Default::default()
         }
     }
@@ -227,7 +229,7 @@ impl TextSpan {
 
 /// Text widget
 pub struct Text {
-    id: String,
+    id: WidgetId,
     content: String,
     spans: Vec<TextSpan>,
     style: TextStyle,
@@ -245,7 +247,7 @@ impl Text {
     /// Create a new text widget
     pub fn new(content: impl Into<String>) -> Self {
         Self {
-            id: format!("text_{}", uuid::Uuid::new_v4()),
+            id: generate_id(),
             content: content.into(),
             spans: Vec::new(),
             style: TextStyle::default(),
@@ -536,7 +538,7 @@ impl Text {
         // Render selection background if any
         if let Some((start, end)) = self.get_selection() {
             if start != end {
-                let selection_color = Color::new(0.0, 0.4, 0.8, 0.3);
+                let selection_color = Color::rgba(0.0, 0.4, 0.8, 0.3);
                 
                 // Simple selection rendering (would need proper text metrics)
                 let char_width = self.style.font_size * 0.6;
@@ -571,11 +573,10 @@ impl Text {
         
         // Render main text
         batch.add_text(
-            &self.content,
-            text_x,
-            text_y,
+            self.content.clone(),
+            (text_x, text_y),
+            self.style.color.to_types_color(),
             self.style.font_size,
-            self.style.color.to_array(),
         );
         
         // Render text decoration if any
@@ -606,11 +607,10 @@ impl Text {
                 let span_x = text_x + span.start as f32 * self.style.font_size * 0.6;
                 
                 batch.add_text(
-                    span_text,
-                    span_x,
-                    text_y,
+                    span_text.to_string(),
+                    (span_x, text_y),
+                    span_style.color.to_types_color(),
                     span_style.font_size,
-                    span_style.color.to_array(),
                 );
             }
         }
@@ -618,15 +618,9 @@ impl Text {
 
     /// Apply theme to text
     pub fn apply_theme(&mut self, theme: &Theme) {
-        let typography = theme.typography();
-        
-        self.style.font_family = typography.body().family.clone();
-        self.style.font_size = typography.body().size;
-        self.style.line_height = typography.body().line_height;
-        
-        if let Some(text_color) = theme.color_palette().on_surface() {
-            self.style.color = *text_color;
-        }
+        self.style.font_family = theme.typography.font_family.clone();
+        self.style.font_size = theme.typography.base_size;
+        self.style.color = theme.colors.on_surface;
     }
 }
 
@@ -731,13 +725,13 @@ mod tests {
     fn test_text_builder() {
         let text = TextBuilder::new("Builder Test")
             .heading(2)
-            .color(Color::new(1.0, 0.0, 0.0, 1.0))
+            .color(Color::rgba(1.0, 0.0, 0.0, 1.0))
             .selectable(true)
             .build();
             
         assert_eq!(text.content(), "Builder Test");
         assert!(text.is_selectable());
-        assert_eq!(text.style.color, Color::new(1.0, 0.0, 0.0, 1.0));
+        assert_eq!(text.style.color, Color::rgba(1.0, 0.0, 0.0, 1.0));
     }
 
     #[test]
@@ -750,5 +744,68 @@ mod tests {
         assert!(size.height > 0.0);
         assert!(size.width <= available.width);
         assert!(size.height <= available.height);
+    }
+}
+
+// Implement Widget trait for Text
+impl Widget for Text {
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+
+    fn layout(&mut self, constraints: Constraints) -> Size {
+        let text_width = self.content.len() as f32 * self.style.font_size * 0.6;
+        let text_height = self.style.font_size * self.style.line_height;
+        
+        let width = text_width.min(constraints.max_width);
+        let height = text_height.min(constraints.max_height);
+        
+        Size::new(width, height)
+    }
+
+    fn render(&self, batch: &mut RenderBatch, layout: Layout) {
+        if !self.is_visible() {
+            return;
+        }
+
+        let bounds = layout.bounds();
+        
+        // Render text
+        batch.add_text(
+            self.content.clone(),
+            (bounds.x, bounds.y),
+            self.style.color.to_types_color(),
+            self.style.font_size,
+        );
+    }
+
+    fn handle_event(&mut self, event: &Event) -> EventResult {
+        // Handle text events
+        EventResult::Ignored
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_widget(&self) -> Box<dyn Widget> {
+        Box::new(Text {
+            id: generate_id(),
+            content: self.content.clone(),
+            spans: self.spans.clone(),
+            style: self.style.clone(),
+            bounds: Signal::new(self.bounds.get()),
+            visible: Signal::new(self.visible.get()),
+            selectable: Signal::new(self.selectable.get()),
+            selection_start: Signal::new(self.selection_start.get()),
+            selection_end: Signal::new(self.selection_end.get()),
+            theme: self.theme.clone(),
+            measured_size: Signal::new(self.measured_size.get()),
+            line_breaks: Signal::new(self.line_breaks.get()),
+        })
     }
 }

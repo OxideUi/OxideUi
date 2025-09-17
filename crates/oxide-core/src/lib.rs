@@ -14,13 +14,15 @@ pub mod widget;
 pub mod window;
 pub mod hot_reload;
 pub mod theme;
+pub mod plugin;
+pub mod text;
 
 pub use event::{Event, EventHandler, EventResult};
-pub use layout::{Constraints, Layout, LayoutEngine, Size};
-pub use state::{Signal, State, StateManager};
+pub use layout::{Constraints, Layout, LayoutEngine, LayoutConstraints, Size};
+pub use state::{Signal, State};
 pub use reactive::{Computed, Effect, Reactive};
 pub use types::{Color, Point, Rect, Transform};
-pub use error::{OxideError, Result};
+pub use error::{OxideError, OxideResult, Result};
 
 /// Re-export commonly used types
 pub mod prelude {

@@ -29,6 +29,12 @@ pub enum OxideError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
+    
+    #[error("Plugin error: {0}")]
+    PluginError(String),
+    
     #[error("Other error: {0}")]
     Other(String),
 }
@@ -69,6 +75,16 @@ impl OxideError {
         Self::Configuration(msg.into())
     }
     
+    /// Create a not implemented error from a string
+    pub fn not_implemented<S: Into<String>>(msg: S) -> Self {
+        Self::NotImplemented(msg.into())
+    }
+    
+    /// Create a plugin error from a string
+    pub fn plugin_error<S: Into<String>>(msg: S) -> Self {
+        Self::PluginError(msg.into())
+    }
+    
     /// Create an other error from a string
     pub fn other<S: Into<String>>(msg: S) -> Self {
         Self::Other(msg.into())
@@ -77,3 +93,6 @@ impl OxideError {
 
 /// Result type alias for OxideUI operations
 pub type Result<T> = std::result::Result<T, OxideError>;
+
+/// Alternative result type alias for backward compatibility
+pub type OxideResult<T> = Result<T>;

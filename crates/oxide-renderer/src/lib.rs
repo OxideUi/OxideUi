@@ -11,19 +11,19 @@ pub mod vertex;
 pub mod font_system;
 
 pub use gpu::{Renderer, RenderContext, Surface};
-pub use pipeline::{RenderPipeline, ShaderModule};
+pub use pipeline::{UIPipeline, TextPipeline, PipelineManager, UIUniforms};
 pub use text::{TextRenderer, Font, GlyphCache};
 pub use texture::{Texture, TextureAtlas};
 pub use batch::{DrawCommand, RenderBatch};
-pub use vertex::{Vertex, VertexBuffer};
+pub use vertex::{Vertex, TextVertex, VertexBuilder};
 pub use font_system::*;
 
 use oxide_core::types::{Color, Rect, Transform};
 
 /// Rendering backend trait
-pub trait Backend: Send + Sync {
+pub trait Backend<'a>: Send + Sync {
     /// Initialize the backend
-    fn init(&mut self, surface: &Surface) -> anyhow::Result<()>;
+    fn init(&mut self, surface: &Surface<'a>) -> anyhow::Result<()>;
     
     /// Begin a new frame
     fn begin_frame(&mut self) -> anyhow::Result<()>;

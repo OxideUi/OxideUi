@@ -7,10 +7,10 @@ use oxide_core::types::{Color, Rect, Transform, Size};
 use crate::{Backend, RendererConfig, vertex::Vertex, batch::RenderBatch};
 
 /// Main renderer struct
-pub struct Renderer {
-    device: Device,
-    queue: Queue,
-    surface: Surface,
+pub struct Renderer<'a> {
+    device: Arc<Device>,
+    queue: Arc<Queue>,
+    surface: Surface<'a>,
     surface_config: SurfaceConfiguration,
     render_pipeline: RenderPipeline,
     vertex_buffer: Buffer,
@@ -54,7 +54,6 @@ impl RenderContext {
                     label: Some("OxideUI Device"),
                     required_features: Features::empty(),
                     required_limits: Limits::default(),
-                    memory_hints: MemoryHints::default(),
                 },
                 None,
             )
@@ -69,16 +68,16 @@ impl RenderContext {
     }
 }
 
-impl Renderer {
+impl<'a> Renderer<'a> {
     /// Create a new renderer
     pub async fn new(
-        window: &Window,
+        window: &'a Window,
         config: RendererConfig,
     ) -> anyhow::Result<Self> {
         let context = RenderContext::new().await?;
         
-        let surface = context.instance.create_surface(window)?;
-        let surface_caps = surface.get_capabilities(&context.adapter);
+        let surface_wrapper = Surface::new(window, &context.instance)?;
+        let surface_caps = surface_wrapper.inner.get_capabilities(&context.adapter);
         
         let surface_format = surface_caps
             .formats
@@ -103,7 +102,7 @@ impl Renderer {
             desired_maximum_frame_latency: 2,
         };
 
-        surface.configure(&context.device, &surface_config);
+        surface_wrapper.inner.configure(&context.device, &surface_config);
 
         // Create shader module
         let shader = context.device.create_shader_module(ShaderModuleDescriptor {
@@ -186,7 +185,6 @@ impl Renderer {
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
-            cache: None,
         });
 
         // Create vertex and index buffers
@@ -205,9 +203,9 @@ impl Renderer {
         });
 
         Ok(Self {
-            device: (*context.device).clone(),
-            queue: (*context.queue).clone(),
-            surface,
+            device: Arc::clone(&context.device),
+            queue: Arc::clone(&context.queue),
+            surface: surface_wrapper,
             surface_config,
             render_pipeline,
             vertex_buffer,
@@ -221,10 +219,10 @@ impl Renderer {
 
     /// Resize the surface
     pub fn resize(&mut self, new_size: Size) {
-        if new_size.width > 0 && new_size.height > 0 {
+        if new_size.width > 0.0 && new_size.height > 0.0 {
             self.surface_config.width = new_size.width as u32;
             self.surface_config.height = new_size.height as u32;
-            self.surface.configure(&self.device, &self.surface_config);
+            self.surface.inner.configure(&self.device, &self.surface_config);
             
             // Update projection matrix
             self.update_projection_matrix();
@@ -257,8 +255,8 @@ impl Renderer {
     }
 }
 
-impl Backend for Renderer {
-    fn init(&mut self, _surface: &crate::Surface) -> anyhow::Result<()> {
+impl<'a> Backend<'a> for Renderer<'a> {
+    fn init(&mut self, _surface: &crate::Surface<'a>) -> anyhow::Result<()> {
         self.update_projection_matrix();
         Ok(())
     }
@@ -269,7 +267,7 @@ impl Backend for Renderer {
     }
 
     fn end_frame(&mut self) -> anyhow::Result<()> {
-        let output = self.surface.get_current_texture()?;
+        let output = self.surface.inner.get_current_texture()?;
         let view = output.texture.create_view(&TextureViewDescriptor::default());
 
         let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor {
@@ -330,7 +328,7 @@ impl Backend for Renderer {
         self.batch.add_rect(rect, color, transform);
     }
 
-    fn draw_text(&mut self, text: &str, position: (f32, f32), color: Color) {
+    fn draw_text(&mut self, text: &str, position: (f32, f32), _color: Color) {
         // Text rendering will be implemented in the text module
         tracing::debug!("Drawing text: {} at {:?}", text, position);
     }
@@ -342,12 +340,12 @@ impl Backend for Renderer {
 }
 
 /// Surface wrapper for cross-platform compatibility
-pub struct Surface {
-    pub inner: wgpu::Surface<'static>,
+pub struct Surface<'a> {
+    pub inner: wgpu::Surface<'a>,
 }
 
-impl Surface {
-    pub fn new(window: &Window, instance: &Instance) -> anyhow::Result<Self> {
+impl<'a> Surface<'a> {
+    pub fn new(window: &'a Window, instance: &Instance) -> anyhow::Result<Self> {
         let surface = instance.create_surface(window)?;
         Ok(Self { inner: surface })
     }

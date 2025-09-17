@@ -8,9 +8,16 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use std::collections::HashMap;
 use parking_lot::{RwLock, Mutex};
-use notify::{Watcher, RecursiveMode, Event, EventKind, RecommendedWatcher};
-use tokio::sync::mpsc;
 use serde::{Serialize, Deserialize};
+
+#[cfg(feature = "hot-reload")]
+use notify::{Watcher, RecursiveMode, Event, EventKind, RecommendedWatcher};
+#[cfg(feature = "hot-reload")]
+use tokio::sync::mpsc;
+#[cfg(feature = "hot-reload")]
+use tokio_tungstenite::{accept_async, tungstenite::Message};
+#[cfg(feature = "hot-reload")]
+use futures_util::{SinkExt, StreamExt};
 
 /// File change event types
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,6 +88,7 @@ pub trait HotReloadHandler: Send + Sync {
 }
 
 /// File watcher for hot reload
+#[cfg(feature = "hot-reload")]
 pub struct FileWatcher {
     config: HotReloadConfig,
     watcher: Option<RecommendedWatcher>,
@@ -89,6 +97,7 @@ pub struct FileWatcher {
     debounce_cache: Arc<Mutex<HashMap<PathBuf, SystemTime>>>,
 }
 
+#[cfg(feature = "hot-reload")]
 impl FileWatcher {
     /// Create a new file watcher
     pub fn new(config: HotReloadConfig) -> Result<Self, Box<dyn std::error::Error>> {
@@ -232,12 +241,14 @@ impl FileWatcher {
     }
 }
 
-/// Live preview server for real-time updates
+/// Live preview server for hot reload
+#[cfg(feature = "hot-reload")]
 pub struct LivePreviewServer {
     config: HotReloadConfig,
     clients: Arc<RwLock<Vec<mpsc::UnboundedSender<String>>>>,
 }
 
+#[cfg(feature = "hot-reload")]
 impl LivePreviewServer {
     /// Create a new live preview server
     pub fn new(config: HotReloadConfig) -> Self {
@@ -366,12 +377,14 @@ impl LivePreviewServer {
 }
 
 /// Hot reload manager that coordinates file watching and live preview
+#[cfg(feature = "hot-reload")]
 pub struct HotReloadManager {
     file_watcher: FileWatcher,
     preview_server: LivePreviewServer,
     config: HotReloadConfig,
 }
 
+#[cfg(feature = "hot-reload")]
 impl HotReloadManager {
     /// Create a new hot reload manager
     pub fn new(config: HotReloadConfig) -> Result<Self, Box<dyn std::error::Error>> {
@@ -418,16 +431,19 @@ impl HotReloadManager {
 }
 
 /// Handler that integrates with the live preview server
+#[cfg(feature = "hot-reload")]
 struct PreviewHandler {
     clients: Arc<RwLock<Vec<mpsc::UnboundedSender<String>>>>,
 }
 
+#[cfg(feature = "hot-reload")]
 impl PreviewHandler {
     fn new(clients: Arc<RwLock<Vec<mpsc::UnboundedSender<String>>>>) -> Self {
         Self { clients }
     }
 }
 
+#[cfg(feature = "hot-reload")]
 impl HotReloadHandler for PreviewHandler {
     fn handle_change(&self, change: &FileChange) -> Result<(), Box<dyn std::error::Error>> {
         let message = serde_json::json!({

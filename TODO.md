@@ -5,13 +5,13 @@ This todolist will be updated periodically as the project evolves.
 
 ## 🏁 Core Engine Fundamentals
 
-* [ ] **1. Cross-platform event loop** – P5 D3 C3 V5
-* [ ] **2. Virtual DOM / diff engine** – P5 D4 C4 V5
-* [ ] **3. Flexbox layout system (Taffy)** – P5 D3 C3 V5
-* [ ] **4. Reactive state management (signals/store)** – P5 D4 C4 V5
-* [ ] **5. Hot reload / live preview** – P5 D4 C4 V5
+* [x] 1. Cross-platform event loop – P5 D3 C3 V5
+* [x] **2. Virtual DOM / diff engine** – P5 D4 C4 V5
+* [x] **3. Flexbox layout system (Taffy)** – P5 D3 C3 V5
+* [x] **4. Reactive state management (signals/store)** – P5 D4 C4 V5
+* [x] **5. Hot reload / live preview** – P5 D4 C4 V5
 * [x] **6. Theming & dark mode support** – P5 D2 C2 V5
-* [ ] **7. Plugin system / custom components** – P5 D4 C4 V5
+* [x] **7. Plugin system / custom components** – P5 D4 C4 V5
 * [ ] **8. Internal routing (multi-page)** – P4 D3 C3 V4
 * [ ] **9. Integrated DevTools (inspector)** – P4 D4 C4 V5
 * [ ] **10. State persistence to disk** – P4 D2 C2 V4
@@ -22,7 +22,7 @@ This todolist will be updated periodically as the project evolves.
 
 * [ ] 11\. Multi-platform `wgpu` backend – P5 D4 C4 V5
 * [ ] 12\. 2D vector layer (lyon) – P5 D3 C3 V5
-* [ ] 13\. Advanced text shaping (swash/harfbuzz) – P5 D4 C4 V5
+* [x] 13\. Advanced text shaping (swash/harfbuzz) – P5 D4 C4 V5
 * [ ] 14\. GPU text caching (glyph atlas) – P5 D3 C3 V5
 * [ ] 15\. Timeline animations – P4 D4 C4 V5
 * [ ] 16\. Custom shader effects – P3 D4 C4 V4
@@ -38,8 +38,8 @@ This todolist will be updated periodically as the project evolves.
 * [x] 21\. Button – P5 D2 C2 V5
 * [x] 22\. Label/Text – P5 D2 C2 V5
 * [x] 23\. TextInput/Password – P5 D3 C3 V5
-* [ ] 24\. Checkbox/Radio – P5 D2 C2 V5
-* [ ] 25\. Slider/Progress – P5 D3 C3 V4
+* [x] 24\. Checkbox/Radio – P5 D2 C2 V5
+* [x] 25\. Slider/Progress – P5 D3 C3 V4
 * [ ] 26\. ListView/ScrollView – P5 D3 C3 V5
 * [x] 27\. Grid/Stack container – P5 D3 C3 V5
 * [ ] 28\. MenuBar/ContextMenu – P4 D3 C3 V4
@@ -137,6 +137,96 @@ This todolist will be updated periodically as the project evolves.
 * [ ] 100\. Enterprise support toolkit – P1 D4 C4 V3
 
 ---
+
+## Micro framework for building web applications 
+
+## ⚡ Core & Routing
+
+* [ ] 1\. Route decorator / registration – P5 D3 C3 V5
+* [ ] 2\. Dynamic URL parameters – P5 D3 C3 V5
+* [ ] 3\. Route matching / dispatch – P5 D4 C4 V5
+* [ ] 4\. HTTP method handling / callbacks – P5 D3 C3 V5
+* [ ] 5\. Middleware support (before/after request hooks) – P4 D4 C4 V4
+* [ ] 6\. Error handling / 404 / 500 – P5 D3 C3 V5
+* [ ] 7\. Route grouping / blueprints – P4 D3 C3 V4
+
+---
+
+## 🖼️ GUI Components & Layout
+
+* [ ] 8\. Widget system (Button, Label, TextInput, etc.) – P5 D4 C4 V5
+* [ ] 9\. Layout managers (HBox, VBox, Grid) – P5 D4 C4 V5
+* [ ] 10\. Event binding (click, hover, input) – P5 D4 C4 V5
+* [ ] 11\. Dynamic component rendering – P4 D4 C4 V4
+* [ ] 12\. Template system / JSX-like syntax – P4 D5 C4 V5
+* [ ] 13\. Component nesting – P4 D3 C3 V4
+* [ ] 14\. Re-render / diffing support – P4 D4 C4 V5
+
+---
+
+## ⚡ Performance & Optimization
+
+* [ ] 15\. Incremental rendering diff – P5 D4 C4 V5
+* [ ] 16\. GPU resource pooling – P4 D4 C4 V5
+* [ ] 17\. Texture atlas management – P4 D3 C3 V5
+* [ ] 18\. Frame scheduling / vsync – P4 D3 C3 V4
+* [ ] 19\. Profiling hooks (tracing) – P4 D3 C3 V4
+* [ ] 20\. Memory arena allocator – P3 D4 C4 V4
+* [ ] 21\. Lazy font/component loading – P3 D2 C2 V3
+* [ ] 22\. Shader / render cache – P4 D3 C3 V4
+* [ ] 23\. Asset pipeline (compression, caching) – P3 D3 C3 V4
+
+---
+
+## 🔧 Development Tools
+
+* [ ] 24\. Hot reload / live preview – P5 D4 C4 V5
+* [ ] 25\. Logging system – P4 D2 C3 V4
+* [ ] 26\. Debug overlay / inspector – P4 D3 C4 V5
+* [ ] 27\. Template validation – P3 D2 C3 V3
+* [ ] 28\. Component profiler – P3 D3 C3 V4
+
+---
+
+## 🔐 Security
+
+* [ ] 29\. Input validation / sanitation – P5 D3 C3 V5
+* [ ] 30\. Cross-platform path security – P4 D3 C3 V4
+* [ ] 31\. Event loop isolation (prevent infinite loops) – P4 D4 C4 V4
+* [ ] 32\. Safe default config – P5 D2 C2 V5
+
+---
+
+## 🌐 Networking / Integration
+
+* [ ] 33\. HTTP server bindings / async – P4 D4 C4 V5
+* [ ] 34\. WebSocket support – P3 D4 C4 V4
+* [ ] 35\. JSON serialization / deserialization – P5 D2 C3 V5
+* [ ] 36\. API endpoint decorators – P4 D3 C3 V4
+* [ ] 37\. Middleware for auth / headers – P4 D3 C3 V4
+
+---
+
+## 💡 Usability
+
+* [ ] 38\. Intuitive API – P5 D3 C4 V5
+* [ ] 39\. Clear error messages – P5 D2 C3 V5
+* [ ] 40\. Documentation + examples – P5 D3 C3 V5
+* [ ] 41\. Tutorial projects – P4 D3 C3 V4
+* [ ] 42\. IDE / editor hints (optional type annotations) – P3 D2 C3 V4
+
+---
+
+## 🔗 Multi-language & Extensibility
+
+* [ ] 43\. Python binding / wrapper – P5 D4 C4 V5
+* [ ] 44\. C/C++ FFI bindings – P4 D4 C4 V5
+* [ ] 45\. Plugin system / extensions – P4 D4 C4 V4
+* [ ] 46\. Cross-platform input/output abstraction – P4 D3 C3 V4
+
+---
+
+
 
 ### 💡 How to read it
 

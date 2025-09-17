@@ -203,7 +203,7 @@ impl VertexBuilder {
         // Create triangles
         for i in 0..segments {
             let next = if i == segments - 1 { 1 } else { i + 2 };
-            indices.extend_from_slice(&[0, i + 1, next]);
+            indices.extend_from_slice(&[0, (i + 1) as u16, next as u16]);
         }
 
         (vertices, indices)
@@ -257,6 +257,93 @@ impl VertexBuilder {
         (vertices, indices)
     }
 
+    /// Create vertices for a rounded rectangle outline (border)
+    pub fn rounded_rectangle_outline(
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        radius: f32,
+        color: [f32; 4],
+        thickness: f32,
+        corner_segments: u32,
+    ) -> (Vec<Vertex>, Vec<u16>) {
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+
+        // Create the four border lines
+        let half_thickness = thickness / 2.0;
+        
+        // Top line
+        let (top_verts, top_indices) = Self::line(
+            x + radius, y - half_thickness,
+            x + width - radius, y - half_thickness,
+            thickness, color
+        );
+        vertices.extend(top_verts);
+        indices.extend(top_indices);
+
+        // Right line
+        let offset = vertices.len() as u16;
+        let (right_verts, right_indices) = Self::line(
+            x + width + half_thickness, y + radius,
+            x + width + half_thickness, y + height - radius,
+            thickness, color
+        );
+        vertices.extend(right_verts);
+        indices.extend(right_indices.iter().map(|&i| i + offset));
+
+        // Bottom line
+        let offset = vertices.len() as u16;
+        let (bottom_verts, bottom_indices) = Self::line(
+            x + width - radius, y + height + half_thickness,
+            x + radius, y + height + half_thickness,
+            thickness, color
+        );
+        vertices.extend(bottom_verts);
+        indices.extend(bottom_indices.iter().map(|&i| i + offset));
+
+        // Left line
+        let offset = vertices.len() as u16;
+        let (left_verts, left_indices) = Self::line(
+            x - half_thickness, y + height - radius,
+            x - half_thickness, y + radius,
+            thickness, color
+        );
+        vertices.extend(left_verts);
+        indices.extend(left_indices.iter().map(|&i| i + offset));
+
+        // Add rounded corners (outline arcs)
+        let corners = [
+            (x + radius, y + radius),                           // Top-left
+            (x + width - radius, y + radius),                   // Top-right
+            (x + width - radius, y + height - radius),          // Bottom-right
+            (x + radius, y + height - radius),                  // Bottom-left
+        ];
+
+        for (i, &(cx, cy)) in corners.iter().enumerate() {
+            let start_angle = (i as f32) * std::f32::consts::PI / 2.0 + std::f32::consts::PI;
+            
+            // Create arc outline using multiple line segments
+            for j in 0..corner_segments {
+                let angle1 = start_angle + (j as f32) * (std::f32::consts::PI / 2.0) / (corner_segments as f32);
+                let angle2 = start_angle + ((j + 1) as f32) * (std::f32::consts::PI / 2.0) / (corner_segments as f32);
+                
+                let x1 = cx + radius * angle1.cos();
+                let y1 = cy + radius * angle1.sin();
+                let x2 = cx + radius * angle2.cos();
+                let y2 = cy + radius * angle2.sin();
+                
+                let offset = vertices.len() as u16;
+                let (arc_verts, arc_indices) = Self::line(x1, y1, x2, y2, thickness, color);
+                vertices.extend(arc_verts);
+                indices.extend(arc_indices.iter().map(|&i| i + offset));
+            }
+        }
+
+        (vertices, indices)
+    }
+
     /// Create vertices for a circle sector
     fn circle_sector(
         center_x: f32,
@@ -283,7 +370,7 @@ impl VertexBuilder {
 
         // Create triangles
         for i in 0..segments {
-            indices.extend_from_slice(&[0, i + 1, i + 2]);
+            indices.extend_from_slice(&[0, (i + 1) as u16, (i + 2) as u16]);
         }
 
         (vertices, indices)

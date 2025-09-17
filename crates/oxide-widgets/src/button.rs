@@ -3,16 +3,18 @@
 //! Provides interactive button components with various styles, states, and event handling.
 
 use oxide_core::{
-    layout::{Rect, Size},
-    state::{Signal, StateManager},
-    theme::{Theme, ColorPalette},
-    types::{Color, Point},
+    layout::{Rect, Size, Constraints, Layout},
+    state::{Signal},
+    theme::{Theme, ColorPalette, Color},
+    types::{Point, Transform},
+    event::{Event, EventResult},
 };
 use oxide_renderer::{
     vertex::{Vertex, VertexBuilder},
     batch::RenderBatch,
 };
-use std::sync::Arc;
+use crate::widget::{Widget, WidgetId, generate_id, WidgetContext};
+use std::{sync::Arc, any::Any};
 
 /// Button widget state
 #[derive(Debug, Clone, PartialEq)]
@@ -44,14 +46,14 @@ pub struct ButtonStyle {
 impl Default for ButtonStyle {
     fn default() -> Self {
         Self {
-            background_color: Color::new(0.2, 0.4, 0.8, 1.0),
-            hover_color: Color::new(0.3, 0.5, 0.9, 1.0),
-            pressed_color: Color::new(0.1, 0.3, 0.7, 1.0),
-            disabled_color: Color::new(0.5, 0.5, 0.5, 1.0),
-            text_color: Color::new(1.0, 1.0, 1.0, 1.0),
+            background_color: Color::rgba(0.2, 0.4, 0.8, 1.0),
+            hover_color: Color::rgba(0.3, 0.5, 0.9, 1.0),
+            pressed_color: Color::rgba(0.1, 0.3, 0.7, 1.0),
+            disabled_color: Color::rgba(0.5, 0.5, 0.5, 1.0),
+            text_color: Color::rgba(1.0, 1.0, 1.0, 1.0),
             border_radius: 4.0,
             border_width: 0.0,
-            border_color: Color::new(0.0, 0.0, 0.0, 0.0),
+            border_color: Color::rgba(0.0, 0.0, 0.0, 0.0),
             padding: 12.0,
             font_size: 14.0,
             min_width: 80.0,
@@ -64,9 +66,9 @@ impl ButtonStyle {
     /// Create a primary button style
     pub fn primary() -> Self {
         Self {
-            background_color: Color::new(0.0, 0.4, 0.8, 1.0),
-            hover_color: Color::new(0.1, 0.5, 0.9, 1.0),
-            pressed_color: Color::new(0.0, 0.3, 0.7, 1.0),
+            background_color: Color::rgba(0.0, 0.4, 0.8, 1.0),
+            hover_color: Color::rgba(0.1, 0.5, 0.9, 1.0),
+            pressed_color: Color::rgba(0.0, 0.3, 0.7, 1.0),
             ..Default::default()
         }
     }
@@ -74,10 +76,10 @@ impl ButtonStyle {
     /// Create a secondary button style
     pub fn secondary() -> Self {
         Self {
-            background_color: Color::new(0.6, 0.6, 0.6, 1.0),
-            hover_color: Color::new(0.7, 0.7, 0.7, 1.0),
-            pressed_color: Color::new(0.5, 0.5, 0.5, 1.0),
-            text_color: Color::new(0.0, 0.0, 0.0, 1.0),
+            background_color: Color::rgba(0.6, 0.6, 0.6, 1.0),
+            hover_color: Color::rgba(0.7, 0.7, 0.7, 1.0),
+            pressed_color: Color::rgba(0.5, 0.5, 0.5, 1.0),
+            text_color: Color::rgba(0.0, 0.0, 0.0, 1.0),
             ..Default::default()
         }
     }
@@ -85,9 +87,9 @@ impl ButtonStyle {
     /// Create a danger button style
     pub fn danger() -> Self {
         Self {
-            background_color: Color::new(0.8, 0.2, 0.2, 1.0),
-            hover_color: Color::new(0.9, 0.3, 0.3, 1.0),
-            pressed_color: Color::new(0.7, 0.1, 0.1, 1.0),
+            background_color: Color::rgba(0.8, 0.2, 0.2, 1.0),
+            hover_color: Color::rgba(0.9, 0.3, 0.3, 1.0),
+            pressed_color: Color::rgba(0.7, 0.1, 0.1, 1.0),
             ..Default::default()
         }
     }
@@ -95,12 +97,12 @@ impl ButtonStyle {
     /// Create an outline button style
     pub fn outline() -> Self {
         Self {
-            background_color: Color::new(0.0, 0.0, 0.0, 0.0),
-            hover_color: Color::new(0.0, 0.4, 0.8, 0.1),
-            pressed_color: Color::new(0.0, 0.4, 0.8, 0.2),
-            text_color: Color::new(0.0, 0.4, 0.8, 1.0),
+            background_color: Color::rgba(0.0, 0.0, 0.0, 0.0),
+            hover_color: Color::rgba(0.0, 0.4, 0.8, 0.1),
+            pressed_color: Color::rgba(0.0, 0.4, 0.8, 0.2),
+            text_color: Color::rgba(0.0, 0.4, 0.8, 1.0),
             border_width: 1.0,
-            border_color: Color::new(0.0, 0.4, 0.8, 1.0),
+            border_color: Color::rgba(0.0, 0.4, 0.8, 1.0),
             ..Default::default()
         }
     }
@@ -108,10 +110,10 @@ impl ButtonStyle {
     /// Create a ghost button style
     pub fn ghost() -> Self {
         Self {
-            background_color: Color::new(0.0, 0.0, 0.0, 0.0),
-            hover_color: Color::new(0.0, 0.0, 0.0, 0.05),
-            pressed_color: Color::new(0.0, 0.0, 0.0, 0.1),
-            text_color: Color::new(0.3, 0.3, 0.3, 1.0),
+            background_color: Color::rgba(0.0, 0.0, 0.0, 0.0),
+            hover_color: Color::rgba(0.0, 0.0, 0.0, 0.05),
+            pressed_color: Color::rgba(0.0, 0.0, 0.0, 0.1),
+            text_color: Color::rgba(0.3, 0.3, 0.3, 1.0),
             border_width: 0.0,
             ..Default::default()
         }
@@ -120,7 +122,7 @@ impl ButtonStyle {
 
 /// Button widget
 pub struct Button {
-    id: String,
+    id: WidgetId,
     text: String,
     style: ButtonStyle,
     state: Signal<ButtonState>,
@@ -136,7 +138,7 @@ impl Button {
     /// Create a new button with text
     pub fn new(text: impl Into<String>) -> Self {
         Self {
-            id: format!("button_{}", uuid::Uuid::new_v4()),
+            id: generate_id(),
             text: text.into(),
             style: ButtonStyle::default(),
             state: Signal::new(ButtonState::Normal),
@@ -222,8 +224,8 @@ impl Button {
     }
 
     /// Get button ID
-    pub fn id(&self) -> &str {
-        &self.id
+    pub fn id(&self) -> WidgetId {
+        self.id
     }
 
     /// Get button text
@@ -345,28 +347,12 @@ impl Button {
             ButtonState::Focused => self.style.hover_color,
         };
 
-        // Render background
-        if self.style.border_radius > 0.0 {
-            let (vertices, indices) = VertexBuilder::rounded_rectangle(
-                bounds.x,
-                bounds.y,
-                bounds.width,
-                bounds.height,
-                self.style.border_radius,
-                background_color.to_array(),
-                8, // corner segments
-            );
-            batch.add_vertices(&vertices, &indices);
-        } else {
-            let (vertices, indices) = VertexBuilder::rectangle(
-                bounds.x,
-                bounds.y,
-                bounds.width,
-                bounds.height,
-                background_color.to_array(),
-            );
-            batch.add_vertices(&vertices, &indices);
-        }
+        // Draw background
+        batch.add_rect(
+            bounds,
+            background_color.to_types_color(),
+            Transform::identity(),
+        );
 
         // Render border if needed
         if self.style.border_width > 0.0 {
@@ -386,7 +372,7 @@ impl Button {
                     border_bounds.height,
                     self.style.border_radius + self.style.border_width / 2.0,
                     self.style.border_color.to_array(),
-                    8,
+                    8, // corner segments
                 );
                 batch.add_vertices(&vertices, &indices);
             }
@@ -399,27 +385,20 @@ impl Button {
         // For now, just add a placeholder for text rendering
         // In a real implementation, this would use a text renderer
         batch.add_text(
-            &self.text,
-            text_x,
-            text_y,
+            self.text.clone(),
+            (text_x, text_y),
+            self.style.text_color.to_types_color(),
             self.style.font_size,
-            self.style.text_color.to_array(),
         );
     }
 
     /// Apply theme to button
     pub fn apply_theme(&mut self, theme: &Theme) {
         // Update style based on theme
-        if let Some(primary_color) = theme.color_palette().primary() {
-            self.style.background_color = *primary_color;
-        }
-        
-        if let Some(text_color) = theme.color_palette().on_primary() {
-            self.style.text_color = *text_color;
-        }
-
-        self.style.border_radius = theme.spacing().border_radius().medium;
-        self.style.font_size = theme.typography().body().size;
+        self.style.background_color = theme.colors.primary;
+        self.style.text_color = theme.colors.on_primary;
+        self.style.border_radius = theme.spacing.md;
+        self.style.font_size = theme.typography.base_size;
     }
 }
 
@@ -568,3 +547,88 @@ mod tests {
         assert!(size.height <= available.height);
     }
 }
+
+// Implement Widget trait for Button
+impl Widget for Button {
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+
+    fn layout(&mut self, constraints: Constraints) -> Size {
+        let text_width = self.text.len() as f32 * self.style.font_size * 0.6;
+        let text_height = self.style.font_size;
+        
+        let content_width = text_width + self.style.padding * 2.0;
+        let content_height = text_height + self.style.padding * 2.0;
+        
+        let width = content_width.max(self.style.min_width);
+        let height = content_height.max(self.style.min_height);
+        
+        Size::new(width, height)
+    }
+
+    fn render(&self, batch: &mut RenderBatch, layout: Layout) {
+        if !self.is_visible() {
+            return;
+        }
+
+        let bounds = layout.bounds();
+        let state = self.get_state();
+        
+        // Determine colors based on state
+        let background_color = match state {
+            ButtonState::Normal => self.style.background_color,
+            ButtonState::Hovered => self.style.hover_color,
+            ButtonState::Pressed => self.style.pressed_color,
+            ButtonState::Disabled => self.style.disabled_color,
+            ButtonState::Focused => self.style.hover_color,
+        };
+
+        // Draw background
+        batch.add_rect(
+            bounds,
+            background_color.to_types_color(),
+            Transform::identity(),
+        );
+
+        // Render text
+        let text_x = bounds.x + bounds.width / 2.0 - (self.text.len() as f32 * self.style.font_size * 0.3);
+        let text_y = bounds.y + bounds.height / 2.0 - self.style.font_size / 2.0;
+        
+        batch.add_text(
+            self.text.clone(),
+            (text_x, text_y),
+            self.style.text_color.to_types_color(),
+            self.style.font_size,
+        );
+    }
+
+    fn handle_event(&mut self, event: &Event) -> EventResult {
+        // Handle button events
+        EventResult::Ignored
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_widget(&self) -> Box<dyn Widget> {
+        Box::new(Button {
+            id: generate_id(),
+            text: self.text.clone(),
+            style: self.style.clone(),
+            state: Signal::new(self.state.get()),
+            bounds: Signal::new(self.bounds.get()),
+            enabled: Signal::new(self.enabled.get()),
+            visible: Signal::new(self.visible.get()),
+            on_click: None,
+            on_hover: None,
+            theme: self.theme.clone(),
+        })
+    }
+}
+

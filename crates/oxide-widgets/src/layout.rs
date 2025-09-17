@@ -3,7 +3,7 @@
 use crate::widget::{Widget, WidgetId, generate_id};
 use oxide_core::{
     event::{Event, EventResult},
-    layout::{Constraints, Layout, Size, MainAxisAlignment, CrossAxisAlignment, Direction, FlexProps},
+    layout::{Constraints, Layout, Size, MainAxisAlignment, CrossAxisAlignment, Direction, FlexItem, FlexContainer, FlexDirection, JustifyContent, AlignItems},
 };
 use oxide_renderer::batch::RenderBatch;
 use std::any::Any;
@@ -78,20 +78,32 @@ impl Widget for Row {
         for child in &mut self.children {
             let child_size = child.layout(constraints);
             sizes.push(child_size);
-            child_data.push((FlexProps::default(), child_size));
+            child_data.push((FlexItem::default(), child_size));
         }
         // Cache sizes for use during render()
         self.cached_child_sizes = sizes;
         
         // Calculate layout
-        let layouts = engine.calculate_flex(
-            Direction::Horizontal,
-            self.main_axis_alignment,
-            self.cross_axis_alignment,
-            &child_data,
-            constraints,
-            self.spacing,
-        );
+        let container = FlexContainer {
+            direction: FlexDirection::Row,
+            justify_content: match self.main_axis_alignment {
+                MainAxisAlignment::Start => JustifyContent::FlexStart,
+                MainAxisAlignment::Center => JustifyContent::Center,
+                MainAxisAlignment::End => JustifyContent::FlexEnd,
+                MainAxisAlignment::SpaceBetween => JustifyContent::SpaceBetween,
+                MainAxisAlignment::SpaceAround => JustifyContent::SpaceAround,
+                MainAxisAlignment::SpaceEvenly => JustifyContent::SpaceEvenly,
+            },
+            align_items: match self.cross_axis_alignment {
+                CrossAxisAlignment::Start => AlignItems::FlexStart,
+                CrossAxisAlignment::Center => AlignItems::Center,
+                CrossAxisAlignment::End => AlignItems::FlexEnd,
+                CrossAxisAlignment::Stretch => AlignItems::Stretch,
+                CrossAxisAlignment::Baseline => AlignItems::Baseline,
+            },
+            ..Default::default()
+        };
+        let layouts = engine.calculate_flex_layout(&container, &child_data, constraints);
         
         // Calculate total size
         let width = layouts.iter()
@@ -117,17 +129,29 @@ impl Widget for Row {
                 .get(i)
                 .copied()
                 .unwrap_or_else(|| Size::new(100.0, 50.0));
-            child_data.push((FlexProps::default(), child_size));
+            child_data.push((FlexItem::default(), child_size));
         }
         
-        let layouts = engine.calculate_flex(
-            Direction::Horizontal,
-            self.main_axis_alignment,
-            self.cross_axis_alignment,
-            &child_data,
-            Constraints::loose(layout.size.width, layout.size.height),
-            self.spacing,
-        );
+        let container = FlexContainer {
+            direction: FlexDirection::Row,
+            justify_content: match self.main_axis_alignment {
+                MainAxisAlignment::Start => JustifyContent::FlexStart,
+                MainAxisAlignment::Center => JustifyContent::Center,
+                MainAxisAlignment::End => JustifyContent::FlexEnd,
+                MainAxisAlignment::SpaceBetween => JustifyContent::SpaceBetween,
+                MainAxisAlignment::SpaceAround => JustifyContent::SpaceAround,
+                MainAxisAlignment::SpaceEvenly => JustifyContent::SpaceEvenly,
+            },
+            align_items: match self.cross_axis_alignment {
+                CrossAxisAlignment::Start => AlignItems::FlexStart,
+                CrossAxisAlignment::Center => AlignItems::Center,
+                CrossAxisAlignment::End => AlignItems::FlexEnd,
+                CrossAxisAlignment::Stretch => AlignItems::Stretch,
+                CrossAxisAlignment::Baseline => AlignItems::Baseline,
+            },
+            ..Default::default()
+        };
+        let layouts = engine.calculate_flex_layout(&container, &child_data, Constraints::loose(layout.size.width, layout.size.height));
         
         // Render children
         for (child, child_layout) in self.children.iter().zip(layouts.iter()) {
@@ -249,20 +273,32 @@ impl Widget for Column {
         for child in &mut self.children {
             let child_size = child.layout(constraints);
             sizes.push(child_size);
-            child_data.push((FlexProps::default(), child_size));
+            child_data.push((FlexItem::default(), child_size));
         }
         // Cache sizes for render()
         self.cached_child_sizes = sizes;
         
         // Calculate layout
-        let layouts = engine.calculate_flex(
-            Direction::Vertical,
-            self.main_axis_alignment,
-            self.cross_axis_alignment,
-            &child_data,
-            constraints,
-            self.spacing,
-        );
+        let container = FlexContainer {
+            direction: FlexDirection::Column,
+            justify_content: match self.main_axis_alignment {
+                MainAxisAlignment::Start => JustifyContent::FlexStart,
+                MainAxisAlignment::Center => JustifyContent::Center,
+                MainAxisAlignment::End => JustifyContent::FlexEnd,
+                MainAxisAlignment::SpaceBetween => JustifyContent::SpaceBetween,
+                MainAxisAlignment::SpaceAround => JustifyContent::SpaceAround,
+                MainAxisAlignment::SpaceEvenly => JustifyContent::SpaceEvenly,
+            },
+            align_items: match self.cross_axis_alignment {
+                CrossAxisAlignment::Start => AlignItems::FlexStart,
+                CrossAxisAlignment::Center => AlignItems::Center,
+                CrossAxisAlignment::End => AlignItems::FlexEnd,
+                CrossAxisAlignment::Stretch => AlignItems::Stretch,
+                CrossAxisAlignment::Baseline => AlignItems::Baseline,
+            },
+            ..Default::default()
+        };
+        let layouts = engine.calculate_flex_layout(&container, &child_data, constraints);
         
         // Calculate total size
         let width = layouts.iter()
@@ -288,17 +324,29 @@ impl Widget for Column {
                 .get(i)
                 .copied()
                 .unwrap_or_else(|| Size::new(100.0, 50.0));
-            child_data.push((FlexProps::default(), child_size));
+            child_data.push((FlexItem::default(), child_size));
         }
         
-        let layouts = engine.calculate_flex(
-            Direction::Vertical,
-            self.main_axis_alignment,
-            self.cross_axis_alignment,
-            &child_data,
-            Constraints::loose(layout.size.width, layout.size.height),
-            self.spacing,
-        );
+        let container = FlexContainer {
+            direction: FlexDirection::Column,
+            justify_content: match self.main_axis_alignment {
+                MainAxisAlignment::Start => JustifyContent::FlexStart,
+                MainAxisAlignment::Center => JustifyContent::Center,
+                MainAxisAlignment::End => JustifyContent::FlexEnd,
+                MainAxisAlignment::SpaceBetween => JustifyContent::SpaceBetween,
+                MainAxisAlignment::SpaceAround => JustifyContent::SpaceAround,
+                MainAxisAlignment::SpaceEvenly => JustifyContent::SpaceEvenly,
+            },
+            align_items: match self.cross_axis_alignment {
+                CrossAxisAlignment::Start => AlignItems::FlexStart,
+                CrossAxisAlignment::Center => AlignItems::Center,
+                CrossAxisAlignment::End => AlignItems::FlexEnd,
+                CrossAxisAlignment::Stretch => AlignItems::Stretch,
+                CrossAxisAlignment::Baseline => AlignItems::Baseline,
+            },
+            ..Default::default()
+        };
+        let layouts = engine.calculate_flex_layout(&container, &child_data, Constraints::loose(layout.size.width, layout.size.height));
         
         // Render children
         for (child, child_layout) in self.children.iter().zip(layouts.iter()) {

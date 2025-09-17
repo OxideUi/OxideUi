@@ -186,11 +186,7 @@ impl Widget for Container {
         
         // Draw background
         if self.style.background_color.a > 0.0 {
-            if self.style.border_radius.top_left > 0.0 {
-                batch.draw_rounded_rect(content_rect, self.style.background_color, self.style.border_radius.top_left);
-            } else {
-                batch.draw_rect(content_rect, self.style.background_color);
-            }
+            batch.add_rect(content_rect, self.style.background_color, Transform::identity());
         }
         
         // Draw border

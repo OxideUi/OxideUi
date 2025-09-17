@@ -110,6 +110,21 @@ impl Color {
             a: self.a + (other.a - self.a) * factor,
         }
     }
+
+    /// Convert to types::Color for rendering
+    pub fn to_types_color(&self) -> crate::types::Color {
+        crate::types::Color {
+            r: self.r,
+            g: self.g,
+            b: self.b,
+            a: self.a,
+        }
+    }
+
+    /// Convert to array for GPU usage
+    pub fn to_array(&self) -> [f32; 4] {
+        [self.r, self.g, self.b, self.a]
+    }
 }
 
 /// Common color constants

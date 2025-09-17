@@ -4,7 +4,7 @@
 
 use oxide_core::{
     layout::{Rect, Size},
-    state::{Signal, StateManager},
+    state::{Signal},
     theme::{Theme, ColorPalette},
     types::{Color, Point},
     events::{Event, KeyEvent, MouseEvent},
@@ -68,12 +68,12 @@ pub struct InputStyle {
 impl Default for InputStyle {
     fn default() -> Self {
         Self {
-            background_color: Color::new(1.0, 1.0, 1.0, 1.0),
-            border_color: Color::new(0.8, 0.8, 0.8, 1.0),
-            text_color: Color::new(0.0, 0.0, 0.0, 1.0),
-            placeholder_color: Color::new(0.6, 0.6, 0.6, 1.0),
-            selection_color: Color::new(0.0, 0.4, 0.8, 0.3),
-            cursor_color: Color::new(0.0, 0.0, 0.0, 1.0),
+            background_color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+            border_color: Color::rgba(0.8, 0.8, 0.8, 1.0),
+            text_color: Color::rgba(0.0, 0.0, 0.0, 1.0),
+            placeholder_color: Color::rgba(0.6, 0.6, 0.6, 1.0),
+            selection_color: Color::rgba(0.0, 0.4, 0.8, 0.3),
+            cursor_color: Color::rgba(0.0, 0.0, 0.0, 1.0),
             border_width: 1.0,
             border_radius: 4.0,
             padding: (8.0, 12.0, 8.0, 12.0),
@@ -92,23 +92,22 @@ impl InputStyle {
         match state {
             InputState::Normal => {},
             InputState::Focused => {
-                style.border_color = Color::new(0.0, 0.4, 0.8, 1.0);
-                style.border_width = 2.0;
-            },
+                style.border_color = Color::rgba(0.0, 0.4, 0.8, 1.0);
+            }
             InputState::Hovered => {
-                style.border_color = Color::new(0.6, 0.6, 0.6, 1.0);
-            },
+                style.border_color = Color::rgba(0.6, 0.6, 0.6, 1.0);
+            }
             InputState::Disabled => {
-                style.background_color = Color::new(0.95, 0.95, 0.95, 1.0);
-                style.text_color = Color::new(0.6, 0.6, 0.6, 1.0);
-                style.border_color = Color::new(0.9, 0.9, 0.9, 1.0);
-            },
+                style.background_color = Color::rgba(0.95, 0.95, 0.95, 1.0);
+                style.text_color = Color::rgba(0.6, 0.6, 0.6, 1.0);
+                style.border_color = Color::rgba(0.9, 0.9, 0.9, 1.0);
+            }
             InputState::ReadOnly => {
-                style.background_color = Color::new(0.98, 0.98, 0.98, 1.0);
-                style.border_color = Color::new(0.9, 0.9, 0.9, 1.0);
-            },
+                style.background_color = Color::rgba(0.98, 0.98, 0.98, 1.0);
+                style.border_color = Color::rgba(0.9, 0.9, 0.9, 1.0);
+            }
             InputState::Error => {
-                style.border_color = Color::new(0.8, 0.2, 0.2, 1.0);
+                style.border_color = Color::rgba(0.8, 0.2, 0.2, 1.0);
                 style.border_width = 2.0;
             },
         }
@@ -799,6 +798,7 @@ impl TextInput {
             bounds.height,
             current_style.border_radius,
             current_style.background_color.to_array(),
+            8, // corner segments
         );
         batch.add_vertices(&bg_vertices, &bg_indices);
         
@@ -810,8 +810,9 @@ impl TextInput {
                 bounds.width,
                 bounds.height,
                 current_style.border_radius,
-                current_style.border_width,
                 current_style.border_color.to_array(),
+                current_style.border_width,
+                8, // corner segments
             );
             batch.add_vertices(&border_vertices, &border_indices);
         }
@@ -844,19 +845,17 @@ impl TextInput {
         // Render text or placeholder
         if !display_text.is_empty() {
             batch.add_text(
-                &display_text,
-                content_bounds.x,
-                content_bounds.y + current_style.font_size * 0.8,
+                display_text.clone(),
+                (content_bounds.x, content_bounds.y + current_style.font_size * 0.8),
+                current_style.text_color,
                 current_style.font_size,
-                current_style.text_color.to_array(),
             );
         } else if !self.placeholder.is_empty() {
             batch.add_text(
-                &self.placeholder,
-                content_bounds.x,
-                content_bounds.y + current_style.font_size * 0.8,
+                self.placeholder.clone(),
+                (content_bounds.x, content_bounds.y + current_style.font_size * 0.8),
+                current_style.placeholder_color,
                 current_style.font_size,
-                current_style.placeholder_color.to_array(),
             );
         }
         
@@ -880,23 +879,15 @@ impl TextInput {
 
     /// Apply theme to input
     pub fn apply_theme(&mut self, theme: &Theme) {
-        let palette = theme.color_palette();
-        
-        if let Some(surface) = palette.surface() {
-            self.style.background_color = *surface;
-        }
-        
-        if let Some(outline) = palette.outline() {
-            self.style.border_color = *outline;
-        }
-        
-        if let Some(on_surface) = palette.on_surface() {
-            self.style.text_color = *on_surface;
-        }
-        
-        if let Some(primary) = palette.primary() {
-            self.style.selection_color = Color::new(primary.r, primary.g, primary.b, 0.3);
-        }
+        self.style.background_color = theme.colors.surface.to_types_color();
+        self.style.border_color = theme.colors.outline.to_types_color();
+        self.style.text_color = theme.colors.on_surface.to_types_color();
+        self.style.selection_color = Color::rgba(
+            theme.colors.primary.r, 
+            theme.colors.primary.g, 
+            theme.colors.primary.b, 
+            0.3
+        );
     }
 }
 

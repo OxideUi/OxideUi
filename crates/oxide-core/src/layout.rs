@@ -15,6 +15,9 @@ pub struct Constraints {
     pub max_height: f32,
 }
 
+/// Type alias for backward compatibility
+pub type LayoutConstraints = Constraints;
+
 impl Constraints {
     /// Create constraints with no limits
     pub fn none() -> Self {
@@ -675,17 +678,21 @@ mod tests {
     fn test_flex_layout() {
         let engine = LayoutEngine::new();
         let children = vec![
-            (FlexProps { flex: 1.0, ..Default::default() }, Size::new(0.0, 50.0)),
-            (FlexProps { flex: 2.0, ..Default::default() }, Size::new(0.0, 50.0)),
+            (FlexItem::grow(1.0), Size::new(0.0, 50.0)),
+            (FlexItem::grow(2.0), Size::new(0.0, 50.0)),
         ];
         
-        let layouts = engine.calculate_flex(
-            Direction::Horizontal,
-            MainAxisAlignment::Start,
-            CrossAxisAlignment::Start,
+        let container = FlexContainer {
+            direction: FlexDirection::Row,
+            justify_content: JustifyContent::FlexStart,
+            align_items: AlignItems::FlexStart,
+            ..Default::default()
+        };
+        
+        let layouts = engine.calculate_flex_layout(
+            &container,
             &children,
             Constraints::loose(300.0, 100.0),
-            0.0,
         );
         
         assert_eq!(layouts.len(), 2);

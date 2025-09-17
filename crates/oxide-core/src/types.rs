@@ -3,6 +3,84 @@
 use glam::{Mat4, Vec2, Vec3, Vec4};
 // Removed unused std::fmt import
 
+/// Unique identifier for DOM nodes
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NodeId(pub u64);
+
+impl NodeId {
+    /// Create a new node ID
+    pub fn new() -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(1);
+        Self(COUNTER.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+impl Default for NodeId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Unique identifier for DOM elements
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ElementId(pub u64);
+
+impl ElementId {
+    /// Create a new element ID
+    pub fn new() -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(1);
+        Self(COUNTER.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+impl Default for ElementId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// 2D size representation
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Size {
+    pub width: f32,
+    pub height: f32,
+}
+
+impl Size {
+    /// Create a new size
+    pub fn new(width: f32, height: f32) -> Self {
+        Self { width, height }
+    }
+
+    /// Zero size
+    pub fn zero() -> Self {
+        Self::new(0.0, 0.0)
+    }
+
+    /// Convert to Vec2
+    pub fn to_vec2(&self) -> Vec2 {
+        Vec2::new(self.width, self.height)
+    }
+
+    /// Get the area
+    pub fn area(&self) -> f32 {
+        self.width * self.height
+    }
+
+    /// Check if the size is empty (zero area)
+    pub fn is_empty(&self) -> bool {
+        self.width <= 0.0 || self.height <= 0.0
+    }
+}
+
+impl From<Vec2> for Size {
+    fn from(vec: Vec2) -> Self {
+        Self::new(vec.x, vec.y)
+    }
+}
+
 /// RGBA color representation
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {

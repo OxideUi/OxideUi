@@ -449,46 +449,6 @@ impl<T: Clone + Send + Sync + 'static> State for T {
     }
 }
 
-/// State manager for managing multiple state values
-pub struct StateManager {
-    states: slotmap::SlotMap<StateId, Box<dyn State>>,
-}
-
-impl StateManager {
-    /// Create a new state manager
-    pub fn new() -> Self {
-        Self {
-            states: slotmap::SlotMap::new(),
-        }
-    }
-
-    /// Register a new state value
-    pub fn register<T: State + 'static>(&mut self, state: T) -> StateId {
-        self.states.insert(Box::new(state))
-    }
-
-    /// Get a state value by ID
-    pub fn get<T: 'static>(&self, id: StateId) -> Option<&T> {
-        self.states.get(id)?.as_any().downcast_ref()
-    }
-
-    /// Update a state value
-    pub fn update<T: State + 'static>(&mut self, id: StateId, new_state: T) -> bool {
-        if let Some(state) = self.states.get_mut(id) {
-            *state = Box::new(new_state);
-            true
-        } else {
-            false
-        }
-    }
-}
-
-impl Default for StateManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

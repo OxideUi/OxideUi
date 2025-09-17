@@ -129,6 +129,21 @@ impl RenderBatch {
         self.batch_line(start, end, color, thickness);
     }
 
+    /// Add raw vertices and indices to the batch
+    pub fn add_vertices(&mut self, vertices: &[Vertex], indices: &[u16]) {
+        let vertex_offset = self.vertices.len() as u16;
+        
+        // Add vertices
+        self.vertices.extend_from_slice(vertices);
+        
+        // Add indices with offset
+        for &index in indices {
+            self.indices.push(vertex_offset + index);
+        }
+        
+        self.vertex_count += vertices.len() as u16;
+    }
+
     /// Batch a rectangle into vertices and indices
     fn batch_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
         let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
@@ -147,21 +162,25 @@ impl RenderBatch {
                 position: positions[0],
                 tex_coords: [0.0, 0.0],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
             Vertex {
                 position: positions[1],
                 tex_coords: [1.0, 0.0],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
             Vertex {
                 position: positions[2],
                 tex_coords: [1.0, 1.0],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
             Vertex {
                 position: positions[3],
                 tex_coords: [0.0, 1.0],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
         ];
 
@@ -197,21 +216,25 @@ impl RenderBatch {
                 position: positions[0],
                 tex_coords: [u, v],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
             Vertex {
                 position: positions[1],
                 tex_coords: [u + uw, v],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
             Vertex {
                 position: positions[2],
                 tex_coords: [u + uw, v + vh],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
             Vertex {
                 position: positions[3],
                 tex_coords: [u, v + vh],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
         ];
 
@@ -232,9 +255,10 @@ impl RenderBatch {
         
         // Center vertex
         self.vertices.push(Vertex {
-            position: [cx, cy],
+            position: [cx, cy, 0.0],
             tex_coords: [0.5, 0.5],
             color: [color.r, color.g, color.b, color.a],
+            flags: 0,
         });
 
         let center_index = self.vertex_count;
@@ -247,9 +271,10 @@ impl RenderBatch {
             let y = cy + radius * angle.sin();
             
             self.vertices.push(Vertex {
-                position: [x, y],
+                position: [x, y, 0.0],
                 tex_coords: [0.5 + 0.5 * angle.cos(), 0.5 + 0.5 * angle.sin()],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             });
 
             if i > 0 {
@@ -284,24 +309,28 @@ impl RenderBatch {
         // Create line vertices
         let vertices = [
             Vertex {
-                position: [x1 + nx, y1 + ny],
+                position: [x1 + nx, y1 + ny, 0.0],
                 tex_coords: [0.0, 0.0],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
             Vertex {
-                position: [x2 + nx, y2 + ny],
+                position: [x2 + nx, y2 + ny, 0.0],
                 tex_coords: [1.0, 0.0],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
             Vertex {
-                position: [x2 - nx, y2 - ny],
+                position: [x2 - nx, y2 - ny, 0.0],
                 tex_coords: [1.0, 1.0],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
             Vertex {
-                position: [x1 - nx, y1 - ny],
+                position: [x1 - nx, y1 - ny, 0.0],
                 tex_coords: [0.0, 1.0],
                 color: [color.r, color.g, color.b, color.a],
+                flags: 0,
             },
         ];
 
@@ -317,20 +346,11 @@ impl RenderBatch {
     }
 
     /// Apply transform to a position
-    fn apply_transform(&self, pos: [f32; 2], transform: Transform) -> [f32; 2] {
-        let x = pos[0] * transform.scale.x + transform.translation.x;
-        let y = pos[1] * transform.scale.y + transform.translation.y;
-        
-        // Apply rotation if needed
-        if transform.rotation != 0.0 {
-            let cos_r = transform.rotation.cos();
-            let sin_r = transform.rotation.sin();
-            let rx = x * cos_r - y * sin_r;
-            let ry = x * sin_r + y * cos_r;
-            [rx, ry]
-        } else {
-            [x, y]
-        }
+    fn apply_transform(&self, pos: [f32; 2], transform: Transform) -> [f32; 3] {
+        // Transform uses a matrix internally, so we need to transform the point
+        let point = oxide_core::types::Point::new(pos[0], pos[1]);
+        let transformed = transform.transform_point(point);
+        [transformed.x, transformed.y, 0.0]
     }
 
     /// Get the number of draw calls

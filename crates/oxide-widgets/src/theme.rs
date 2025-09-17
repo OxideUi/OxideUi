@@ -277,7 +277,7 @@ impl ComponentThemes {
         let mut button = HashMap::new();
         button.insert("primary".to_string(), crate::button::ButtonStyle::primary());
         button.insert("secondary".to_string(), crate::button::ButtonStyle::secondary());
-        button.insert("text".to_string(), crate::button::ButtonStyle::text());
+        button.insert("text".to_string(), crate::button::ButtonStyle::ghost());
 
         let mut input = HashMap::new();
         input.insert("outlined".to_string(), crate::input::TextInputStyle::outlined());
