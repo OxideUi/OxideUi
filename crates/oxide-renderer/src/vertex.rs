@@ -1,139 +1,369 @@
-//! Vertex data structures and buffers
+//! Vertex data structures and layouts for wgpu rendering
 
-use bytemuck::{Pod, Zeroable};
-use oxide_core::types::Color;
+use wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode, BufferAddress};
 
-/// Vertex data for GPU rendering
+/// Vertex data for UI rendering
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
     pub position: [f32; 3],
     pub color: [f32; 4],
     pub tex_coords: [f32; 2],
+    pub flags: u32, // For different rendering modes (solid, textured, etc.)
 }
 
 impl Vertex {
     /// Create a new vertex
-    pub fn new(position: [f32; 3], color: Color, tex_coords: [f32; 2]) -> Self {
+    pub fn new(position: [f32; 3], color: [f32; 4], tex_coords: [f32; 2]) -> Self {
         Self {
             position,
-            color: color.to_array(),
+            color,
             tex_coords,
+            flags: 0,
         }
     }
 
-    /// Vertex buffer layout descriptor
-    pub fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
+    /// Create a vertex with solid color (no texture)
+    pub fn solid(position: [f32; 3], color: [f32; 4]) -> Self {
+        Self {
+            position,
+            color,
+            tex_coords: [0.0, 0.0],
+            flags: 1, // Solid color flag
+        }
+    }
+
+    /// Create a vertex with texture coordinates
+    pub fn textured(position: [f32; 3], tex_coords: [f32; 2], color: [f32; 4]) -> Self {
+        Self {
+            position,
+            color,
+            tex_coords,
+            flags: 2, // Textured flag
+        }
+    }
+
+    /// Get the vertex buffer layout descriptor
+    pub fn desc() -> VertexBufferLayout<'static> {
+        VertexBufferLayout {
+            array_stride: std::mem::size_of::<Vertex>() as BufferAddress,
+            step_mode: VertexStepMode::Vertex,
             attributes: &[
-                wgpu::VertexAttribute {
+                // Position
+                VertexAttribute {
                     offset: 0,
                     shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
+                    format: VertexFormat::Float32x3,
                 },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                // Color
+                VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as BufferAddress,
                     shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x4,
+                    format: VertexFormat::Float32x4,
                 },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 7]>() as wgpu::BufferAddress,
+                // Texture coordinates
+                VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 7]>() as BufferAddress,
                     shader_location: 2,
-                    format: wgpu::VertexFormat::Float32x2,
+                    format: VertexFormat::Float32x2,
+                },
+                // Flags
+                VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 9]>() as BufferAddress,
+                    shader_location: 3,
+                    format: VertexFormat::Uint32,
                 },
             ],
         }
     }
 }
 
-/// Vertex buffer wrapper
-pub struct VertexBuffer {
-    buffer: wgpu::Buffer,
-    count: u32,
-    capacity: u32,
+/// Text vertex for specialized text rendering
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct TextVertex {
+    pub position: [f32; 3],
+    pub tex_coords: [f32; 2],
+    pub color: [f32; 4],
+    pub glyph_index: u32,
 }
 
-impl VertexBuffer {
-    /// Create a new vertex buffer
-    pub fn new(device: &wgpu::Device, capacity: u32) -> Self {
-        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Vertex Buffer"),
-            size: (capacity * std::mem::size_of::<Vertex>() as u32) as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
+impl TextVertex {
+    /// Create a new text vertex
+    pub fn new(position: [f32; 3], tex_coords: [f32; 2], color: [f32; 4], glyph_index: u32) -> Self {
         Self {
-            buffer,
-            count: 0,
-            capacity,
+            position,
+            tex_coords,
+            color,
+            glyph_index,
         }
     }
 
-    /// Update buffer data
-    pub fn update(&mut self, queue: &wgpu::Queue, vertices: &[Vertex]) {
-        if vertices.len() > self.capacity as usize {
-            panic!("Vertex buffer overflow");
+    /// Get the vertex buffer layout descriptor for text
+    pub fn desc() -> VertexBufferLayout<'static> {
+        VertexBufferLayout {
+            array_stride: std::mem::size_of::<TextVertex>() as BufferAddress,
+            step_mode: VertexStepMode::Vertex,
+            attributes: &[
+                // Position
+                VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: VertexFormat::Float32x3,
+                },
+                // Texture coordinates
+                VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as BufferAddress,
+                    shader_location: 1,
+                    format: VertexFormat::Float32x2,
+                },
+                // Color
+                VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 5]>() as BufferAddress,
+                    shader_location: 2,
+                    format: VertexFormat::Float32x4,
+                },
+                // Glyph index
+                VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 9]>() as BufferAddress,
+                    shader_location: 3,
+                    format: VertexFormat::Uint32,
+                },
+            ],
         }
-        
-        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(vertices));
-        self.count = vertices.len() as u32;
-    }
-
-    /// Get buffer reference
-    pub fn buffer(&self) -> &wgpu::Buffer {
-        &self.buffer
-    }
-
-    /// Get vertex count
-    pub fn count(&self) -> u32 {
-        self.count
     }
 }
 
-/// Index buffer wrapper
-pub struct IndexBuffer {
-    buffer: wgpu::Buffer,
-    count: u32,
-    capacity: u32,
+/// Vertex builder for creating common shapes
+pub struct VertexBuilder;
+
+impl VertexBuilder {
+    /// Create vertices for a rectangle
+    pub fn rectangle(
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: [f32; 4],
+    ) -> (Vec<Vertex>, Vec<u16>) {
+        let vertices = vec![
+            Vertex::solid([x, y, 0.0], color),                           // Top-left
+            Vertex::solid([x + width, y, 0.0], color),                   // Top-right
+            Vertex::solid([x + width, y + height, 0.0], color),          // Bottom-right
+            Vertex::solid([x, y + height, 0.0], color),                  // Bottom-left
+        ];
+
+        let indices = vec![0, 1, 2, 2, 3, 0];
+
+        (vertices, indices)
+    }
+
+    /// Create vertices for a textured rectangle
+    pub fn textured_rectangle(
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: [f32; 4],
+    ) -> (Vec<Vertex>, Vec<u16>) {
+        let vertices = vec![
+            Vertex::textured([x, y, 0.0], [0.0, 0.0], color),                           // Top-left
+            Vertex::textured([x + width, y, 0.0], [1.0, 0.0], color),                   // Top-right
+            Vertex::textured([x + width, y + height, 0.0], [1.0, 1.0], color),          // Bottom-right
+            Vertex::textured([x, y + height, 0.0], [0.0, 1.0], color),                  // Bottom-left
+        ];
+
+        let indices = vec![0, 1, 2, 2, 3, 0];
+
+        (vertices, indices)
+    }
+
+    /// Create vertices for a circle (approximated with triangles)
+    pub fn circle(
+        center_x: f32,
+        center_y: f32,
+        radius: f32,
+        color: [f32; 4],
+        segments: u32,
+    ) -> (Vec<Vertex>, Vec<u16>) {
+        let mut vertices = Vec::with_capacity((segments + 1) as usize);
+        let mut indices = Vec::with_capacity((segments * 3) as usize);
+
+        // Center vertex
+        vertices.push(Vertex::solid([center_x, center_y, 0.0], color));
+
+        // Create vertices around the circle
+        for i in 0..segments {
+            let angle = (i as f32) * 2.0 * std::f32::consts::PI / (segments as f32);
+            let x = center_x + radius * angle.cos();
+            let y = center_y + radius * angle.sin();
+            vertices.push(Vertex::solid([x, y, 0.0], color));
+        }
+
+        // Create triangles
+        for i in 0..segments {
+            let next = if i == segments - 1 { 1 } else { i + 2 };
+            indices.extend_from_slice(&[0, i + 1, next]);
+        }
+
+        (vertices, indices)
+    }
+
+    /// Create vertices for a rounded rectangle
+    pub fn rounded_rectangle(
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        radius: f32,
+        color: [f32; 4],
+        corner_segments: u32,
+    ) -> (Vec<Vertex>, Vec<u16>) {
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+
+        // Create the main rectangle (without corners)
+        let inner_x = x + radius;
+        let inner_y = y + radius;
+        let inner_width = width - 2.0 * radius;
+        let inner_height = height - 2.0 * radius;
+
+        // Center rectangle
+        if inner_width > 0.0 && inner_height > 0.0 {
+            let (rect_verts, rect_indices) = Self::rectangle(inner_x, inner_y, inner_width, inner_height, color);
+            let offset = vertices.len() as u16;
+            vertices.extend(rect_verts);
+            indices.extend(rect_indices.iter().map(|&i| i + offset));
+        }
+
+        // Add rounded corners
+        let corners = [
+            (inner_x, inner_y),                           // Top-left
+            (inner_x + inner_width, inner_y),             // Top-right
+            (inner_x + inner_width, inner_y + inner_height), // Bottom-right
+            (inner_x, inner_y + inner_height),            // Bottom-left
+        ];
+
+        for (i, &(cx, cy)) in corners.iter().enumerate() {
+            let start_angle = (i as f32) * std::f32::consts::PI / 2.0;
+            let (corner_verts, corner_indices) = Self::circle_sector(
+                cx, cy, radius, color, corner_segments, start_angle, std::f32::consts::PI / 2.0
+            );
+            let offset = vertices.len() as u16;
+            vertices.extend(corner_verts);
+            indices.extend(corner_indices.iter().map(|&i| i + offset));
+        }
+
+        (vertices, indices)
+    }
+
+    /// Create vertices for a circle sector
+    fn circle_sector(
+        center_x: f32,
+        center_y: f32,
+        radius: f32,
+        color: [f32; 4],
+        segments: u32,
+        start_angle: f32,
+        angle_span: f32,
+    ) -> (Vec<Vertex>, Vec<u16>) {
+        let mut vertices = Vec::with_capacity((segments + 1) as usize);
+        let mut indices = Vec::with_capacity((segments * 3) as usize);
+
+        // Center vertex
+        vertices.push(Vertex::solid([center_x, center_y, 0.0], color));
+
+        // Create vertices around the sector
+        for i in 0..=segments {
+            let angle = start_angle + (i as f32) * angle_span / (segments as f32);
+            let x = center_x + radius * angle.cos();
+            let y = center_y + radius * angle.sin();
+            vertices.push(Vertex::solid([x, y, 0.0], color));
+        }
+
+        // Create triangles
+        for i in 0..segments {
+            indices.extend_from_slice(&[0, i + 1, i + 2]);
+        }
+
+        (vertices, indices)
+    }
+
+    /// Create vertices for a line with thickness
+    pub fn line(
+        start_x: f32,
+        start_y: f32,
+        end_x: f32,
+        end_y: f32,
+        thickness: f32,
+        color: [f32; 4],
+    ) -> (Vec<Vertex>, Vec<u16>) {
+        let dx = end_x - start_x;
+        let dy = end_y - start_y;
+        let length = (dx * dx + dy * dy).sqrt();
+        
+        if length == 0.0 {
+            return (Vec::new(), Vec::new());
+        }
+
+        // Normalize and get perpendicular vector
+        let nx = -dy / length;
+        let ny = dx / length;
+        
+        let half_thickness = thickness * 0.5;
+        
+        let vertices = vec![
+            Vertex::solid([start_x + nx * half_thickness, start_y + ny * half_thickness, 0.0], color),
+            Vertex::solid([start_x - nx * half_thickness, start_y - ny * half_thickness, 0.0], color),
+            Vertex::solid([end_x - nx * half_thickness, end_y - ny * half_thickness, 0.0], color),
+            Vertex::solid([end_x + nx * half_thickness, end_y + ny * half_thickness, 0.0], color),
+        ];
+
+        let indices = vec![0, 1, 2, 2, 3, 0];
+
+        (vertices, indices)
+    }
 }
 
-impl IndexBuffer {
-    /// Create a new index buffer
-    pub fn new(device: &wgpu::Device, capacity: u32) -> Self {
-        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Index Buffer"),
-            size: (capacity * std::mem::size_of::<u32>() as u32) as u64,
-            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        Self {
-            buffer,
-            count: 0,
-            capacity,
-        }
+    #[test]
+    fn test_vertex_creation() {
+        let vertex = Vertex::new([1.0, 2.0, 3.0], [1.0, 0.0, 0.0, 1.0], [0.5, 0.5]);
+        assert_eq!(vertex.position, [1.0, 2.0, 3.0]);
+        assert_eq!(vertex.color, [1.0, 0.0, 0.0, 1.0]);
+        assert_eq!(vertex.tex_coords, [0.5, 0.5]);
     }
 
-    /// Update buffer data
-    pub fn update(&mut self, queue: &wgpu::Queue, indices: &[u32]) {
-        if indices.len() > self.capacity as usize {
-            panic!("Index buffer overflow");
-        }
-        
-        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(indices));
-        self.count = indices.len() as u32;
+    #[test]
+    fn test_vertex_solid() {
+        let vertex = Vertex::solid([0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0]);
+        assert_eq!(vertex.flags, 1);
+        assert_eq!(vertex.tex_coords, [0.0, 0.0]);
     }
 
-    /// Get buffer reference
-    pub fn buffer(&self) -> &wgpu::Buffer {
-        &self.buffer
+    #[test]
+    fn test_vertex_textured() {
+        let vertex = Vertex::textured([0.0, 0.0, 0.0], [1.0, 1.0], [1.0, 1.0, 1.0, 1.0]);
+        assert_eq!(vertex.flags, 2);
+        assert_eq!(vertex.tex_coords, [1.0, 1.0]);
     }
 
-    /// Get index count
-    pub fn count(&self) -> u32 {
-        self.count
+    #[test]
+    fn test_rectangle_builder() {
+        let (vertices, indices) = VertexBuilder::rectangle(0.0, 0.0, 100.0, 50.0, [1.0, 0.0, 0.0, 1.0]);
+        assert_eq!(vertices.len(), 4);
+        assert_eq!(indices.len(), 6);
+        assert_eq!(vertices[0].position, [0.0, 0.0, 0.0]);
+        assert_eq!(vertices[2].position, [100.0, 50.0, 0.0]);
+    }
+
+    #[test]
+    fn test_circle_builder() {
+        let (vertices, indices) = VertexBuilder::circle(50.0, 50.0, 25.0, [0.0, 1.0, 0.0, 1.0], 8);
+        assert_eq!(vertices.len(), 9); // Center + 8 segments
+        assert_eq!(indices.len(), 24); // 8 triangles * 3 indices
     }
 }

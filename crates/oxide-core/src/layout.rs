@@ -1,9 +1,12 @@
 //! Flexbox-based layout engine for OxideUI
+//! 
+//! This module provides a comprehensive flexbox layout system that supports
+//! all major flexbox properties including direction, wrap, alignment, and gaps.
 
 use glam::Vec2;
 use std::fmt::Debug;
 
-/// Size constraints for layout calculation
+/// Layout constraints for widgets
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Constraints {
     pub min_width: f32,
@@ -13,7 +16,7 @@ pub struct Constraints {
 }
 
 impl Constraints {
-    /// Create unconstrained constraints
+    /// Create constraints with no limits
     pub fn none() -> Self {
         Self {
             min_width: 0.0,
@@ -23,7 +26,7 @@ impl Constraints {
         }
     }
 
-    /// Create tight constraints (exact size)
+    /// Create tight constraints (fixed size)
     pub fn tight(width: f32, height: f32) -> Self {
         Self {
             min_width: width,
@@ -58,7 +61,7 @@ impl Constraints {
     }
 }
 
-/// Size of a layout element
+/// Size representation
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Size {
     pub width: f32,
@@ -73,34 +76,61 @@ impl Size {
 
     /// Create a zero size
     pub fn zero() -> Self {
-        Self { width: 0.0, height: 0.0 }
+        Self::new(0.0, 0.0)
     }
 
     /// Convert to Vec2
-    pub fn to_vec2(&self) -> Vec2 {
+    pub fn to_vec2(self) -> Vec2 {
         Vec2::new(self.width, self.height)
     }
 }
 
 impl From<Vec2> for Size {
     fn from(vec: Vec2) -> Self {
-        Self { width: vec.x, height: vec.y }
+        Self::new(vec.x, vec.y)
     }
 }
 
-/// Layout direction
+/// Flex direction
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Direction {
-    Horizontal,
-    Vertical,
+pub enum FlexDirection {
+    Row,
+    RowReverse,
+    Column,
+    ColumnReverse,
 }
 
-/// Main axis alignment (along the flex direction)
+impl FlexDirection {
+    /// Check if this is a row direction
+    pub fn is_row(&self) -> bool {
+        matches!(self, FlexDirection::Row | FlexDirection::RowReverse)
+    }
+
+    /// Check if this is a column direction
+    pub fn is_column(&self) -> bool {
+        !self.is_row()
+    }
+
+    /// Check if this is reversed
+    pub fn is_reverse(&self) -> bool {
+        matches!(self, FlexDirection::RowReverse | FlexDirection::ColumnReverse)
+    }
+}
+
+/// Flex wrap behavior
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MainAxisAlignment {
-    Start,
+pub enum FlexWrap {
+    NoWrap,
+    Wrap,
+    WrapReverse,
+}
+
+/// Main axis alignment (along flex direction)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JustifyContent {
+    FlexStart,
+    FlexEnd,
     Center,
-    End,
     SpaceBetween,
     SpaceAround,
     SpaceEvenly,
@@ -108,29 +138,81 @@ pub enum MainAxisAlignment {
 
 /// Cross axis alignment (perpendicular to flex direction)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CrossAxisAlignment {
-    Start,
+pub enum AlignItems {
+    FlexStart,
+    FlexEnd,
     Center,
-    End,
     Stretch,
+    Baseline,
+}
+
+/// Alignment for wrapped lines
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AlignContent {
+    FlexStart,
+    FlexEnd,
+    Center,
+    SpaceBetween,
+    SpaceAround,
+    SpaceEvenly,
+    Stretch,
+}
+
+/// Individual item alignment override
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AlignSelf {
+    Auto,
+    FlexStart,
+    FlexEnd,
+    Center,
+    Stretch,
+    Baseline,
 }
 
 /// Flex properties for a widget
 #[derive(Debug, Clone, Copy)]
-pub struct FlexProps {
-    pub flex: f32,
-    pub grow: f32,
-    pub shrink: f32,
-    pub basis: f32,
+pub struct FlexItem {
+    pub flex_grow: f32,
+    pub flex_shrink: f32,
+    pub flex_basis: f32,
+    pub align_self: AlignSelf,
+    pub margin: EdgeInsets,
 }
 
-impl Default for FlexProps {
+impl Default for FlexItem {
     fn default() -> Self {
         Self {
-            flex: 0.0,
-            grow: 0.0,
-            shrink: 1.0,
-            basis: 0.0,
+            flex_grow: 0.0,
+            flex_shrink: 1.0,
+            flex_basis: 0.0,
+            align_self: AlignSelf::Auto,
+            margin: EdgeInsets::default(),
+        }
+    }
+}
+
+impl FlexItem {
+    /// Create a flex item with grow factor
+    pub fn grow(flex_grow: f32) -> Self {
+        Self {
+            flex_grow,
+            ..Default::default()
+        }
+    }
+
+    /// Create a flex item with shrink factor
+    pub fn shrink(flex_shrink: f32) -> Self {
+        Self {
+            flex_shrink,
+            ..Default::default()
+        }
+    }
+
+    /// Create a flex item with basis
+    pub fn basis(flex_basis: f32) -> Self {
+        Self {
+            flex_basis,
+            ..Default::default()
         }
     }
 }
@@ -176,6 +258,54 @@ impl EdgeInsets {
     }
 }
 
+/// Gap properties for flex containers
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Gap {
+    pub row: f32,
+    pub column: f32,
+}
+
+impl Gap {
+    /// Create uniform gap
+    pub fn all(value: f32) -> Self {
+        Self {
+            row: value,
+            column: value,
+        }
+    }
+
+    /// Create gap with different row and column values
+    pub fn new(row: f32, column: f32) -> Self {
+        Self { row, column }
+    }
+}
+
+/// Flex container properties
+#[derive(Debug, Clone, Copy)]
+pub struct FlexContainer {
+    pub direction: FlexDirection,
+    pub wrap: FlexWrap,
+    pub justify_content: JustifyContent,
+    pub align_items: AlignItems,
+    pub align_content: AlignContent,
+    pub gap: Gap,
+    pub padding: EdgeInsets,
+}
+
+impl Default for FlexContainer {
+    fn default() -> Self {
+        Self {
+            direction: FlexDirection::Row,
+            wrap: FlexWrap::NoWrap,
+            justify_content: JustifyContent::FlexStart,
+            align_items: AlignItems::Stretch,
+            align_content: AlignContent::Stretch,
+            gap: Gap::default(),
+            padding: EdgeInsets::default(),
+        }
+    }
+}
+
 /// Layout result for a widget
 #[derive(Debug, Clone, Copy)]
 pub struct Layout {
@@ -201,6 +331,14 @@ impl Layout {
     }
 }
 
+/// Flex line (row of items in a flex container)
+#[derive(Debug)]
+struct FlexLine {
+    items: Vec<usize>,
+    main_size: f32,
+    cross_size: f32,
+}
+
 /// Layout engine for calculating widget positions
 pub struct LayoutEngine {
     cache: dashmap::DashMap<u64, Layout>,
@@ -214,133 +352,298 @@ impl LayoutEngine {
         }
     }
 
-    /// Calculate flex layout
-    pub fn calculate_flex(
+    /// Calculate flex layout for a container and its children
+    pub fn calculate_flex_layout(
         &self,
-        direction: Direction,
-        main_axis_alignment: MainAxisAlignment,
-        _cross_axis_alignment: CrossAxisAlignment,
-        children: &[(FlexProps, Size)],
+        container: &FlexContainer,
+        children: &[(FlexItem, Size)],
         constraints: Constraints,
-        spacing: f32,
     ) -> Vec<Layout> {
-        let mut layouts = Vec::with_capacity(children.len());
-        
         if children.is_empty() {
-            return layouts;
+            return Vec::new();
         }
 
-        // Calculate total flex and fixed space
-        let mut total_flex = 0.0;
-        let mut fixed_space = 0.0;
+        // Calculate available space after padding
+        let content_constraints = Constraints {
+            min_width: (constraints.min_width - container.padding.horizontal()).max(0.0),
+            max_width: (constraints.max_width - container.padding.horizontal()).max(0.0),
+            min_height: (constraints.min_height - container.padding.vertical()).max(0.0),
+            max_height: (constraints.max_height - container.padding.vertical()).max(0.0),
+        };
+
+        // Determine main and cross axis dimensions
+        let (main_size, cross_size) = if container.direction.is_row() {
+            (content_constraints.max_width, content_constraints.max_height)
+        } else {
+            (content_constraints.max_height, content_constraints.max_width)
+        };
+
+        // Create flex lines
+        let lines = self.create_flex_lines(container, children, main_size);
         
-        for (props, size) in children {
-            if props.flex > 0.0 {
-                total_flex += props.flex;
+        // Calculate layouts for each line
+        let mut layouts = Vec::with_capacity(children.len());
+        let mut cross_position = container.padding.top;
+
+        for line in &lines {
+            let line_layouts = self.calculate_line_layout(
+                container,
+                children,
+                line,
+                main_size,
+                cross_position,
+            );
+            layouts.extend(line_layouts);
+            cross_position += line.cross_size + container.gap.row;
+        }
+
+        // Apply align-content for multiple lines
+        if lines.len() > 1 {
+            self.apply_align_content(container, &mut layouts, &lines, cross_size);
+        }
+
+        layouts
+    }
+
+    /// Create flex lines based on wrap behavior
+    fn create_flex_lines(
+        &self,
+        container: &FlexContainer,
+        children: &[(FlexItem, Size)],
+        main_size: f32,
+    ) -> Vec<FlexLine> {
+        let mut lines = Vec::new();
+        let mut current_line = FlexLine {
+            items: Vec::new(),
+            main_size: 0.0,
+            cross_size: 0.0,
+        };
+
+        for (i, (item, size)) in children.iter().enumerate() {
+            let item_main_size = if container.direction.is_row() {
+                size.width + item.margin.horizontal()
             } else {
-                fixed_space += match direction {
-                    Direction::Horizontal => size.width,
-                    Direction::Vertical => size.height,
+                size.height + item.margin.vertical()
+            };
+
+            let item_cross_size = if container.direction.is_row() {
+                size.height + item.margin.vertical()
+            } else {
+                size.width + item.margin.horizontal()
+            };
+
+            // Check if we need to wrap
+            let needs_wrap = container.wrap != FlexWrap::NoWrap &&
+                !current_line.items.is_empty() &&
+                current_line.main_size + item_main_size + container.gap.column > main_size;
+
+            if needs_wrap {
+                lines.push(current_line);
+                current_line = FlexLine {
+                    items: Vec::new(),
+                    main_size: 0.0,
+                    cross_size: 0.0,
                 };
             }
+
+            current_line.items.push(i);
+            current_line.main_size += item_main_size;
+            if !current_line.items.is_empty() {
+                current_line.main_size += container.gap.column;
+            }
+            current_line.cross_size = current_line.cross_size.max(item_cross_size);
         }
-        
-        // Add spacing
-        fixed_space += spacing * (children.len() - 1) as f32;
-        
-        // Calculate available space for flex items
-        let available_space = match direction {
-            Direction::Horizontal => constraints.max_width - fixed_space,
-            Direction::Vertical => constraints.max_height - fixed_space,
-        }.max(0.0);
-        
-        // Calculate positions
-        let mut position = 0.0;
-        
-        for (props, size) in children {
-            let item_size = if props.flex > 0.0 && total_flex > 0.0 {
-                (props.flex / total_flex) * available_space
-            } else {
-                match direction {
-                    Direction::Horizontal => size.width,
-                    Direction::Vertical => size.height,
-                }
-            };
-            
-            let layout = match direction {
-                Direction::Horizontal => Layout::new(
-                    Vec2::new(position, 0.0),
-                    Size::new(item_size, size.height),
-                ),
-                Direction::Vertical => Layout::new(
-                    Vec2::new(0.0, position),
-                    Size::new(size.width, item_size),
-                ),
-            };
-            
-            layouts.push(layout);
-            position += item_size + spacing;
+
+        if !current_line.items.is_empty() {
+            lines.push(current_line);
         }
+
+        lines
+    }
+
+    /// Calculate layout for a single flex line
+    fn calculate_line_layout(
+        &self,
+        container: &FlexContainer,
+        children: &[(FlexItem, Size)],
+        line: &FlexLine,
+        main_size: f32,
+        cross_position: f32,
+    ) -> Vec<Layout> {
+        let mut layouts = Vec::new();
         
-        // Apply main axis alignment
-        let total_size = position - spacing;
-        let extra_space = match direction {
-            Direction::Horizontal => constraints.max_width - total_size,
-            Direction::Vertical => constraints.max_height - total_size,
-        }.max(0.0);
+        // Calculate flex grow/shrink
+        let total_flex_grow: f32 = line.items.iter()
+            .map(|&i| children[i].0.flex_grow)
+            .sum();
         
-        match main_axis_alignment {
-            MainAxisAlignment::Center => {
-                let offset = extra_space / 2.0;
-                for layout in &mut layouts {
-                    match direction {
-                        Direction::Horizontal => layout.position.x += offset,
-                        Direction::Vertical => layout.position.y += offset,
-                    }
-                }
+        let total_flex_shrink: f32 = line.items.iter()
+            .map(|&i| children[i].0.flex_shrink)
+            .sum();
+
+        // Calculate available space
+        let used_space = line.main_size - container.gap.column * (line.items.len() - 1) as f32;
+        let free_space = main_size - used_space;
+
+        // Distribute free space
+        let mut main_position = container.padding.left;
+        
+        // Apply justify-content
+        match container.justify_content {
+            JustifyContent::FlexEnd => main_position += free_space,
+            JustifyContent::Center => main_position += free_space / 2.0,
+            JustifyContent::SpaceBetween if line.items.len() > 1 => {
+                // Space will be distributed between items
             }
-            MainAxisAlignment::End => {
-                for layout in &mut layouts {
-                    match direction {
-                        Direction::Horizontal => layout.position.x += extra_space,
-                        Direction::Vertical => layout.position.y += extra_space,
-                    }
-                }
+            JustifyContent::SpaceAround => {
+                let space_per_item = free_space / line.items.len() as f32;
+                main_position += space_per_item / 2.0;
             }
-            MainAxisAlignment::SpaceBetween if children.len() > 1 => {
-                let spacing = extra_space / (children.len() - 1) as f32;
-                for (i, layout) in layouts.iter_mut().enumerate() {
-                    let offset = spacing * i as f32;
-                    match direction {
-                        Direction::Horizontal => layout.position.x += offset,
-                        Direction::Vertical => layout.position.y += offset,
-                    }
-                }
-            }
-            MainAxisAlignment::SpaceAround => {
-                let spacing = extra_space / children.len() as f32;
-                for (i, layout) in layouts.iter_mut().enumerate() {
-                    let offset = spacing * (i as f32 + 0.5);
-                    match direction {
-                        Direction::Horizontal => layout.position.x += offset,
-                        Direction::Vertical => layout.position.y += offset,
-                    }
-                }
-            }
-            MainAxisAlignment::SpaceEvenly => {
-                let spacing = extra_space / (children.len() + 1) as f32;
-                for (i, layout) in layouts.iter_mut().enumerate() {
-                    let offset = spacing * (i + 1) as f32;
-                    match direction {
-                        Direction::Horizontal => layout.position.x += offset,
-                        Direction::Vertical => layout.position.y += offset,
-                    }
-                }
+            JustifyContent::SpaceEvenly => {
+                let space_per_gap = free_space / (line.items.len() + 1) as f32;
+                main_position += space_per_gap;
             }
             _ => {}
         }
-        
+
+        for (idx, &item_idx) in line.items.iter().enumerate() {
+            let (item, size) = &children[item_idx];
+            
+            // Calculate item main size with flex
+            let mut item_main_size = if container.direction.is_row() {
+                size.width
+            } else {
+                size.height
+            };
+
+            if free_space > 0.0 && total_flex_grow > 0.0 {
+                item_main_size += (item.flex_grow / total_flex_grow) * free_space;
+            } else if free_space < 0.0 && total_flex_shrink > 0.0 {
+                item_main_size += (item.flex_shrink / total_flex_shrink) * free_space;
+            }
+
+            // Calculate cross size
+            let item_cross_size = if container.direction.is_row() {
+                size.height
+            } else {
+                size.width
+            };
+
+            // Apply align-items/align-self
+            let align = if item.align_self != AlignSelf::Auto {
+                match item.align_self {
+                    AlignSelf::FlexStart => AlignItems::FlexStart,
+                    AlignSelf::FlexEnd => AlignItems::FlexEnd,
+                    AlignSelf::Center => AlignItems::Center,
+                    AlignSelf::Stretch => AlignItems::Stretch,
+                    AlignSelf::Baseline => AlignItems::Baseline,
+                    AlignSelf::Auto => container.align_items,
+                }
+            } else {
+                container.align_items
+            };
+
+            let mut item_cross_position = cross_position;
+            match align {
+                AlignItems::FlexEnd => item_cross_position += line.cross_size - item_cross_size,
+                AlignItems::Center => item_cross_position += (line.cross_size - item_cross_size) / 2.0,
+                AlignItems::Stretch => {
+                    // Stretch to fill cross axis
+                }
+                _ => {}
+            }
+
+            // Create layout based on direction
+            let layout = if container.direction.is_row() {
+                Layout::new(
+                    Vec2::new(main_position + item.margin.left, item_cross_position + item.margin.top),
+                    Size::new(item_main_size, item_cross_size),
+                )
+            } else {
+                Layout::new(
+                    Vec2::new(item_cross_position + item.margin.left, main_position + item.margin.top),
+                    Size::new(item_cross_size, item_main_size),
+                )
+            };
+
+            layouts.push(layout);
+
+            // Update position for next item
+            main_position += item_main_size + item.margin.horizontal() + container.gap.column;
+            
+            // Apply justify-content spacing
+            match container.justify_content {
+                JustifyContent::SpaceBetween if line.items.len() > 1 && idx < line.items.len() - 1 => {
+                    main_position += free_space / (line.items.len() - 1) as f32;
+                }
+                JustifyContent::SpaceAround => {
+                    let space_per_item = free_space / line.items.len() as f32;
+                    main_position += space_per_item;
+                }
+                JustifyContent::SpaceEvenly if idx < line.items.len() - 1 => {
+                    let space_per_gap = free_space / (line.items.len() + 1) as f32;
+                    main_position += space_per_gap;
+                }
+                _ => {}
+            }
+        }
+
         layouts
+    }
+
+    /// Apply align-content for multiple lines
+    fn apply_align_content(
+        &self,
+        container: &FlexContainer,
+        layouts: &mut [Layout],
+        lines: &[FlexLine],
+        cross_size: f32,
+    ) {
+        let total_cross_size: f32 = lines.iter().map(|line| line.cross_size).sum();
+        let total_gaps = container.gap.row * (lines.len() - 1) as f32;
+        let free_cross_space = cross_size - total_cross_size - total_gaps;
+
+        let mut cross_offset = 0.0;
+        match container.align_content {
+            AlignContent::FlexEnd => cross_offset = free_cross_space,
+            AlignContent::Center => cross_offset = free_cross_space / 2.0,
+            AlignContent::SpaceBetween if lines.len() > 1 => {
+                // Space will be distributed between lines
+            }
+            AlignContent::SpaceAround => {
+                cross_offset = free_cross_space / (lines.len() * 2) as f32;
+            }
+            AlignContent::SpaceEvenly => {
+                cross_offset = free_cross_space / (lines.len() + 1) as f32;
+            }
+            _ => return,
+        }
+
+        // Apply offset to all layouts
+        let mut item_idx = 0;
+        for (line_idx, line) in lines.iter().enumerate() {
+            let line_offset = match container.align_content {
+                AlignContent::SpaceBetween if lines.len() > 1 => {
+                    (free_cross_space / (lines.len() - 1) as f32) * line_idx as f32
+                }
+                AlignContent::SpaceAround => {
+                    cross_offset + (free_cross_space / lines.len() as f32) * line_idx as f32
+                }
+                AlignContent::SpaceEvenly => {
+                    cross_offset * (line_idx + 1) as f32
+                }
+                _ => cross_offset,
+            };
+
+            for _ in 0..line.items.len() {
+                if container.direction.is_row() {
+                    layouts[item_idx].position.y += line_offset;
+                } else {
+                    layouts[item_idx].position.x += line_offset;
+                }
+                item_idx += 1;
+            }
+        }
     }
 
     /// Clear the layout cache

@@ -238,8 +238,8 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 OxideUI is dual-licensed under either:
 
-- AGPL v3 License ([LICENSE-AGPLv3](LICENSE-AGPLv3))
-- Commercial license ([LICENSE-COMMERCIAL](LICENSE-COMMERCIAL))
+- AGPL v3 License ([LICENSE-AGPLv3](LICENSE.md))
+- Commercial license ([LICENSE-COMMERCIAL](COMMERCIAL.md))
 
 at your option.
 

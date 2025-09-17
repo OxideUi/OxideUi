@@ -1,56 +1,151 @@
 //! Button widget implementation
+//! 
+//! Provides interactive button components with various styles, states, and event handling.
 
-use crate::widget::{Widget, WidgetId, generate_id, BaseWidget};
 use oxide_core::{
-    event::{Event, EventResult, MouseEvent},
-    layout::{Constraints, Layout, Size},
-    types::{Color},
+    layout::{Rect, Size},
+    state::{Signal, StateManager},
+    theme::{Theme, ColorPalette},
+    types::{Color, Point},
 };
-use oxide_renderer::batch::RenderBatch;
-use std::any::Any;
-use std::fmt;
+use oxide_renderer::{
+    vertex::{Vertex, VertexBuilder},
+    batch::RenderBatch,
+};
 use std::sync::Arc;
 
-/// Button widget
-#[derive(Clone)]
-pub struct Button {
-    id: WidgetId,
-    base: BaseWidget,
-    text: String,
-    style: ButtonStyle,
-    on_click: Option<Arc<dyn Fn() + Send + Sync>>,
-    is_pressed: bool,
-    is_hovered: bool,
-    is_disabled: bool,
+/// Button widget state
+#[derive(Debug, Clone, PartialEq)]
+pub enum ButtonState {
+    Normal,
+    Hovered,
+    Pressed,
+    Disabled,
+    Focused,
 }
 
-impl fmt::Debug for Button {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Button")
-            .field("id", &self.id)
-            .field("base", &self.base)
-            .field("text", &self.text)
-            .field("style", &self.style)
-            .field("has_on_click", &self.on_click.is_some())
-            .field("is_pressed", &self.is_pressed)
-            .field("is_hovered", &self.is_hovered)
-            .field("is_disabled", &self.is_disabled)
-            .finish()
+/// Button style configuration
+#[derive(Debug, Clone)]
+pub struct ButtonStyle {
+    pub background_color: Color,
+    pub hover_color: Color,
+    pub pressed_color: Color,
+    pub disabled_color: Color,
+    pub text_color: Color,
+    pub border_radius: f32,
+    pub border_width: f32,
+    pub border_color: Color,
+    pub padding: f32,
+    pub font_size: f32,
+    pub min_width: f32,
+    pub min_height: f32,
+}
+
+impl Default for ButtonStyle {
+    fn default() -> Self {
+        Self {
+            background_color: Color::new(0.2, 0.4, 0.8, 1.0),
+            hover_color: Color::new(0.3, 0.5, 0.9, 1.0),
+            pressed_color: Color::new(0.1, 0.3, 0.7, 1.0),
+            disabled_color: Color::new(0.5, 0.5, 0.5, 1.0),
+            text_color: Color::new(1.0, 1.0, 1.0, 1.0),
+            border_radius: 4.0,
+            border_width: 0.0,
+            border_color: Color::new(0.0, 0.0, 0.0, 0.0),
+            padding: 12.0,
+            font_size: 14.0,
+            min_width: 80.0,
+            min_height: 32.0,
+        }
     }
+}
+
+impl ButtonStyle {
+    /// Create a primary button style
+    pub fn primary() -> Self {
+        Self {
+            background_color: Color::new(0.0, 0.4, 0.8, 1.0),
+            hover_color: Color::new(0.1, 0.5, 0.9, 1.0),
+            pressed_color: Color::new(0.0, 0.3, 0.7, 1.0),
+            ..Default::default()
+        }
+    }
+
+    /// Create a secondary button style
+    pub fn secondary() -> Self {
+        Self {
+            background_color: Color::new(0.6, 0.6, 0.6, 1.0),
+            hover_color: Color::new(0.7, 0.7, 0.7, 1.0),
+            pressed_color: Color::new(0.5, 0.5, 0.5, 1.0),
+            text_color: Color::new(0.0, 0.0, 0.0, 1.0),
+            ..Default::default()
+        }
+    }
+
+    /// Create a danger button style
+    pub fn danger() -> Self {
+        Self {
+            background_color: Color::new(0.8, 0.2, 0.2, 1.0),
+            hover_color: Color::new(0.9, 0.3, 0.3, 1.0),
+            pressed_color: Color::new(0.7, 0.1, 0.1, 1.0),
+            ..Default::default()
+        }
+    }
+
+    /// Create an outline button style
+    pub fn outline() -> Self {
+        Self {
+            background_color: Color::new(0.0, 0.0, 0.0, 0.0),
+            hover_color: Color::new(0.0, 0.4, 0.8, 0.1),
+            pressed_color: Color::new(0.0, 0.4, 0.8, 0.2),
+            text_color: Color::new(0.0, 0.4, 0.8, 1.0),
+            border_width: 1.0,
+            border_color: Color::new(0.0, 0.4, 0.8, 1.0),
+            ..Default::default()
+        }
+    }
+
+    /// Create a ghost button style
+    pub fn ghost() -> Self {
+        Self {
+            background_color: Color::new(0.0, 0.0, 0.0, 0.0),
+            hover_color: Color::new(0.0, 0.0, 0.0, 0.05),
+            pressed_color: Color::new(0.0, 0.0, 0.0, 0.1),
+            text_color: Color::new(0.3, 0.3, 0.3, 1.0),
+            border_width: 0.0,
+            ..Default::default()
+        }
+    }
+}
+
+/// Button widget
+pub struct Button {
+    id: String,
+    text: String,
+    style: ButtonStyle,
+    state: Signal<ButtonState>,
+    bounds: Signal<Rect>,
+    enabled: Signal<bool>,
+    visible: Signal<bool>,
+    on_click: Option<Box<dyn Fn() + Send + Sync>>,
+    on_hover: Option<Box<dyn Fn(bool) + Send + Sync>>,
+    theme: Option<Arc<Theme>>,
 }
 
 impl Button {
     /// Create a new button with text
     pub fn new(text: impl Into<String>) -> Self {
         Self {
-            id: generate_id(),
-            base: BaseWidget::new(),
+            id: format!("button_{}", uuid::Uuid::new_v4()),
             text: text.into(),
             style: ButtonStyle::default(),
+            state: Signal::new(ButtonState::Normal),
+            bounds: Signal::new(Rect::new(0.0, 0.0, 0.0, 0.0)),
+            enabled: Signal::new(true),
+            visible: Signal::new(true),
             on_click: None,
-            is_pressed: false,
-            is_hovered: false,
-            is_disabled: false,
+            on_hover: None,
+            theme: None,
         }
     }
 
@@ -60,25 +155,75 @@ impl Button {
         self
     }
 
+    /// Set primary style
+    pub fn primary(mut self) -> Self {
+        self.style = ButtonStyle::primary();
+        self
+    }
+
+    /// Set secondary style
+    pub fn secondary(mut self) -> Self {
+        self.style = ButtonStyle::secondary();
+        self
+    }
+
+    /// Set danger style
+    pub fn danger(mut self) -> Self {
+        self.style = ButtonStyle::danger();
+        self
+    }
+
+    /// Set outline style
+    pub fn outline(mut self) -> Self {
+        self.style = ButtonStyle::outline();
+        self
+    }
+
+    /// Set ghost style
+    pub fn ghost(mut self) -> Self {
+        self.style = ButtonStyle::ghost();
+        self
+    }
+
     /// Set click handler
     pub fn on_click<F>(mut self, handler: F) -> Self
     where
         F: Fn() + Send + Sync + 'static,
     {
-        self.on_click = Some(Arc::new(handler));
+        self.on_click = Some(Box::new(handler));
         self
     }
 
-    /// Enable or disable the button
-    pub fn enabled(mut self, enabled: bool) -> Self {
-        self.is_disabled = !enabled;
+    /// Set hover handler
+    pub fn on_hover<F>(mut self, handler: F) -> Self
+    where
+        F: Fn(bool) + Send + Sync + 'static,
+    {
+        self.on_hover = Some(Box::new(handler));
         self
     }
 
-    /// Set button size
-    pub fn size(mut self, width: f32, height: f32) -> Self {
-        self.base = self.base.with_min_size(width, height);
+    /// Set enabled state
+    pub fn enabled(self, enabled: bool) -> Self {
+        self.enabled.set(enabled);
         self
+    }
+
+    /// Set visible state
+    pub fn visible(self, visible: bool) -> Self {
+        self.visible.set(visible);
+        self
+    }
+
+    /// Set theme
+    pub fn theme(mut self, theme: Arc<Theme>) -> Self {
+        self.theme = Some(theme);
+        self
+    }
+
+    /// Get button ID
+    pub fn id(&self) -> &str {
+        &self.id
     }
 
     /// Get button text
@@ -86,198 +231,340 @@ impl Button {
         &self.text
     }
 
-    /// Get current button color based on state
-    fn get_color(&self) -> Color {
-        if self.is_disabled {
-            self.style.disabled_color
-        } else if self.is_pressed {
-            self.style.pressed_color
-        } else if self.is_hovered {
-            self.style.hover_color
-        } else {
-            self.style.normal_color
+    /// Set button text
+    pub fn set_text(&mut self, text: impl Into<String>) {
+        self.text = text.into();
+    }
+
+    /// Get current state
+    pub fn get_state(&self) -> ButtonState {
+        self.state.get()
+    }
+
+    /// Set button state
+    pub fn set_state(&self, state: ButtonState) {
+        self.state.set(state);
+    }
+
+    /// Check if button is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.get()
+    }
+
+    /// Check if button is visible
+    pub fn is_visible(&self) -> bool {
+        self.visible.get()
+    }
+
+    /// Handle mouse enter event
+    pub fn on_mouse_enter(&self) {
+        if self.is_enabled() && self.get_state() != ButtonState::Pressed {
+            self.set_state(ButtonState::Hovered);
+            if let Some(ref handler) = self.on_hover {
+                handler(true);
+            }
         }
     }
-}
 
-impl Widget for Button {
-    fn id(&self) -> WidgetId {
-        self.id
+    /// Handle mouse leave event
+    pub fn on_mouse_leave(&self) {
+        if self.is_enabled() {
+            self.set_state(ButtonState::Normal);
+            if let Some(ref handler) = self.on_hover {
+                handler(false);
+            }
+        }
     }
 
-    fn layout(&mut self, constraints: Constraints) -> Size {
-        // Calculate button size based on text
-        let padding = self.style.padding;
-        let text_width = self.text.len() as f32 * 8.0; // Approximate
-        let text_height = 16.0; // Default font size
-        
-        let width = (text_width + padding * 2.0)
-            .max(self.style.min_width)
-            .min(constraints.max_width);
-        let height = (text_height + padding * 2.0)
-            .max(self.style.min_height)
-            .min(constraints.max_height);
-        
-        Size::new(width, height)
+    /// Handle mouse press event
+    pub fn on_mouse_press(&self, point: Point) -> bool {
+        if !self.is_enabled() || !self.is_visible() {
+            return false;
+        }
+
+        let bounds = self.bounds.get();
+        if bounds.contains(point) {
+            self.set_state(ButtonState::Pressed);
+            return true;
+        }
+        false
     }
 
-    fn render(&self, batch: &mut RenderBatch, layout: Layout) {
-        let rect = oxide_core::types::Rect::new(
-            layout.position.x,
-            layout.position.y,
-            layout.size.width,
-            layout.size.height,
-        );
+    /// Handle mouse release event
+    pub fn on_mouse_release(&self, point: Point) -> bool {
+        if !self.is_enabled() || !self.is_visible() {
+            return false;
+        }
+
+        let bounds = self.bounds.get();
+        if bounds.contains(point) && self.get_state() == ButtonState::Pressed {
+            self.set_state(ButtonState::Hovered);
+            if let Some(ref handler) = self.on_click {
+                handler();
+            }
+            return true;
+        }
+        false
+    }
+
+    /// Calculate button size
+    pub fn calculate_size(&self, available_size: Size) -> Size {
+        // Simple text measurement (in a real implementation, this would use font metrics)
+        let text_width = self.text.len() as f32 * self.style.font_size * 0.6;
+        let text_height = self.style.font_size;
+
+        let width = (text_width + self.style.padding * 2.0).max(self.style.min_width);
+        let height = (text_height + self.style.padding * 2.0).max(self.style.min_height);
+
+        Size::new(
+            width.min(available_size.width),
+            height.min(available_size.height),
+        )
+    }
+
+    /// Layout the button
+    pub fn layout(&self, bounds: Rect) {
+        self.bounds.set(bounds);
+    }
+
+    /// Render the button
+    pub fn render(&self, batch: &mut RenderBatch) {
+        if !self.is_visible() {
+            return;
+        }
+
+        let bounds = self.bounds.get();
+        let state = self.get_state();
         
-        // Draw button background
-        let bg_color = self.get_color();
-        
-        batch.draw_rounded_rect(rect, bg_color, self.style.border_radius);
-        
-        // Draw border if present
-        if self.style.border_width > 0.0 {
-            let border_rect = oxide_core::types::Rect::new(
-                layout.position.x + self.style.border_width / 2.0,
-                layout.position.y + self.style.border_width / 2.0,
-                layout.size.width - self.style.border_width,
-                layout.size.height - self.style.border_width,
+        // Determine colors based on state
+        let background_color = match state {
+            ButtonState::Normal => self.style.background_color,
+            ButtonState::Hovered => self.style.hover_color,
+            ButtonState::Pressed => self.style.pressed_color,
+            ButtonState::Disabled => self.style.disabled_color,
+            ButtonState::Focused => self.style.hover_color,
+        };
+
+        // Render background
+        if self.style.border_radius > 0.0 {
+            let (vertices, indices) = VertexBuilder::rounded_rectangle(
+                bounds.x,
+                bounds.y,
+                bounds.width,
+                bounds.height,
+                self.style.border_radius,
+                background_color.to_array(),
+                8, // corner segments
             );
-            // Draw border as a slightly smaller rect on top
-            batch.draw_rounded_rect(border_rect, self.style.border_color, self.style.border_radius);
+            batch.add_vertices(&vertices, &indices);
+        } else {
+            let (vertices, indices) = VertexBuilder::rectangle(
+                bounds.x,
+                bounds.y,
+                bounds.width,
+                bounds.height,
+                background_color.to_array(),
+            );
+            batch.add_vertices(&vertices, &indices);
         }
+
+        // Render border if needed
+        if self.style.border_width > 0.0 {
+            let border_bounds = Rect::new(
+                bounds.x - self.style.border_width / 2.0,
+                bounds.y - self.style.border_width / 2.0,
+                bounds.width + self.style.border_width,
+                bounds.height + self.style.border_width,
+            );
+
+            if self.style.border_radius > 0.0 {
+                // Render rounded border (simplified - would need proper border rendering)
+                let (vertices, indices) = VertexBuilder::rounded_rectangle(
+                    border_bounds.x,
+                    border_bounds.y,
+                    border_bounds.width,
+                    border_bounds.height,
+                    self.style.border_radius + self.style.border_width / 2.0,
+                    self.style.border_color.to_array(),
+                    8,
+                );
+                batch.add_vertices(&vertices, &indices);
+            }
+        }
+
+        // Render text (simplified - would need proper text rendering)
+        let text_x = bounds.x + bounds.width / 2.0 - (self.text.len() as f32 * self.style.font_size * 0.3);
+        let text_y = bounds.y + bounds.height / 2.0 - self.style.font_size / 2.0;
         
-        // Draw button text centered
-        let text_width = self.text.len() as f32 * 8.0; // Approximate text width
-        let text_height = 16.0;
-        let text_x = layout.position.x + (layout.size.width - text_width) / 2.0;
-        let text_y = layout.position.y + (layout.size.height - text_height) / 2.0;
-        
-        batch.draw_text(
+        // For now, just add a placeholder for text rendering
+        // In a real implementation, this would use a text renderer
+        batch.add_text(
             &self.text,
-            (text_x, text_y),
-            self.style.text_color,
-            16.0,
+            text_x,
+            text_y,
+            self.style.font_size,
+            self.style.text_color.to_array(),
         );
     }
 
-    fn handle_event(&mut self, event: &Event) -> EventResult {
-        if self.is_disabled {
-            return EventResult::Ignored;
+    /// Apply theme to button
+    pub fn apply_theme(&mut self, theme: &Theme) {
+        // Update style based on theme
+        if let Some(primary_color) = theme.color_palette().primary() {
+            self.style.background_color = *primary_color;
+        }
+        
+        if let Some(text_color) = theme.color_palette().on_primary() {
+            self.style.text_color = *text_color;
         }
 
-        match event {
-            Event::MouseDown(MouseEvent { button: Some(_), .. }) => {
-                self.is_pressed = true;
-                EventResult::Handled
-            }
-            Event::MouseUp(MouseEvent { .. }) => {
-                if self.is_pressed {
-                    self.is_pressed = false;
-                    if let Some(handler) = &self.on_click {
-                        (handler)();
-                    }
-                    EventResult::Handled
-                } else {
-                    EventResult::Ignored
-                }
-            }
-            Event::MouseEnter => {
-                self.is_hovered = true;
-                EventResult::Handled
-            }
-            Event::MouseExit => {
-                self.is_hovered = false;
-                self.is_pressed = false;
-                EventResult::Handled
-            }
-            _ => EventResult::Ignored,
+        self.style.border_radius = theme.spacing().border_radius().medium;
+        self.style.font_size = theme.typography().body().size;
+    }
+}
+
+/// Button builder for fluent API
+pub struct ButtonBuilder {
+    button: Button,
+}
+
+impl ButtonBuilder {
+    /// Create a new button builder
+    pub fn new(text: impl Into<String>) -> Self {
+        Self {
+            button: Button::new(text),
         }
     }
 
-    fn as_any(&self) -> &dyn Any {
+    /// Set style
+    pub fn style(mut self, style: ButtonStyle) -> Self {
+        self.button = self.button.style(style);
         self
     }
 
-    fn as_any_mut(&mut self) -> &mut dyn Any {
+    /// Set as primary button
+    pub fn primary(mut self) -> Self {
+        self.button = self.button.primary();
         self
     }
 
-    fn clone_widget(&self) -> Box<dyn Widget> {
-        Box::new(self.clone())
+    /// Set as secondary button
+    pub fn secondary(mut self) -> Self {
+        self.button = self.button.secondary();
+        self
+    }
+
+    /// Set as danger button
+    pub fn danger(mut self) -> Self {
+        self.button = self.button.danger();
+        self
+    }
+
+    /// Set as outline button
+    pub fn outline(mut self) -> Self {
+        self.button = self.button.outline();
+        self
+    }
+
+    /// Set as ghost button
+    pub fn ghost(mut self) -> Self {
+        self.button = self.button.ghost();
+        self
+    }
+
+    /// Set click handler
+    pub fn on_click<F>(mut self, handler: F) -> Self
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        self.button = self.button.on_click(handler);
+        self
+    }
+
+    /// Set hover handler
+    pub fn on_hover<F>(mut self, handler: F) -> Self
+    where
+        F: Fn(bool) + Send + Sync + 'static,
+    {
+        self.button = self.button.on_hover(handler);
+        self
+    }
+
+    /// Set enabled state
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.button = self.button.enabled(enabled);
+        self
+    }
+
+    /// Set visible state
+    pub fn visible(mut self, visible: bool) -> Self {
+        self.button = self.button.visible(visible);
+        self
+    }
+
+    /// Build the button
+    pub fn build(self) -> Button {
+        self.button
     }
 }
 
-/// Button style configuration
-#[derive(Debug, Clone)]
-pub struct ButtonStyle {
-    pub normal_color: Color,
-    pub hover_color: Color,
-    pub pressed_color: Color,
-    pub disabled_color: Color,
-    pub text_color: Color,
-    pub border_color: Color,
-    pub border_width: f32,
-    pub border_radius: f32,
-    pub padding: f32,
-    pub min_width: f32,
-    pub min_height: f32,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl ButtonStyle {
-    /// Primary button style
-    pub fn primary() -> Self {
-        Self {
-            normal_color: Color::PRIMARY,
-            hover_color: Color::rgb(0.1, 0.5, 0.9),
-            pressed_color: Color::rgb(0.08, 0.4, 0.8),
-            disabled_color: Color::rgb(0.5, 0.5, 0.5),
-            text_color: Color::WHITE,
-            border_color: Color::rgba(0.0, 0.0, 0.0, 0.2),
-            border_width: 1.0,
-            border_radius: 4.0,
-            padding: 12.0,
-            min_width: 80.0,
-            min_height: 36.0,
-        }
+    #[test]
+    fn test_button_creation() {
+        let button = Button::new("Test Button");
+        assert_eq!(button.text(), "Test Button");
+        assert_eq!(button.get_state(), ButtonState::Normal);
+        assert!(button.is_enabled());
+        assert!(button.is_visible());
     }
 
-    /// Secondary button style
-    pub fn secondary() -> Self {
-        Self {
-            normal_color: Color::rgb(0.9, 0.9, 0.9),
-            hover_color: Color::rgb(0.85, 0.85, 0.85),
-            pressed_color: Color::rgb(0.8, 0.8, 0.8),
-            disabled_color: Color::rgb(0.5, 0.5, 0.5),
-            text_color: Color::BLACK,
-            border_color: Color::rgba(0.0, 0.0, 0.0, 0.15),
-            border_width: 1.0,
-            border_radius: 4.0,
-            padding: 12.0,
-            min_width: 80.0,
-            min_height: 36.0,
-        }
+    #[test]
+    fn test_button_styles() {
+        let primary = Button::new("Primary").primary();
+        let secondary = Button::new("Secondary").secondary();
+        let danger = Button::new("Danger").danger();
+        
+        // Styles should be different
+        assert_ne!(primary.style.background_color, secondary.style.background_color);
+        assert_ne!(secondary.style.background_color, danger.style.background_color);
     }
 
-    /// Text button style (no background)
-    pub fn text() -> Self {
-        Self {
-            normal_color: Color::TRANSPARENT,
-            hover_color: Color::rgba(0.0, 0.0, 0.0, 0.05),
-            pressed_color: Color::rgba(0.0, 0.0, 0.0, 0.1),
-            disabled_color: Color::TRANSPARENT,
-            text_color: Color::PRIMARY,
-            border_color: Color::TRANSPARENT,
-            border_width: 0.0,
-            border_radius: 4.0,
-            padding: 8.0,
-            min_width: 0.0,
-            min_height: 32.0,
-        }
+    #[test]
+    fn test_button_state_changes() {
+        let button = Button::new("Test");
+        
+        assert_eq!(button.get_state(), ButtonState::Normal);
+        
+        button.on_mouse_enter();
+        assert_eq!(button.get_state(), ButtonState::Hovered);
+        
+        button.on_mouse_leave();
+        assert_eq!(button.get_state(), ButtonState::Normal);
     }
-}
 
-impl Default for ButtonStyle {
-    fn default() -> Self {
-        Self::primary()
+    #[test]
+    fn test_button_builder() {
+        let button = ButtonBuilder::new("Builder Test")
+            .primary()
+            .enabled(true)
+            .build();
+            
+        assert_eq!(button.text(), "Builder Test");
+        assert!(button.is_enabled());
+    }
+
+    #[test]
+    fn test_button_size_calculation() {
+        let button = Button::new("Test");
+        let available = Size::new(200.0, 100.0);
+        let size = button.calculate_size(available);
+        
+        assert!(size.width >= button.style.min_width);
+        assert!(size.height >= button.style.min_height);
+        assert!(size.width <= available.width);
+        assert!(size.height <= available.height);
     }
 }

@@ -2,8 +2,16 @@
 
 use oxide_core::event::{Event, MouseButton, MouseEvent, KeyboardEvent, KeyCode, Modifiers, WindowEvent};
 use oxide_renderer::gpu::Renderer;
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
-/// Event loop wrapper
+/// Custom event for the event loop
+#[derive(Debug)]
+pub struct CustomEvent {
+    pub event: Event,
+}
+
+/// Event loop wrapper with cross-platform support
 pub struct EventLoop {
     #[cfg(not(target_arch = "wasm32"))]
     inner: winit::event_loop::EventLoop<CustomEvent>,
@@ -17,7 +25,9 @@ impl EventLoop {
         #[cfg(not(target_arch = "wasm32"))]
         {
             Self {
-                inner: winit::event_loop::EventLoopBuilder::with_user_event().build().expect("Failed to create event loop"),
+                inner: winit::event_loop::EventLoopBuilder::with_user_event()
+                    .build()
+                    .expect("Failed to create event loop"),
             }
         }
         
@@ -29,7 +39,7 @@ impl EventLoop {
         }
     }
 
-    /// Create an event loop proxy
+    /// Create an event loop proxy for sending custom events
     pub fn create_proxy(&self) -> EventLoopProxy {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -40,13 +50,14 @@ impl EventLoop {
         
         #[cfg(target_arch = "wasm32")]
         {
+            let (sender, _) = mpsc::channel();
             EventLoopProxy {
-                sender: mpsc::channel().0,
+                sender,
             }
         }
     }
 
-    /// Run the event loop
+    /// Run the event loop with basic event handling
     #[cfg(not(target_arch = "wasm32"))]
     pub fn run<F>(self, mut handler: F) -> !
     where
@@ -55,35 +66,44 @@ impl EventLoop {
         use winit::event::{Event as WinitEvent, WindowEvent as WinitWindowEvent};
         use winit::event_loop::ControlFlow;
         
+        let mut last_update = Instant::now();
+        
         self.inner.run(move |event, elwt| {
-            elwt.set_control_flow(ControlFlow::Wait);
-            
             match event {
                 WinitEvent::WindowEvent { event, .. } => {
                     match event {
+                        WinitWindowEvent::CloseRequested => {
+                            elwt.exit();
+                        }
                         WinitWindowEvent::RedrawRequested => {
-                            // Handle redraw
+                            // Handle redraw - emit a custom redraw event
+                            handler(Event::Window(WindowEvent::Resize { width: 0, height: 0 }));
                         }
                         _ => {
-                            let oxide_event = convert_window_event(event);
-                            if let Some(e) = oxide_event {
-                                handler(e);
+                            if let Some(oxide_event) = convert_window_event(event) {
+                                handler(oxide_event);
                             }
                         }
                     }
                 }
                 WinitEvent::AboutToWait => {
-                    // All events processed
+                    // Implement frame rate limiting
+                    let now = Instant::now();
+                    let frame_time = Duration::from_millis(16); // ~60 FPS
+                    
+                    if now.duration_since(last_update) >= frame_time {
+                        last_update = now;
+                        elwt.set_control_flow(ControlFlow::Poll);
+                    } else {
+                        elwt.set_control_flow(ControlFlow::WaitUntil(last_update + frame_time));
+                    }
                 }
                 WinitEvent::UserEvent(custom) => {
                     handler(custom.event);
                 }
                 _ => {}
             }
-        }).unwrap();
-        
-        // This should never be reached, but we need to satisfy the ! return type
-        std::process::exit(0);
+        }).expect("Event loop failed");
     }
 
     /// Run the event loop with a window
@@ -97,42 +117,68 @@ impl EventLoop {
         
         let mut window_created = false;
         let mut winit_window: Option<winit::window::Window> = None;
-        let mut needs_redraw = true; // Draw once on startup
+        let mut needs_redraw = true;
+        let mut last_update = Instant::now();
         
         self.inner.run(move |event, elwt| {
-            elwt.set_control_flow(ControlFlow::Wait);
-            
             // Create window on first iteration
             if !window_created {
-                if let Ok(window) = window_builder.build_winit(elwt) {
-                    winit_window = Some(window);
-                    window_created = true;
-                    needs_redraw = true;
+                match window_builder.build_winit(elwt) {
+                    Ok(window) => {
+                        winit_window = Some(window);
+                        window_created = true;
+                        needs_redraw = true;
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to create window: {}", e);
+                        elwt.exit();
+                        return;
+                    }
                 }
             }
             
             match event {
                 WinitEvent::WindowEvent { event, .. } => {
                     match event {
+                        WinitWindowEvent::CloseRequested => {
+                            handler(Event::Window(WindowEvent::Close));
+                            elwt.exit();
+                        }
                         WinitWindowEvent::RedrawRequested => {
-                            // Redraw occurred; do not schedule another automatically
+                            // Redraw completed
+                            needs_redraw = false;
+                        }
+                        WinitWindowEvent::Resized(physical_size) => {
+                            handler(Event::Window(WindowEvent::Resize {
+                                width: physical_size.width,
+                                height: physical_size.height,
+                            }));
+                            needs_redraw = true;
                         }
                         _ => {
-                            let oxide_event = convert_window_event(event);
-                            if let Some(e) = oxide_event {
-                                handler(e);
-                                needs_redraw = true; // Input/state changed, schedule redraw
+                            if let Some(oxide_event) = convert_window_event(event) {
+                                handler(oxide_event);
+                                needs_redraw = true;
                             }
                         }
                     }
                 }
                 WinitEvent::AboutToWait => {
-                    // Schedule redraw only if needed
-                    if needs_redraw {
+                    // Frame rate limiting and redraw scheduling
+                    let now = Instant::now();
+                    let frame_time = Duration::from_millis(16); // ~60 FPS
+                    
+                    if needs_redraw && now.duration_since(last_update) >= frame_time {
                         if let Some(ref window) = winit_window {
                             window.request_redraw();
-                            needs_redraw = false;
+                            last_update = now;
                         }
+                    }
+                    
+                    if needs_redraw {
+                        elwt.set_control_flow(ControlFlow::Poll);
+                    } else {
+                        elwt.set_control_flow(ControlFlow::WaitUntil(last_update + frame_time));
                     }
                 }
                 WinitEvent::UserEvent(custom) => {
@@ -141,10 +187,7 @@ impl EventLoop {
                 }
                 _ => {}
             }
-        }).unwrap();
-        
-        // This should never be reached, but we need to satisfy the ! return type
-        std::process::exit(0);
+        }).expect("Event loop failed");
     }
 
     /// Run the event loop with a window and application
@@ -155,60 +198,92 @@ impl EventLoop {
         
         let mut window_created = false;
         let mut winit_window: Option<winit::window::Window> = None;
-        // Do not persist a Renderer with a borrowed window across the 'static closure.
-        // We'll create a fresh Renderer for each redraw to avoid lifetime issues.
-        let mut needs_redraw = true; // Draw once on startup
+        let mut renderer: Option<Renderer> = None;
+        let mut needs_redraw = true;
+        let mut last_update = Instant::now();
         
         self.inner.run(move |event, elwt| {
-            elwt.set_control_flow(ControlFlow::Wait);
-            
             // Create window on first iteration
             if !window_created {
-                if let Ok(window) = window_builder.build_winit(elwt) {
-                    winit_window = Some(window);
-                    window_created = true;
-                    needs_redraw = true;
+                match window_builder.build_winit(elwt) {
+                    Ok(window) => {
+                        // Initialize renderer
+                        match pollster::block_on(Renderer::new(&window)) {
+                            Ok(r) => {
+                                renderer = Some(r);
+                                winit_window = Some(window);
+                                window_created = true;
+                                needs_redraw = true;
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to initialize renderer: {}", e);
+                                elwt.exit();
+                                return;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to create window: {}", e);
+                        elwt.exit();
+                        return;
+                    }
                 }
             }
             
             match event {
                 WinitEvent::WindowEvent { event, .. } => {
                     match event {
+                        WinitWindowEvent::CloseRequested => {
+                            app.handle_event(Event::Window(WindowEvent::Close));
+                            elwt.exit();
+                        }
                         WinitWindowEvent::RedrawRequested => {
-                            // Handle redraw - create a Renderer for this frame and render the application
-                            if let Some(ref window) = winit_window {
+                            // Handle redraw with proper error handling
+                            if let (Some(ref window), Some(ref mut r)) = (&winit_window, &mut renderer) {
                                 let size = window.inner_size();
-                                // Skip rendering if window has zero dimensions (e.g., during close)
                                 if size.width > 0 && size.height > 0 {
-                                    match pollster::block_on(Renderer::new(window)) {
-                                        Ok(mut r) => {
-                                            if let Err(e) = app.render(&mut r) {
-                                                eprintln!("Render error: {}", e);
-                                            }
-                                        }
-                                        Err(e) => {
-                                            eprintln!("Failed to initialize renderer: {}", e);
-                                        }
+                                    if let Err(e) = app.render(r) {
+                                        eprintln!("Render error: {}", e);
                                     }
                                 }
                             }
+                            needs_redraw = false;
+                        }
+                        WinitWindowEvent::Resized(physical_size) => {
+                            // Handle window resize
+                            if let Some(ref mut r) = renderer {
+                                r.resize(physical_size.width, physical_size.height);
+                            }
+                            app.handle_event(Event::Window(WindowEvent::Resize {
+                                width: physical_size.width,
+                                height: physical_size.height,
+                            }));
+                            needs_redraw = true;
                         }
                         _ => {
-                            let oxide_event = convert_window_event(event);
-                            if let Some(e) = oxide_event {
-                                app.handle_event(e);
-                                needs_redraw = true; // UI state may have changed
+                            if let Some(oxide_event) = convert_window_event(event) {
+                                app.handle_event(oxide_event);
+                                needs_redraw = true;
                             }
                         }
                     }
                 }
                 WinitEvent::AboutToWait => {
-                    // Schedule redraw only if needed
-                    if needs_redraw {
+                    // Frame rate limiting and redraw scheduling
+                    let now = Instant::now();
+                    let frame_time = Duration::from_millis(16); // ~60 FPS
+                    
+                    if needs_redraw && now.duration_since(last_update) >= frame_time {
                         if let Some(ref window) = winit_window {
                             window.request_redraw();
-                            needs_redraw = false;
+                            last_update = now;
                         }
+                    }
+                    
+                    if needs_redraw {
+                        elwt.set_control_flow(ControlFlow::Poll);
+                    } else {
+                        elwt.set_control_flow(ControlFlow::WaitUntil(last_update + frame_time));
                     }
                 }
                 WinitEvent::UserEvent(custom) => {
@@ -217,24 +292,82 @@ impl EventLoop {
                 }
                 _ => {}
             }
-        }).unwrap();
-        
-        // This should never be reached, but we need to satisfy the ! return type
-        std::process::exit(0);
+        }).expect("Event loop failed");
     }
 
-    /// Run the event loop (WebAssembly version)
+    /// Run the event loop for WASM
     #[cfg(target_arch = "wasm32")]
-    pub fn run<F>(self, handler: F)
+    pub fn run_wasm<F>(self, mut handler: F)
     where
         F: FnMut(Event) + 'static,
     {
-        // Web event loop is handled differently
-        // Events are dispatched through JavaScript callbacks
+        use wasm_bindgen::prelude::*;
+        use web_sys::{window, Document, Element};
+        
+        // Set up web event listeners
+        let window = window().expect("should have a window in this context");
+        let document = window.document().expect("window should have a document");
+        
+        // Mouse events
+        let handler_clone = std::rc::Rc::new(std::cell::RefCell::new(handler));
+        
+        // Example: mouse click handler
+        let handler_ref = handler_clone.clone();
+        let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+            let mouse_event = MouseEvent {
+                position: glam::Vec2::new(event.client_x() as f32, event.client_y() as f32),
+                button: Some(MouseButton::Left),
+                modifiers: Modifiers {
+                    shift: event.shift_key(),
+                    control: event.ctrl_key(),
+                    alt: event.alt_key(),
+                    super_key: event.meta_key(),
+                },
+                delta: glam::Vec2::ZERO,
+            };
+            handler_ref.borrow_mut()(Event::MouseDown(mouse_event));
+        }) as Box<dyn FnMut(_)>);
+        
+        document.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())
+            .expect("should register click handler");
+        closure.forget();
+        
+        // Start the animation loop
+        self.start_animation_loop();
+    }
+    
+    #[cfg(target_arch = "wasm32")]
+    fn start_animation_loop(&self) {
+        use wasm_bindgen::prelude::*;
+        use web_sys::window;
+        
+        let f = std::rc::Rc::new(std::cell::RefCell::new(None));
+        let g = f.clone();
+        
+        *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
+            // Animation frame logic here
+            
+            // Schedule next frame
+            if let Some(window) = window() {
+                window.request_animation_frame(f.borrow().as_ref().unwrap().as_ref().unchecked_ref())
+                    .expect("should register animation frame");
+            }
+        }) as Box<dyn FnMut()>));
+        
+        if let Some(window) = window() {
+            window.request_animation_frame(g.borrow().as_ref().unwrap().as_ref().unchecked_ref())
+                .expect("should register animation frame");
+        }
     }
 }
 
-/// Event loop proxy for sending events from other threads
+impl Default for EventLoop {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Event loop proxy for sending custom events
 pub struct EventLoopProxy {
     #[cfg(not(target_arch = "wasm32"))]
     inner: winit::event_loop::EventLoopProxy<CustomEvent>,
@@ -243,20 +376,18 @@ pub struct EventLoopProxy {
 }
 
 impl EventLoopProxy {
-    /// Send an event to the event loop
-    pub fn send_event(&self, event: Event) -> Result<(), EventLoopError> {
+    /// Send a custom event
+    pub fn send_event(&self, event: Event) -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.inner
-                .send_event(CustomEvent { event })
-                .map_err(|_| EventLoopError::SendFailed)
+            self.inner.send_event(CustomEvent { event })
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
         }
         
         #[cfg(target_arch = "wasm32")]
         {
-            self.sender
-                .send(event)
-                .map_err(|_| EventLoopError::SendFailed)
+            self.sender.send(event)
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
         }
     }
 }

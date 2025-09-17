@@ -9,6 +9,11 @@ pub mod state;
 pub mod reactive;
 pub mod types;
 pub mod error;
+pub mod vdom;
+pub mod widget;
+pub mod window;
+pub mod hot_reload;
+pub mod theme;
 
 pub use event::{Event, EventHandler, EventResult};
 pub use layout::{Constraints, Layout, LayoutEngine, Size};

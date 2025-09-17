@@ -1,22 +1,15 @@
-//! Draw command batching for efficient rendering
+//! Render batching system for efficient GPU rendering
 
-use oxide_core::types::{Color, Rect, Transform, Point};
+use std::collections::HashMap;
+use oxide_core::types::{Color, Rect, Transform};
 use crate::vertex::Vertex;
-use smallvec::SmallVec;
 
 /// Draw command types
 #[derive(Debug, Clone)]
 pub enum DrawCommand {
-    /// Draw a solid rectangle
+    /// Draw a filled rectangle
     Rect {
         rect: Rect,
-        color: Color,
-        transform: Transform,
-    },
-    /// Draw a textured rectangle
-    TexturedRect {
-        rect: Rect,
-        texture_id: u32,
         color: Color,
         transform: Transform,
     },
@@ -27,227 +20,342 @@ pub enum DrawCommand {
         color: Color,
         font_size: f32,
     },
-    /// Draw a path
-    Path {
-        vertices: Vec<Vertex>,
-        indices: Vec<u32>,
+    /// Draw a textured quad
+    TexturedQuad {
+        rect: Rect,
+        texture_id: u32,
+        uv_rect: Rect,
         color: Color,
         transform: Transform,
     },
-    /// Set clip rectangle
-    SetClip(Option<Rect>),
-    /// Push transform
-    PushTransform(Transform),
-    /// Pop transform
-    PopTransform,
-}
-
-/// A contiguous slice of the index buffer that shares the same clip state
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct DrawSegment {
-    pub start_index: u32,
-    pub index_count: u32,
-    pub clip: Option<Rect>,
+    /// Draw a circle
+    Circle {
+        center: (f32, f32),
+        radius: f32,
+        color: Color,
+        segments: u32,
+    },
+    /// Draw a line
+    Line {
+        start: (f32, f32),
+        end: (f32, f32),
+        color: Color,
+        thickness: f32,
+    },
 }
 
 /// Render batch for collecting draw commands
 pub struct RenderBatch {
+    pub vertices: Vec<Vertex>,
+    pub indices: Vec<u16>,
     commands: Vec<DrawCommand>,
-    vertices: Vec<Vertex>,
-    indices: Vec<u32>,
-    segments: Vec<DrawSegment>,
-    transform_stack: SmallVec<[Transform; 8]>,
-    clip_stack: SmallVec<[Option<Rect>; 8]>,
+    vertex_count: u16,
+    texture_atlas: HashMap<u32, TextureInfo>,
+}
+
+/// Texture information for batching
+#[derive(Debug, Clone)]
+struct TextureInfo {
+    width: u32,
+    height: u32,
+    format: wgpu::TextureFormat,
 }
 
 impl RenderBatch {
     /// Create a new render batch
     pub fn new() -> Self {
         Self {
+            vertices: Vec::with_capacity(1024),
+            indices: Vec::with_capacity(1536),
             commands: Vec::new(),
-            vertices: Vec::new(),
-            indices: Vec::new(),
-            segments: Vec::new(),
-            transform_stack: SmallVec::from_elem(Transform::identity(), 1),
-            clip_stack: SmallVec::from_elem(None, 1),
+            vertex_count: 0,
+            texture_atlas: HashMap::new(),
         }
-    }
-
-    /// Add a draw command
-    pub fn add_command(&mut self, command: DrawCommand) {
-        self.commands.push(command);
-    }
-
-    /// Draw a rectangle
-    pub fn draw_rect(&mut self, rect: Rect, color: Color) {
-        let transform = self.current_transform();
-        let clip = *self.clip_stack.last().unwrap();
-
-        self.add_command(DrawCommand::Rect {
-            rect,
-            color,
-            transform,
-        });
-        
-        // Generate transformed vertices (CPU-baked)
-        // Original corners (top-left, top-right, bottom-right, bottom-left)
-        let p0 = transform.transform_point(Point::new(rect.x, rect.y));
-        let p1 = transform.transform_point(Point::new(rect.x + rect.width, rect.y));
-        let p2 = transform.transform_point(Point::new(rect.x + rect.width, rect.y + rect.height));
-        let p3 = transform.transform_point(Point::new(rect.x, rect.y + rect.height));
-
-        // Base vertex index for this rect (before pushing 4 vertices)
-        let base_vertex = self.vertices.len() as u32;
-
-        self.vertices.push(Vertex::new([p0.x, p0.y, 0.0], color, [0.0, 0.0]));
-        self.vertices.push(Vertex::new([p1.x, p1.y, 0.0], color, [1.0, 0.0]));
-        self.vertices.push(Vertex::new([p2.x, p2.y, 0.0], color, [1.0, 1.0]));
-        self.vertices.push(Vertex::new([p3.x, p3.y, 0.0], color, [0.0, 1.0]));
-        
-        // Indices for two triangles. start_index is the offset into the index buffer (used by draw_indexed),
-        // while values we push reference vertex indices via base_vertex.
-        let start_index = self.indices.len() as u32;
-        self.indices.extend_from_slice(&[
-            base_vertex + 0, base_vertex + 1, base_vertex + 2,
-            base_vertex + 0, base_vertex + 2, base_vertex + 3,
-        ]);
-
-        // Update segments: merge with last if same clip, else start a new segment
-        let added = 6u32;
-        match self.segments.last_mut() {
-            Some(last) if last.clip == clip => {
-                last.index_count += added;
-            }
-            _ => {
-                self.segments.push(DrawSegment { start_index, index_count: added, clip });
-            }
-        }
-    }
-
-    /// Draw a rounded rectangle
-    pub fn draw_rounded_rect(&mut self, rect: Rect, color: Color, _radius: f32) {
-        // For now, just draw a regular rect
-        // TODO: Implement proper rounded rectangle with lyon
-        self.draw_rect(rect, color);
-    }
-
-    /// Draw text
-    pub fn draw_text(&mut self, text: &str, position: (f32, f32), color: Color, font_size: f32) {
-        let _transform = self.current_transform();
-        self.add_command(DrawCommand::Text {
-            text: text.to_string(),
-            position,
-            color,
-            font_size,
-        });
-        // Geometry for text will be generated by TextRenderer in a later step
-    }
-
-    /// Push a transform
-    pub fn push_transform(&mut self, transform: Transform) {
-        let current = self.current_transform();
-        self.transform_stack.push(current.combine(&transform));
-        self.add_command(DrawCommand::PushTransform(transform));
-    }
-
-    /// Pop a transform
-    pub fn pop_transform(&mut self) {
-        if self.transform_stack.len() > 1 {
-            self.transform_stack.pop();
-            self.add_command(DrawCommand::PopTransform);
-        }
-    }
-
-    /// Set clip rectangle
-    pub fn set_clip(&mut self, clip: Option<Rect>) {
-        self.clip_stack.push(clip);
-        self.add_command(DrawCommand::SetClip(clip));
-    }
-
-    /// Clear clip rectangle
-    pub fn clear_clip(&mut self) {
-        if self.clip_stack.len() > 1 {
-            self.clip_stack.pop();
-            let prev_clip = self.clip_stack.last().copied().flatten();
-            self.add_command(DrawCommand::SetClip(prev_clip));
-        }
-    }
-
-    /// Get current transform
-    fn current_transform(&self) -> Transform {
-        *self.transform_stack.last().unwrap()
     }
 
     /// Clear the batch
     pub fn clear(&mut self) {
-        self.commands.clear();
         self.vertices.clear();
         self.indices.clear();
-        self.segments.clear();
-        self.transform_stack.clear();
-        self.transform_stack.push(Transform::identity());
-        self.clip_stack.clear();
-        self.clip_stack.push(None);
+        self.commands.clear();
+        self.vertex_count = 0;
     }
 
-    /// Get vertices
-    pub fn vertices(&self) -> &[Vertex] {
-        &self.vertices
+    /// Add a rectangle to the batch
+    pub fn add_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
+        let command = DrawCommand::Rect { rect, color, transform };
+        self.commands.push(command);
+        self.batch_rect(rect, color, transform);
     }
 
-    /// Get indices
-    pub fn indices(&self) -> &[u32] {
-        &self.indices
+    /// Add text to the batch
+    pub fn add_text(&mut self, text: String, position: (f32, f32), color: Color, font_size: f32) {
+        let command = DrawCommand::Text { text, position, color, font_size };
+        self.commands.push(command);
+        // Text batching will be implemented with the text renderer
     }
 
-    /// Get commands
-    pub fn commands(&self) -> &[DrawCommand] {
-        &self.commands
+    /// Add a textured quad to the batch
+    pub fn add_textured_quad(
+        &mut self,
+        rect: Rect,
+        texture_id: u32,
+        uv_rect: Rect,
+        color: Color,
+        transform: Transform,
+    ) {
+        let command = DrawCommand::TexturedQuad {
+            rect,
+            texture_id,
+            uv_rect,
+            color,
+            transform,
+        };
+        self.commands.push(command);
+        self.batch_textured_quad(rect, uv_rect, color, transform);
     }
 
-    /// Get draw segments
-    pub fn segments(&self) -> &[DrawSegment] {
-        &self.segments
+    /// Add a circle to the batch
+    pub fn add_circle(&mut self, center: (f32, f32), radius: f32, color: Color, segments: u32) {
+        let command = DrawCommand::Circle { center, radius, color, segments };
+        self.commands.push(command);
+        self.batch_circle(center, radius, color, segments);
     }
 
-    /// Check if batch is empty
-    pub fn is_empty(&self) -> bool {
-        self.commands.is_empty()
+    /// Add a line to the batch
+    pub fn add_line(&mut self, start: (f32, f32), end: (f32, f32), color: Color, thickness: f32) {
+        let command = DrawCommand::Line { start, end, color, thickness };
+        self.commands.push(command);
+        self.batch_line(start, end, color, thickness);
     }
 
-    /// Get rendering statistics
-    pub fn stats(&self) -> BatchStats {
-        BatchStats {
-            vertex_count: self.vertices.len(),
-            index_count: self.indices.len(),
-            command_count: self.commands.len(),
-            draw_call_count: self.segments.len(),
-        }
-    }
-
-    /// Calculate number of draw calls (deprecated by segments)
-    fn calculate_draw_calls(&self) -> usize {
-        // Kept for compatibility with earlier versions; not used in stats anymore
-        // Simple heuristic: group consecutive similar commands
-        let mut draw_calls = 0;
-        let mut last_type = None;
+    /// Batch a rectangle into vertices and indices
+    fn batch_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
+        let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
         
-        for cmd in &self.commands {
-            let cmd_type = match cmd {
-                DrawCommand::Rect { .. } => 0,
-                DrawCommand::TexturedRect { .. } => 1,
-                DrawCommand::Text { .. } => 2,
-                DrawCommand::Path { .. } => 3,
-                _ => 4,
-            };
+        // Apply transform to vertices
+        let positions = [
+            self.apply_transform([x, y], transform),
+            self.apply_transform([x + w, y], transform),
+            self.apply_transform([x + w, y + h], transform),
+            self.apply_transform([x, y + h], transform),
+        ];
+
+        // Create vertices
+        let vertices = [
+            Vertex {
+                position: positions[0],
+                tex_coords: [0.0, 0.0],
+                color: [color.r, color.g, color.b, color.a],
+            },
+            Vertex {
+                position: positions[1],
+                tex_coords: [1.0, 0.0],
+                color: [color.r, color.g, color.b, color.a],
+            },
+            Vertex {
+                position: positions[2],
+                tex_coords: [1.0, 1.0],
+                color: [color.r, color.g, color.b, color.a],
+            },
+            Vertex {
+                position: positions[3],
+                tex_coords: [0.0, 1.0],
+                color: [color.r, color.g, color.b, color.a],
+            },
+        ];
+
+        // Add vertices
+        self.vertices.extend_from_slice(&vertices);
+
+        // Add indices for two triangles
+        let base = self.vertex_count;
+        self.indices.extend_from_slice(&[
+            base, base + 1, base + 2,
+            base, base + 2, base + 3,
+        ]);
+
+        self.vertex_count += 4;
+    }
+
+    /// Batch a textured quad
+    fn batch_textured_quad(&mut self, rect: Rect, uv_rect: Rect, color: Color, transform: Transform) {
+        let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
+        let (u, v, uw, vh) = (uv_rect.x, uv_rect.y, uv_rect.width, uv_rect.height);
+        
+        // Apply transform to vertices
+        let positions = [
+            self.apply_transform([x, y], transform),
+            self.apply_transform([x + w, y], transform),
+            self.apply_transform([x + w, y + h], transform),
+            self.apply_transform([x, y + h], transform),
+        ];
+
+        // Create vertices with UV coordinates
+        let vertices = [
+            Vertex {
+                position: positions[0],
+                tex_coords: [u, v],
+                color: [color.r, color.g, color.b, color.a],
+            },
+            Vertex {
+                position: positions[1],
+                tex_coords: [u + uw, v],
+                color: [color.r, color.g, color.b, color.a],
+            },
+            Vertex {
+                position: positions[2],
+                tex_coords: [u + uw, v + vh],
+                color: [color.r, color.g, color.b, color.a],
+            },
+            Vertex {
+                position: positions[3],
+                tex_coords: [u, v + vh],
+                color: [color.r, color.g, color.b, color.a],
+            },
+        ];
+
+        self.vertices.extend_from_slice(&vertices);
+
+        let base = self.vertex_count;
+        self.indices.extend_from_slice(&[
+            base, base + 1, base + 2,
+            base, base + 2, base + 3,
+        ]);
+
+        self.vertex_count += 4;
+    }
+
+    /// Batch a circle
+    fn batch_circle(&mut self, center: (f32, f32), radius: f32, color: Color, segments: u32) {
+        let (cx, cy) = center;
+        
+        // Center vertex
+        self.vertices.push(Vertex {
+            position: [cx, cy],
+            tex_coords: [0.5, 0.5],
+            color: [color.r, color.g, color.b, color.a],
+        });
+
+        let center_index = self.vertex_count;
+        self.vertex_count += 1;
+
+        // Generate circle vertices
+        for i in 0..=segments {
+            let angle = (i as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
+            let x = cx + radius * angle.cos();
+            let y = cy + radius * angle.sin();
             
-            if Some(cmd_type) != last_type {
-                draw_calls += 1;
-                last_type = Some(cmd_type);
+            self.vertices.push(Vertex {
+                position: [x, y],
+                tex_coords: [0.5 + 0.5 * angle.cos(), 0.5 + 0.5 * angle.sin()],
+                color: [color.r, color.g, color.b, color.a],
+            });
+
+            if i > 0 {
+                self.indices.extend_from_slice(&[
+                    center_index,
+                    self.vertex_count - 1,
+                    self.vertex_count,
+                ]);
             }
+
+            self.vertex_count += 1;
+        }
+    }
+
+    /// Batch a line as a rectangle
+    fn batch_line(&mut self, start: (f32, f32), end: (f32, f32), color: Color, thickness: f32) {
+        let (x1, y1) = start;
+        let (x2, y2) = end;
+        
+        // Calculate line direction and perpendicular
+        let dx = x2 - x1;
+        let dy = y2 - y1;
+        let length = (dx * dx + dy * dy).sqrt();
+        
+        if length == 0.0 {
+            return;
         }
         
-        draw_calls
+        let nx = -dy / length * thickness * 0.5;
+        let ny = dx / length * thickness * 0.5;
+
+        // Create line vertices
+        let vertices = [
+            Vertex {
+                position: [x1 + nx, y1 + ny],
+                tex_coords: [0.0, 0.0],
+                color: [color.r, color.g, color.b, color.a],
+            },
+            Vertex {
+                position: [x2 + nx, y2 + ny],
+                tex_coords: [1.0, 0.0],
+                color: [color.r, color.g, color.b, color.a],
+            },
+            Vertex {
+                position: [x2 - nx, y2 - ny],
+                tex_coords: [1.0, 1.0],
+                color: [color.r, color.g, color.b, color.a],
+            },
+            Vertex {
+                position: [x1 - nx, y1 - ny],
+                tex_coords: [0.0, 1.0],
+                color: [color.r, color.g, color.b, color.a],
+            },
+        ];
+
+        self.vertices.extend_from_slice(&vertices);
+
+        let base = self.vertex_count;
+        self.indices.extend_from_slice(&[
+            base, base + 1, base + 2,
+            base, base + 2, base + 3,
+        ]);
+
+        self.vertex_count += 4;
+    }
+
+    /// Apply transform to a position
+    fn apply_transform(&self, pos: [f32; 2], transform: Transform) -> [f32; 2] {
+        let x = pos[0] * transform.scale.x + transform.translation.x;
+        let y = pos[1] * transform.scale.y + transform.translation.y;
+        
+        // Apply rotation if needed
+        if transform.rotation != 0.0 {
+            let cos_r = transform.rotation.cos();
+            let sin_r = transform.rotation.sin();
+            let rx = x * cos_r - y * sin_r;
+            let ry = x * sin_r + y * cos_r;
+            [rx, ry]
+        } else {
+            [x, y]
+        }
+    }
+
+    /// Get the number of draw calls
+    pub fn draw_call_count(&self) -> usize {
+        self.commands.len()
+    }
+
+    /// Get the number of vertices
+    pub fn vertex_count(&self) -> usize {
+        self.vertices.len()
+    }
+
+    /// Get the number of triangles
+    pub fn triangle_count(&self) -> usize {
+        self.indices.len() / 3
+    }
+
+    /// Register a texture in the atlas
+    pub fn register_texture(&mut self, id: u32, width: u32, height: u32, format: wgpu::TextureFormat) {
+        self.texture_atlas.insert(id, TextureInfo { width, height, format });
+    }
+
+    /// Get texture info
+    pub fn get_texture_info(&self, id: u32) -> Option<&TextureInfo> {
+        self.texture_atlas.get(&id)
     }
 }
 
@@ -257,11 +365,52 @@ impl Default for RenderBatch {
     }
 }
 
-/// Batch statistics
-#[derive(Debug, Clone)]
-pub struct BatchStats {
-    pub command_count: usize,
-    pub vertex_count: usize,
-    pub index_count: usize,
-    pub draw_call_count: usize,
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use oxide_core::types::{Vec2, Color};
+
+    #[test]
+    fn test_batch_rect() {
+        let mut batch = RenderBatch::new();
+        let rect = Rect::new(10.0, 20.0, 100.0, 50.0);
+        let color = Color::new(1.0, 0.0, 0.0, 1.0);
+        let transform = Transform::default();
+
+        batch.add_rect(rect, color, transform);
+
+        assert_eq!(batch.vertex_count(), 4);
+        assert_eq!(batch.triangle_count(), 2);
+        assert_eq!(batch.draw_call_count(), 1);
+    }
+
+    #[test]
+    fn test_batch_circle() {
+        let mut batch = RenderBatch::new();
+        let center = (50.0, 50.0);
+        let radius = 25.0;
+        let color = Color::new(0.0, 1.0, 0.0, 1.0);
+        let segments = 16;
+
+        batch.add_circle(center, radius, color, segments);
+
+        assert_eq!(batch.vertex_count(), segments as usize + 2); // center + perimeter + closing
+        assert_eq!(batch.draw_call_count(), 1);
+    }
+
+    #[test]
+    fn test_clear_batch() {
+        let mut batch = RenderBatch::new();
+        let rect = Rect::new(0.0, 0.0, 10.0, 10.0);
+        let color = Color::WHITE;
+        let transform = Transform::default();
+
+        batch.add_rect(rect, color, transform);
+        assert!(!batch.vertices.is_empty());
+
+        batch.clear();
+        assert!(batch.vertices.is_empty());
+        assert!(batch.indices.is_empty());
+        assert_eq!(batch.draw_call_count(), 0);
+    }
 }
