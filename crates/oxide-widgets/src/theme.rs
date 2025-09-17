@@ -268,7 +268,7 @@ impl Default for ShadowStyles {
 #[derive(Debug, Clone)]
 pub struct ComponentThemes {
     pub button: HashMap<String, crate::button::ButtonStyle>,
-    pub input: HashMap<String, crate::input::TextInputStyle>,
+    pub input: HashMap<String, crate::input::InputStyle>,
 }
 
 impl ComponentThemes {
@@ -280,8 +280,8 @@ impl ComponentThemes {
         button.insert("text".to_string(), crate::button::ButtonStyle::ghost());
 
         let mut input = HashMap::new();
-        input.insert("outlined".to_string(), crate::input::TextInputStyle::outlined());
-        input.insert("filled".to_string(), crate::input::TextInputStyle::filled());
+        input.insert("outlined".to_string(), crate::input::InputStyle::outlined());
+        input.insert("filled".to_string(), crate::input::InputStyle::filled());
 
         Self { button, input }
     }

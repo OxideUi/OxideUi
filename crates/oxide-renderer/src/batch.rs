@@ -394,7 +394,7 @@ mod tests {
     fn test_batch_rect() {
         let mut batch = RenderBatch::new();
         let rect = Rect::new(10.0, 20.0, 100.0, 50.0);
-        let color = Color::new(1.0, 0.0, 0.0, 1.0);
+        let color = Color::rgba(1.0, 0.0, 0.0, 1.0);
         let transform = Transform::default();
 
         batch.add_rect(rect, color, transform);
@@ -409,7 +409,7 @@ mod tests {
         let mut batch = RenderBatch::new();
         let center = (50.0, 50.0);
         let radius = 25.0;
-        let color = Color::new(0.0, 1.0, 0.0, 1.0);
+        let color = Color::rgba(0.0, 1.0, 0.0, 1.0);
         let segments = 16;
 
         batch.add_circle(center, radius, color, segments);

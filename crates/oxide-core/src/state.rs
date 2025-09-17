@@ -278,6 +278,15 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
     }
 }
 
+impl<T: Clone + Send + Sync + 'static + std::fmt::Debug> std::fmt::Debug for Signal<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Signal")
+            .field("id", &self.id)
+            .field("value", &self.peek())
+            .finish()
+    }
+}
+
 impl<T: Clone + Send + Sync + 'static> Clone for Signal<T> {
     fn clone(&self) -> Self {
         Self {

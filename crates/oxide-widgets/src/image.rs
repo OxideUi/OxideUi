@@ -3,12 +3,13 @@
 //! Supports various image formats, scaling modes, and loading states.
 
 use oxide_core::{
-    event::{Event, EventResult, MouseEvent},
-    layout::{Constraints, Size, LayoutNode},
+    event::{Event, EventResult},
+    layout::{Constraints, Size, Layout},
+    types::{Rect, Color},
     vdom::VNode,
-    widget::{Widget, WidgetContext, WidgetId},
-    types::{Color, Rect},
 };
+use oxide_renderer::batch::RenderBatch;
+use crate::widget::{Widget, WidgetId, WidgetContext, generate_id};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -36,7 +37,7 @@ pub enum ImageState {
 }
 
 /// Image data representation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ImageData {
     pub width: u32,
     pub height: u32,
@@ -389,44 +390,60 @@ impl Widget for Image {
         self.id
     }
 
-    fn handle_event(&mut self, event: &Event, _context: &mut WidgetContext) -> oxide_core::OxideResult<bool> {
+    fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
-            Event::MouseDown(MouseEvent::Click { .. }) => {
-                if let Some(callback) = &self.on_click {
-                    callback();
-                    Ok(true)
-                } else {
-                    Ok(false)
-                }
+            Event::MouseMove(_mouse_event) => {
+                // Handle mouse move for hover effects
+                EventResult::Handled
             }
-            _ => Ok(false),
+            Event::MouseDown(_mouse_event) => {
+                // Handle mouse down for click effects
+                if let Some(ref on_click) = self.on_click {
+                    on_click();
+                }
+                EventResult::Handled
+            }
+            _ => EventResult::Ignored,
         }
     }
 
-    fn update(&mut self, _context: &mut WidgetContext) -> oxide_core::OxideResult<()> {
-        Ok(())
+    fn update(&mut self, _context: &WidgetContext) {
+        // Update widget state if needed
     }
 
-    fn layout(&mut self, constraints: &oxide_core::layout::LayoutConstraints, _context: &mut WidgetContext) -> oxide_core::OxideResult<oxide_core::layout::Size> {
-        let size = match &self.state {
+    fn layout(&mut self, constraints: Constraints) -> Size {
+        match &self.state {
             ImageState::Loaded(data) => {
                 let image_size = Size::new(data.width as f32, data.height as f32);
-                let container_size = constraints.max;
+                let container_size = Size::new(constraints.max_width, constraints.max_height);
                 let (display_size, _) = self.calculate_display_size(container_size, image_size);
                 Size::new(
-                    display_size.width.min(constraints.max.width),
-                    display_size.height.min(constraints.max.height),
+                    display_size.width.min(constraints.max_width),
+                    display_size.height.min(constraints.max_height),
                 )
             }
-            _ => constraints.max,
-        };
-
-        Ok(size)
+            _ => Size::new(constraints.max_width, constraints.max_height),
+        }
     }
 
-    fn render(&self, _context: &WidgetContext) -> oxide_core::OxideResult<()> {
+    fn render(&self, _batch: &mut RenderBatch, _layout: Layout) {
         // Rendering is handled by the platform layer
-        Ok(())
+        // TODO: Implement actual image rendering
+    }
+
+    fn clone_widget(&self) -> Box<dyn Widget> {
+        Box::new(Image {
+            id: self.id,
+            source: self.source.clone(),
+            style: self.style.clone(),
+            state: self.state.clone(),
+            alt_text: self.alt_text.clone(),
+            on_load: None, // Cannot clone function pointers
+            on_error: None, // Cannot clone function pointers
+            on_click: None, // Cannot clone function pointers
+            loading_placeholder: self.loading_placeholder.clone(),
+            error_placeholder: self.error_placeholder.clone(),
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

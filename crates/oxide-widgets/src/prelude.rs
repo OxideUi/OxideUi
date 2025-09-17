@@ -11,7 +11,7 @@ pub use crate::widget::{Widget, WidgetId, WidgetState};
 
 // Layout widgets
 pub use crate::container::Container;
-pub use crate::layout::{Column, Row};
+pub use crate::layout::{Column, Row, MainAxisAlignment, CrossAxisAlignment};
 
 // Basic widgets
 pub use crate::text::Text;
@@ -22,4 +22,4 @@ pub use crate::input::TextInput;
 pub use crate::theme::{Theme, ColorPalette, Typography};
 
 // Common layout types from oxide-core
-pub use oxide_core::layout::{MainAxisAlignment, CrossAxisAlignment, EdgeInsets};
+pub use oxide_core::layout::EdgeInsets;

@@ -40,6 +40,35 @@ pub enum KeyCode {
     Delete, Insert, Home, End, PageUp, PageDown,
 }
 
+/// High-level key event for text input and navigation
+#[derive(Debug, Clone, PartialEq)]
+pub enum KeyEvent {
+    /// Character input
+    Char(char),
+    /// Backspace key
+    Backspace,
+    /// Delete key
+    Delete,
+    /// Enter key
+    Enter,
+    /// Left arrow
+    Left,
+    /// Right arrow
+    Right,
+    /// Up arrow
+    Up,
+    /// Down arrow
+    Down,
+    /// Home key
+    Home,
+    /// End key
+    End,
+    /// Tab key
+    Tab,
+    /// Escape key
+    Escape,
+}
+
 /// Keyboard modifiers
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Modifiers {

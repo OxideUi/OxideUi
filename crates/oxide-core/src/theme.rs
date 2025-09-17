@@ -100,6 +100,11 @@ impl Color {
         }
     }
 
+    /// Convert to array format [r, g, b, a] for renderer compatibility
+    pub fn to_array(&self) -> [f32; 4] {
+        [self.r, self.g, self.b, self.a]
+    }
+
     /// Mix with another color
     pub fn mix(&self, other: &Color, factor: f32) -> Self {
         let factor = factor.clamp(0.0, 1.0);
@@ -119,11 +124,6 @@ impl Color {
             b: self.b,
             a: self.a,
         }
-    }
-
-    /// Convert to array for GPU usage
-    pub fn to_array(&self) -> [f32; 4] {
-        [self.r, self.g, self.b, self.a]
     }
 }
 

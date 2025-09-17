@@ -3,10 +3,31 @@
 use crate::widget::{Widget, WidgetId, generate_id};
 use oxide_core::{
     event::{Event, EventResult},
-    layout::{Constraints, Layout, Size, MainAxisAlignment, CrossAxisAlignment, Direction, FlexItem, FlexContainer, FlexDirection, JustifyContent, AlignItems},
+    layout::{Constraints, Layout, Size, FlexItem, FlexContainer, FlexDirection, JustifyContent, AlignItems},
 };
 use oxide_renderer::batch::RenderBatch;
 use std::any::Any;
+
+/// Main axis alignment for flex layouts
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MainAxisAlignment {
+    Start,
+    Center,
+    End,
+    SpaceBetween,
+    SpaceAround,
+    SpaceEvenly,
+}
+
+/// Cross axis alignment for flex layouts
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CrossAxisAlignment {
+    Start,
+    Center,
+    End,
+    Stretch,
+    Baseline,
+}
 
 /// Row widget for horizontal layout
 #[derive(Debug)]

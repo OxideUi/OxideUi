@@ -3,17 +3,17 @@
 //! Provides text display components with various styles, formatting, and layout options.
 
 use oxide_core::{
-    layout::{Rect, Size, Constraints, Layout},
+    layout::{Size, Constraints, Layout},
+    types::{Rect, Color, Point},
     state::{Signal},
-    theme::{Theme, Color},
-    types::{Point},
+    theme::{Theme},
     event::{Event, EventResult},
 };
 use oxide_renderer::{
     vertex::{Vertex, VertexBuilder},
     batch::RenderBatch,
 };
-use crate::widget::{Widget, WidgetId, generate_id, WidgetContext};
+use crate::widget::{Widget, WidgetId, generate_id};
 use std::{sync::Arc, any::Any};
 
 /// Text alignment options
@@ -228,6 +228,7 @@ impl TextSpan {
 }
 
 /// Text widget
+#[derive(Debug)]
 pub struct Text {
     id: WidgetId,
     content: String,
@@ -358,10 +359,7 @@ impl Text {
         self
     }
 
-    /// Get text ID
-    pub fn id(&self) -> &str {
-        &self.id
-    }
+
 
     /// Get text content
     pub fn content(&self) -> &str {
@@ -550,7 +548,7 @@ impl Text {
                     bounds.y,
                     selection_width,
                     bounds.height,
-                    selection_color.to_array(),
+                    selection_color,
                 );
                 batch.add_vertices(&vertices, &indices);
             }
@@ -575,7 +573,7 @@ impl Text {
         batch.add_text(
             self.content.clone(),
             (text_x, text_y),
-            self.style.color.to_types_color(),
+            self.style.color,
             self.style.font_size,
         );
         
@@ -595,7 +593,7 @@ impl Text {
                 text_x + text_width,
                 decoration_y,
                 1.0,
-                self.style.decoration_color.to_array(),
+                self.style.decoration_color,
             );
             batch.add_vertices(&vertices, &indices);
         }
@@ -609,7 +607,7 @@ impl Text {
                 batch.add_text(
                     span_text.to_string(),
                     (span_x, text_y),
-                    span_style.color.to_types_color(),
+                    span_style.color,
                     span_style.font_size,
                 );
             }
@@ -773,8 +771,8 @@ impl Widget for Text {
         // Render text
         batch.add_text(
             self.content.clone(),
-            (bounds.x, bounds.y),
-            self.style.color.to_types_color(),
+            (bounds.0, bounds.1),
+            Color::rgba(self.style.color.r, self.style.color.g, self.style.color.b, self.style.color.a),
             self.style.font_size,
         );
     }

@@ -1,19 +1,18 @@
 //! Dropdown and Select widgets implementation for OxideUI
 
-use crate::widget::{Widget, WidgetId, WidgetState, WidgetContext, generate_id};
-use crate::theme::Theme;
+use crate::widget::{Widget, WidgetId, generate_id};
 use oxide_core::{
-    event::{Event, MouseEvent, MouseButton, KeyboardEvent, KeyCode, EventResult},
+    event::{Event, EventResult, KeyCode, KeyboardEvent, MouseEvent, MouseButton},
     layout::{Size, Constraints, Layout},
     state::Signal,
-    vdom::{VNode, VNodeBuilder},
+    types::Rect,
+    vdom::VNode,
 };
-use glam::Vec2;
-use std::sync::Arc;
+use oxide_renderer::batch::RenderBatch;
 
 /// Dropdown/Select widget for choosing from a list of options
 #[derive(Debug, Clone)]
-pub struct Dropdown<T: Clone + PartialEq + std::fmt::Display> {
+pub struct Dropdown<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> {
     id: WidgetId,
     options: Vec<DropdownOption<T>>,
     selected_index: Signal<Option<usize>>,
@@ -30,7 +29,7 @@ pub struct Dropdown<T: Clone + PartialEq + std::fmt::Display> {
 
 /// Option in a dropdown
 #[derive(Debug, Clone)]
-pub struct DropdownOption<T: Clone + PartialEq + std::fmt::Display> {
+pub struct DropdownOption<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> {
     pub value: T,
     pub label: String,
     pub enabled: bool,
@@ -76,7 +75,7 @@ impl Default for DropdownStyle {
     }
 }
 
-impl<T: Clone + PartialEq + std::fmt::Display> DropdownOption<T> {
+impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> DropdownOption<T> {
     /// Create a new dropdown option
     pub fn new(value: T, label: String) -> Self {
         Self {
@@ -104,7 +103,7 @@ impl<T: Clone + PartialEq + std::fmt::Display> DropdownOption<T> {
     }
 }
 
-impl<T: Clone + PartialEq + std::fmt::Display> Dropdown<T> {
+impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Dropdown<T> {
     /// Create a new dropdown
     pub fn new() -> Self {
         Self {
@@ -148,7 +147,7 @@ impl<T: Clone + PartialEq + std::fmt::Display> Dropdown<T> {
     }
 
     /// Set the selected value
-    pub fn selected(mut self, value: T) -> Self {
+    pub fn selected(self, value: T) -> Self {
         if let Some(index) = self.options.iter().position(|opt| opt.value == value) {
             self.selected_index.set(Some(index));
         }
@@ -268,36 +267,35 @@ impl<T: Clone + PartialEq + std::fmt::Display> Dropdown<T> {
     }
 
     /// Handle mouse events
-    fn handle_mouse_event(&self, event: &MouseEvent, bounds: oxide_core::layout::Rect) -> EventResult {
+    fn handle_mouse_event(&self, event: &MouseEvent, bounds: Rect) -> EventResult {
         if !self.enabled {
             return EventResult::Ignored;
         }
 
-        match event {
-            MouseEvent::Press { button: MouseButton::Left, position } => {
-                if self.is_open() {
-                    // Check if clicking on an option
-                    let dropdown_y = bounds.y + self.height;
-                    let option_height = self.height;
-                    let filtered_options = self.filtered_options();
-                    
-                    if position.y >= dropdown_y {
-                        let option_index = ((position.y - dropdown_y) / option_height) as usize;
-                        if let Some((original_index, _)) = filtered_options.get(option_index) {
-                            self.select_index(*original_index);
-                            return EventResult::Handled;
-                        }
+        if let Some(MouseButton::Left) = event.button {
+            if self.is_open() {
+                // Check if clicking on an option
+                let dropdown_y = bounds.y + self.height;
+                let option_height = self.height;
+                let filtered_options = self.filtered_options();
+                
+                if event.position.y >= dropdown_y {
+                    let option_index = ((event.position.y - dropdown_y) / option_height) as usize;
+                    if let Some((original_index, _)) = filtered_options.get(option_index) {
+                        self.select_index(*original_index);
+                        return EventResult::Handled;
                     }
-                    
-                    // Click outside dropdown - close it
-                    self.close();
-                } else {
-                    // Click on dropdown button - open it
-                    self.toggle();
                 }
-                EventResult::Handled
+                
+                // Click outside dropdown - close it
+                self.close();
+            } else {
+                // Click on dropdown button - open it
+                self.toggle();
             }
-            _ => EventResult::Ignored,
+            EventResult::Handled
+        } else {
+            EventResult::Ignored
         }
     }
 
@@ -307,8 +305,8 @@ impl<T: Clone + PartialEq + std::fmt::Display> Dropdown<T> {
             return EventResult::Ignored;
         }
 
-        match event {
-            KeyboardEvent::Press { key: KeyCode::Escape, .. } => {
+        match event.key_code {
+            KeyCode::Escape => {
                 if self.is_open() {
                     self.close();
                     EventResult::Handled
@@ -316,7 +314,7 @@ impl<T: Clone + PartialEq + std::fmt::Display> Dropdown<T> {
                     EventResult::Ignored
                 }
             }
-            KeyboardEvent::Press { key: KeyCode::Enter, .. } => {
+            KeyCode::Enter => {
                 if !self.is_open() {
                     self.open();
                     EventResult::Handled
@@ -324,7 +322,7 @@ impl<T: Clone + PartialEq + std::fmt::Display> Dropdown<T> {
                     EventResult::Ignored
                 }
             }
-            KeyboardEvent::Press { key: KeyCode::ArrowDown, .. } => {
+            KeyCode::Down => {
                 if self.is_open() {
                     let filtered = self.filtered_options();
                     let current = self.selected_index.get();
@@ -346,7 +344,7 @@ impl<T: Clone + PartialEq + std::fmt::Display> Dropdown<T> {
                 }
                 EventResult::Handled
             }
-            KeyboardEvent::Press { key: KeyCode::ArrowUp, .. } => {
+            KeyCode::Up => {
                 if self.is_open() {
                     let filtered = self.filtered_options();
                     let current = self.selected_index.get();
@@ -366,24 +364,36 @@ impl<T: Clone + PartialEq + std::fmt::Display> Dropdown<T> {
                 }
                 EventResult::Handled
             }
-            KeyboardEvent::Type { character } if self.searchable && self.is_open() => {
-                let mut search = self.search_text.get();
-                search.push(*character);
-                self.search_text.set(search);
-                EventResult::Handled
-            }
-            KeyboardEvent::Press { key: KeyCode::Backspace, .. } if self.searchable && self.is_open() => {
+            KeyCode::Backspace if self.searchable && self.is_open() => {
                 let mut search = self.search_text.get();
                 search.pop();
                 self.search_text.set(search);
                 EventResult::Handled
             }
-            _ => EventResult::Ignored,
+            _ => {
+                // Handle text input from KeyboardEvent
+                if let Some(ref text) = event.text {
+                    if self.searchable && self.is_open() {
+                        for ch in text.chars() {
+                            if !ch.is_control() {
+                                let mut search = self.search_text.get();
+                                search.push(ch);
+                                self.search_text.set(search);
+                            }
+                        }
+                        EventResult::Handled
+                    } else {
+                        EventResult::Ignored
+                    }
+                } else {
+                    EventResult::Ignored
+                }
+            }
         }
     }
 
     /// Render the dropdown button
-    fn render_button(&self, layout: Layout) -> VNode {
+    fn render_button(&self, _layout: Layout) -> VNode {
         let selected_text = if let Some(index) = self.selected_index.get() {
             self.options.get(index)
                 .map(|opt| opt.label.clone())
@@ -439,14 +449,14 @@ impl<T: Clone + PartialEq + std::fmt::Display> Dropdown<T> {
     }
 
     /// Render the dropdown list
-    fn render_dropdown(&self, layout: Layout) -> Option<VNode> {
+    fn render_dropdown(&self, _layout: Layout) -> Option<VNode> {
         if !self.is_open() {
             return None;
         }
 
         let filtered_options = self.filtered_options();
-        let option_height = self.height;
-        let dropdown_height = (filtered_options.len() as f32 * option_height).min(self.max_height);
+        let option_height: f32 = self.height;
+        let _dropdown_height = (filtered_options.len() as f32 * option_height).min(self.max_height);
 
         let mut children = Vec::new();
 
@@ -532,41 +542,38 @@ impl<T: Clone + PartialEq + std::fmt::Display> Dropdown<T> {
     }
 }
 
-impl<T: Clone + PartialEq + std::fmt::Display> Default for Dropdown<T> {
+impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Default for Dropdown<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Clone + PartialEq + std::fmt::Display + Send + Sync + 'static> Widget for Dropdown<T> {
+impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 'static> Widget for Dropdown<T> {
     fn id(&self) -> WidgetId {
         self.id
     }
 
-    fn handle_event(&mut self, event: &Event, context: &mut WidgetContext) -> oxide_core::OxideResult<bool> {
+    fn layout(&mut self, constraints: Constraints) -> Size {
+        let size = Size::new(self.width, self.height);
+        constraints.constrain(size)
+    }
+
+    fn render(&self, _batch: &mut RenderBatch, _layout: Layout) {
+        // TODO: Implement proper rendering with RenderBatch
+    }
+
+    fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
-            Event::MouseDown(mouse_event) | Event::MouseUp(mouse_event) | Event::MouseMove(mouse_event) => {
-                Ok(self.handle_mouse_event(mouse_event, context.bounds) == EventResult::Handled)
+            Event::MouseDown(_mouse_event) | Event::MouseUp(_mouse_event) | Event::MouseMove(_mouse_event) => {
+                // TODO: Fix bounds access - need to get bounds from layout
+                // self.handle_mouse_event(mouse_event, bounds)
+                EventResult::Ignored
             },
             Event::KeyDown(keyboard_event) | Event::KeyUp(keyboard_event) => {
-                Ok(self.handle_keyboard_event(keyboard_event) == EventResult::Handled)
+                self.handle_keyboard_event(keyboard_event)
             },
-            _ => Ok(false),
+            _ => EventResult::Ignored,
         }
-    }
-
-    fn update(&mut self, _context: &mut WidgetContext) -> oxide_core::OxideResult<()> {
-        Ok(())
-    }
-
-    fn layout(&mut self, constraints: &oxide_core::layout::LayoutConstraints, _context: &mut WidgetContext) -> oxide_core::OxideResult<oxide_core::layout::Size> {
-        let size = oxide_core::layout::Size::new(self.width, self.height);
-        Ok(constraints.constrain(size))
-    }
-
-    fn render(&self, _context: &WidgetContext) -> oxide_core::OxideResult<()> {
-        // Rendering is handled by the platform layer
-        Ok(())
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -575,6 +582,10 @@ impl<T: Clone + PartialEq + std::fmt::Display + Send + Sync + 'static> Widget fo
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+
+    fn clone_widget(&self) -> Box<dyn Widget> {
+        Box::new(self.clone())
     }
 }
 

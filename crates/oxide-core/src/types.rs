@@ -147,6 +147,9 @@ impl Color {
     pub const GREEN: Self = Self { r: 0.0, g: 1.0, b: 0.0, a: 1.0 };
     pub const BLUE: Self = Self { r: 0.0, g: 0.0, b: 1.0, a: 1.0 };
     pub const TRANSPARENT: Self = Self { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
+    pub const GRAY: Self = Self { r: 0.5, g: 0.5, b: 0.5, a: 1.0 };
+    pub const LIGHT_GRAY: Self = Self { r: 0.8, g: 0.8, b: 0.8, a: 1.0 };
+    pub const DARK_GRAY: Self = Self { r: 0.3, g: 0.3, b: 0.3, a: 1.0 };
     
     // Material Design colors
     pub const PRIMARY: Self = Self { r: 0.129, g: 0.588, b: 0.953, a: 1.0 }; // Blue 500

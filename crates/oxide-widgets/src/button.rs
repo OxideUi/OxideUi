@@ -3,8 +3,9 @@
 //! Provides interactive button components with various styles, states, and event handling.
 
 use oxide_core::{
-    layout::{Rect, Size, Constraints, Layout},
-    state::{Signal},
+    layout::{Size, Constraints, Layout},
+    types::Rect,
+    state::Signal,
     theme::{Theme, ColorPalette, Color},
     types::{Point, Transform},
     event::{Event, EventResult},
@@ -13,7 +14,7 @@ use oxide_renderer::{
     vertex::{Vertex, VertexBuilder},
     batch::RenderBatch,
 };
-use crate::widget::{Widget, WidgetId, generate_id, WidgetContext};
+use crate::widget::{Widget, WidgetId, generate_id};
 use std::{sync::Arc, any::Any};
 
 /// Button widget state
@@ -132,6 +133,23 @@ pub struct Button {
     on_click: Option<Box<dyn Fn() + Send + Sync>>,
     on_hover: Option<Box<dyn Fn(bool) + Send + Sync>>,
     theme: Option<Arc<Theme>>,
+}
+
+impl std::fmt::Debug for Button {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Button")
+            .field("id", &self.id)
+            .field("text", &self.text)
+            .field("style", &self.style)
+            .field("state", &self.state)
+            .field("bounds", &self.bounds)
+            .field("enabled", &self.enabled)
+            .field("visible", &self.visible)
+            .field("on_click", &self.on_click.as_ref().map(|_| "Fn() + Send + Sync"))
+            .field("on_hover", &self.on_hover.as_ref().map(|_| "Fn(bool) + Send + Sync"))
+            .field("theme", &self.theme)
+            .finish()
+    }
 }
 
 impl Button {
@@ -383,7 +401,7 @@ impl Button {
         let text_y = bounds.y + bounds.height / 2.0 - self.style.font_size / 2.0;
         
         // For now, just add a placeholder for text rendering
-        // In a real implementation, this would use a text renderer
+   
         batch.add_text(
             self.text.clone(),
             (text_x, text_y),
@@ -568,15 +586,13 @@ impl Widget for Button {
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
+        let bounds = Rect::new(layout.position.x, layout.position.y, layout.size.width, layout.size.height);
+        
         if !self.is_visible() {
             return;
         }
 
-        let bounds = layout.bounds();
-        let state = self.get_state();
-        
-        // Determine colors based on state
-        let background_color = match state {
+        let background_color = match self.get_state() {
             ButtonState::Normal => self.style.background_color,
             ButtonState::Hovered => self.style.hover_color,
             ButtonState::Pressed => self.style.pressed_color,

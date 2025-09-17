@@ -1,18 +1,19 @@
 //! Checkbox widget implementation for OxideUI
 
-use crate::widget::{Widget, WidgetId, WidgetState, WidgetContext, generate_id};
-use crate::theme::Theme;
+use std::any::Any;
+use crate::widget::{Widget, WidgetId, generate_id};
 use oxide_core::{
-    event::{Event, MouseEvent, MouseButton, EventResult},
+    event::{Event, EventResult, MouseButton},
     layout::{Size, Constraints, Layout},
     state::Signal,
-    vdom::{VNode, VNodeBuilder},
+    theme::Theme,
+    types::Point,
+    vdom::VNode,
 };
-use glam::Vec2;
-use std::sync::Arc;
+use oxide_renderer::batch::RenderBatch;
 
 /// Checkbox widget for boolean selection
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Checkbox {
     id: WidgetId,
     checked: Signal<bool>,
@@ -173,7 +174,7 @@ impl Widget for Checkbox {
         self.id
     }
 
-    fn layout(&self, constraints: Constraints, _context: &WidgetContext) -> Size {
+    fn layout(&mut self, constraints: Constraints) -> Size {
         let checkbox_size = self.style.size;
         let label_width = if let Some(ref label) = self.label {
             // Estimate label width (this would be more accurate with actual text measurement)
@@ -188,30 +189,12 @@ impl Widget for Checkbox {
         constraints.constrain(Size::new(total_width, height))
     }
 
-    fn render(&self, layout: Layout, context: &WidgetContext) -> VNode {
-        let theme = context.theme;
-        let checkbox_node = self.create_checkbox_node(theme);
-        
-        if let Some(ref label_text) = self.label {
-            // Create container with checkbox and label
-            let label_node = VNode::element("span")
-                .attr("class", "checkbox-label")
-                .attr("margin-left", "8px")
-                .children(vec![VNode::text(label_text.clone())]);
-            
-            VNode::element("div")
-                .attr("class", "checkbox-container")
-                .attr("display", "flex")
-                .attr("align-items", "center")
-                .attr("cursor", if self.enabled { "pointer" } else { "not-allowed" })
-                .children(vec![checkbox_node, label_node])
-        } else {
-            checkbox_node
-                .attr("cursor", if self.enabled { "pointer" } else { "not-allowed" })
-        }
+    fn render(&self, batch: &mut RenderBatch, layout: Layout) {
+        // TODO: Implement proper rendering with RenderBatch
+        // This is a placeholder implementation
     }
 
-    fn handle_event(&mut self, event: &Event, _layout: Layout, _context: &WidgetContext) -> EventResult {
+    fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
             Event::MouseDown(mouse_event) => {
                 if let Some(MouseButton::Left) = mouse_event.button {
@@ -224,17 +207,23 @@ impl Widget for Checkbox {
         }
     }
 
-    fn state(&self) -> WidgetState {
-        if !self.enabled {
-            WidgetState::Disabled
-        } else {
-            WidgetState::Normal
-        }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_widget(&self) -> Box<dyn Widget> {
+        Box::new(self.clone())
+    }
+
+    // Removed state method as it's not part of Widget trait
 }
 
 /// Radio button widget for single selection from a group
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct RadioButton {
     id: WidgetId,
     selected: Signal<bool>,
@@ -345,7 +334,7 @@ impl Widget for RadioButton {
         self.id
     }
 
-    fn layout(&self, constraints: Constraints, _context: &WidgetContext) -> Size {
+    fn layout(&mut self, constraints: Constraints) -> Size {
         let radio_size = self.style.size;
         let label_width = if let Some(ref label) = self.label {
             label.len() as f32 * 8.0 + 8.0
@@ -359,64 +348,12 @@ impl Widget for RadioButton {
         constraints.constrain(Size::new(total_width, height))
     }
 
-    fn render(&self, layout: Layout, context: &WidgetContext) -> VNode {
-        let selected = self.selected.get();
-        let size = self.style.size;
-        
-        let background_color = if !self.enabled {
-            self.style.disabled_color
-        } else if selected {
-            self.style.background_color
-        } else {
-            [1.0, 1.0, 1.0, 1.0]
-        };
-
-        let mut radio = VNode::element("div")
-            .attr("class", "radio")
-            .attr("width", size.to_string())
-            .attr("height", size.to_string())
-            .attr("border-radius", "50%") // Circular
-            .attr("background-color", format!("rgba({}, {}, {}, {})", 
-                background_color[0], background_color[1], 
-                background_color[2], background_color[3]))
-            .attr("border", format!("{}px solid rgba({}, {}, {}, {})", 
-                self.style.border_width,
-                self.style.border_color[0], self.style.border_color[1],
-                self.style.border_color[2], self.style.border_color[3]));
-
-        // Add dot if selected
-        if selected {
-            let dot = VNode::element("div")
-                .attr("class", "radio-dot")
-                .attr("width", format!("{}px", size * 0.5))
-                .attr("height", format!("{}px", size * 0.5))
-                .attr("border-radius", "50%")
-                .attr("background-color", format!("rgba({}, {}, {}, {})",
-                    self.style.dot_color[0], self.style.dot_color[1],
-                    self.style.dot_color[2], self.style.dot_color[3]))
-                .attr("margin", "auto");
-            
-            radio = radio.children(vec![dot]);
-        }
-
-        if let Some(ref label_text) = self.label {
-            let label_node = VNode::element("span")
-                .attr("class", "radio-label")
-                .attr("margin-left", "8px")
-                .children(vec![VNode::text(label_text.clone())]);
-            
-            VNode::element("div")
-                .attr("class", "radio-container")
-                .attr("display", "flex")
-                .attr("align-items", "center")
-                .attr("cursor", if self.enabled { "pointer" } else { "not-allowed" })
-                .children(vec![radio, label_node])
-        } else {
-            radio.attr("cursor", if self.enabled { "pointer" } else { "not-allowed" })
-        }
+    fn render(&self, batch: &mut RenderBatch, layout: Layout) {
+        // TODO: Implement proper rendering with RenderBatch
+        // This is a placeholder implementation
     }
 
-    fn handle_event(&mut self, event: &Event, _layout: Layout, _context: &WidgetContext) -> EventResult {
+    fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
             Event::MouseDown(mouse_event) => {
                 if let Some(MouseButton::Left) = mouse_event.button {
@@ -434,13 +371,19 @@ impl Widget for RadioButton {
         }
     }
 
-    fn state(&self) -> WidgetState {
-        if !self.enabled {
-            WidgetState::Disabled
-        } else {
-            WidgetState::Normal
-        }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_widget(&self) -> Box<dyn Widget> {
+        Box::new(self.clone())
+    }
+
+    // Removed state method as it's not part of Widget trait
 }
 
 #[cfg(test)]
