@@ -1,0 +1,47 @@
+name: Dynamic Auto Assign
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: 'Assign dynamically'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            
+            const { data: collaborators } = await github.rest.repos.listCollaborators({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+          
+            const eligible = collaborators
+              .filter(c => c.permissions.push)
+              .map(c => c.login);
+
+            if (eligible.length === 0) return;
+
+           
+            const assignee = eligible[Math.floor(Math.random() * eligible.length)];
+
+           
+            const number = context.payload.issue
+              ? context.payload.issue.number
+              : context.payload.pull_request.number;
+
+            
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              assignees: [assignee],
+            });
