@@ -28,13 +28,13 @@ fn build_ui() -> impl Widget {
                 .children(vec![
                     Box::new(
                         Text::new("Hello, OxideUI!")
-                            .size(24.0)
-                            .color(Color::rgb(0.2, 0.2, 0.2))
+                            .size(32.0)
+                            .color(Color::rgb(1.0, 0.0, 0.0))
                     ),
                     Box::new(
                         Text::new("Welcome to the future of UI development!")
-                            .size(16.0)
-                            .color(Color::rgb(0.4, 0.4, 0.4))
+                            .size(20.0)
+                            .color(Color::rgb(0.0, 0.0, 1.0))
                     ),
                     Box::new(
                         Button::new("Click me!")

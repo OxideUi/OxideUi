@@ -342,9 +342,14 @@ impl<'a> Backend<'a> for Renderer<'a> {
         self.batch.add_rect(rect, color, transform);
     }
 
-    fn draw_text(&mut self, text: &str, position: (f32, f32), _color: Color) {
-        // Text rendering will be implemented in the text module
-        tracing::debug!("Drawing text: {} at {:?}", text, position);
+    fn draw_text(&mut self, text: &str, position: (f32, f32), color: Color) {
+        // Add text to the batch for rendering
+        self.batch.add_text(
+            text.to_string(),
+            position,
+            color,
+            16.0, // Default font size
+        );
     }
 
     fn submit(&mut self) -> anyhow::Result<()> {

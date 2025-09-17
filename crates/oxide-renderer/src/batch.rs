@@ -91,9 +91,10 @@ impl RenderBatch {
 
     /// Add text to the batch
     pub fn add_text(&mut self, text: String, position: (f32, f32), color: Color, font_size: f32) {
-        let command = DrawCommand::Text { text, position, color, font_size };
+        let command = DrawCommand::Text { text: text.clone(), position, color, font_size };
         self.commands.push(command);
-        // Text batching will be implemented with the text renderer
+        // Batch text as rectangles for now (simple text rendering)
+        self.batch_text(&text, position, color, font_size);
     }
 
     /// Add a textured quad to the batch
@@ -143,6 +144,32 @@ impl RenderBatch {
         }
         
         self.vertex_count += vertices.len() as u16;
+    }
+
+    /// Batch text into vertices and indices (simple implementation using rectangles)
+    fn batch_text(&mut self, text: &str, position: (f32, f32), color: Color, font_size: f32) {
+        println!("DEBUG: Batching text '{}' at position ({}, {}) with color ({}, {}, {}, {}) and font size {}", 
+                 text, position.0, position.1, color.r, color.g, color.b, color.a, font_size);
+        
+        let char_width = font_size * 0.6; // Approximate character width
+        let char_height = font_size;
+        
+        for (i, _char) in text.chars().enumerate() {
+            let x = position.0 + (i as f32 * char_width);
+            let y = position.1;
+            
+            println!("DEBUG: Creating character {} at position ({}, {}) with size {}x{}", 
+                     i, x, y, char_width, char_height);
+            
+            // Create a small rectangle for each character
+            let char_rect = Rect::new(x, y, char_width, char_height);
+            let transform = Transform::default();
+            
+            self.batch_rect(char_rect, color, transform);
+        }
+        
+        println!("DEBUG: Finished batching text. Total vertices: {}, Total indices: {}", 
+                 self.vertices.len(), self.indices.len());
     }
 
     /// Batch a rectangle into vertices and indices
