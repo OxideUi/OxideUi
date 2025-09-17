@@ -57,7 +57,7 @@ pub struct RendererConfig {
 impl Default for RendererConfig {
     fn default() -> Self {
         Self {
-            msaa_samples: 4,
+            msaa_samples: 1,
             vsync: true,
             max_texture_size: 4096,
             validation: cfg!(debug_assertions),
