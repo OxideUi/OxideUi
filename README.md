@@ -238,8 +238,8 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 OxideUI is dual-licensed under either:
 
-- MIT License ([LICENSE-MIT](LICENSE-MIT))
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- AGPL v3 License ([LICENSE-AGPLv3](LICENSE-AGPLv3))
+- Commercial license ([LICENSE-COMMERCIAL](LICENSE-COMMERCIAL))
 
 at your option.
 
