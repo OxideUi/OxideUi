@@ -253,6 +253,19 @@ impl<'a> Renderer<'a> {
     pub fn surface_format(&self) -> TextureFormat {
         self.surface_config.format
     }
+
+    /// Render a batch of commands
+    pub fn render(&mut self, batch: &RenderBatch) -> anyhow::Result<()> {
+        // Copy the batch data to our internal batch
+        self.batch.vertices.clear();
+        self.batch.indices.clear();
+        
+        self.batch.vertices.extend_from_slice(&batch.vertices);
+        self.batch.indices.extend_from_slice(&batch.indices);
+        
+        // Render the frame
+        self.end_frame()
+    }
 }
 
 impl<'a> Backend<'a> for Renderer<'a> {

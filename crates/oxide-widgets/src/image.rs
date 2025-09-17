@@ -110,7 +110,6 @@ pub enum ImageFilter {
 }
 
 /// Image widget
-#[derive(Debug)]
 pub struct Image {
     id: WidgetId,
     source: ImageSource,
@@ -122,6 +121,40 @@ pub struct Image {
     on_click: Option<Box<dyn Fn() + Send + Sync>>,
     loading_placeholder: Option<VNode>,
     error_placeholder: Option<VNode>,
+}
+
+impl std::fmt::Debug for Image {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Image")
+            .field("id", &self.id)
+            .field("source", &self.source)
+            .field("style", &self.style)
+            .field("state", &self.state)
+            .field("alt_text", &self.alt_text)
+            .field("on_load", &self.on_load.as_ref().map(|_| "Fn(&ImageData)"))
+            .field("on_error", &self.on_error.as_ref().map(|_| "Fn(&str)"))
+            .field("on_click", &self.on_click.as_ref().map(|_| "Fn()"))
+            .field("loading_placeholder", &self.loading_placeholder)
+            .field("error_placeholder", &self.error_placeholder)
+            .finish()
+    }
+}
+
+impl Clone for Image {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            source: self.source.clone(),
+            style: self.style.clone(),
+            state: self.state.clone(),
+            alt_text: self.alt_text.clone(),
+            on_load: None, // Function pointers can't be cloned
+            on_error: None,
+            on_click: None,
+            loading_placeholder: self.loading_placeholder.clone(),
+            error_placeholder: self.error_placeholder.clone(),
+        }
+    }
 }
 
 impl Image {

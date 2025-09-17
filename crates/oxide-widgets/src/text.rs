@@ -548,7 +548,7 @@ impl Text {
                     bounds.y,
                     selection_width,
                     bounds.height,
-                    selection_color,
+                    selection_color.to_array(),
                 );
                 batch.add_vertices(&vertices, &indices);
             }
@@ -593,7 +593,7 @@ impl Text {
                 text_x + text_width,
                 decoration_y,
                 1.0,
-                self.style.decoration_color,
+                self.style.decoration_color.to_array(),
             );
             batch.add_vertices(&vertices, &indices);
         }
@@ -618,7 +618,7 @@ impl Text {
     pub fn apply_theme(&mut self, theme: &Theme) {
         self.style.font_family = theme.typography.font_family.clone();
         self.style.font_size = theme.typography.base_size;
-        self.style.color = theme.colors.on_surface;
+        self.style.color = theme.colors.on_surface.to_types_color();
     }
 }
 

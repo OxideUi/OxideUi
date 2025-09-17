@@ -1,6 +1,7 @@
 //! Event loop management
 
 use oxide_core::event::{Event, MouseButton, MouseEvent, KeyboardEvent, KeyCode, Modifiers, WindowEvent};
+use oxide_core::types::Size;
 use oxide_renderer::gpu::Renderer;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -104,6 +105,9 @@ impl EventLoop {
                 _ => {}
             }
         }).expect("Event loop failed");
+        
+        // This should never be reached, but if it is, exit the process
+        std::process::exit(0);
     }
 
     /// Run the event loop with a window
@@ -188,6 +192,9 @@ impl EventLoop {
                 _ => {}
             }
         }).expect("Event loop failed");
+        
+        // This should never be reached, but if it is, exit the process
+        std::process::exit(0);
     }
 
     /// Run the event loop with a window and application
@@ -196,103 +203,119 @@ impl EventLoop {
         use winit::event::{Event as WinitEvent, WindowEvent as WinitWindowEvent};
         use winit::event_loop::ControlFlow;
         
-        let mut window_created = false;
-        let mut winit_window: Option<winit::window::Window> = None;
-        let mut renderer: Option<Renderer> = None;
-        let mut needs_redraw = true;
-        let mut last_update = Instant::now();
-        
         self.inner.run(move |event, elwt| {
-            // Create window on first iteration
-            if !window_created {
-                match window_builder.build_winit(elwt) {
-                    Ok(window) => {
-                        // Initialize renderer
-                        match pollster::block_on(Renderer::new(&window)) {
-                            Ok(r) => {
-                                renderer = Some(r);
-                                winit_window = Some(window);
-                                window_created = true;
-                                needs_redraw = true;
-                            }
-                            Err(e) => {
-                                eprintln!("Failed to initialize renderer: {}", e);
-                                elwt.exit();
-                                return;
-                            }
+            // Static variables to maintain state across closure calls
+            static mut WINDOW_CREATED: bool = false;
+            static mut WINIT_WINDOW: Option<winit::window::Window> = None;
+            static mut RENDERER: Option<Renderer> = None;
+            static mut NEEDS_REDRAW: bool = true;
+            static mut LAST_UPDATE: Option<Instant> = None;
+            
+            unsafe {
+                // Initialize last_update on first call
+                if LAST_UPDATE.is_none() {
+                    LAST_UPDATE = Some(Instant::now());
+                }
+                
+                // Create window on first iteration
+                if !WINDOW_CREATED {
+                    match window_builder.build_winit(elwt) {
+                        Ok(window) => {
+                             // Move window first, then create renderer
+                             WINIT_WINDOW = Some(window);
+                             
+                             // Initialize renderer using the stored window
+                             if let Some(ref window) = WINIT_WINDOW {
+                                 match pollster::block_on(Renderer::new(window, oxide_renderer::RendererConfig::default())) {
+                                     Ok(r) => {
+                                         RENDERER = Some(r);
+                                         WINDOW_CREATED = true;
+                                         NEEDS_REDRAW = true;
+                                     }
+                                     Err(e) => {
+                                         eprintln!("Failed to initialize renderer: {}", e);
+                                         elwt.exit();
+                                         return;
+                                     }
+                                 }
+                             }
+                         }
+                        Err(e) => {
+                            eprintln!("Failed to create window: {}", e);
+                            elwt.exit();
+                            return;
                         }
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to create window: {}", e);
-                        elwt.exit();
-                        return;
                     }
                 }
-            }
-            
-            match event {
-                WinitEvent::WindowEvent { event, .. } => {
-                    match event {
-                        WinitWindowEvent::CloseRequested => {
-                            app.handle_event(Event::Window(WindowEvent::Close));
-                            elwt.exit();
-                        }
-                        WinitWindowEvent::RedrawRequested => {
-                            // Handle redraw with proper error handling
-                            if let (Some(ref window), Some(ref mut r)) = (&winit_window, &mut renderer) {
-                                let size = window.inner_size();
-                                if size.width > 0 && size.height > 0 {
-                                    if let Err(e) = app.render(r) {
-                                        eprintln!("Render error: {}", e);
+                
+                match event {
+                    WinitEvent::WindowEvent { event, .. } => {
+                        match event {
+                            WinitWindowEvent::CloseRequested => {
+                                app.handle_event(Event::Window(WindowEvent::Close));
+                                elwt.exit();
+                            }
+                            WinitWindowEvent::RedrawRequested => {
+                                // Handle redraw with proper error handling
+                                if let (Some(ref window), Some(ref mut r)) = (&WINIT_WINDOW, &mut RENDERER) {
+                                    let size = window.inner_size();
+                                    if size.width > 0 && size.height > 0 {
+                                        if let Err(e) = app.render(r) {
+                                            eprintln!("Render error: {}", e);
+                                        }
                                     }
                                 }
+                                NEEDS_REDRAW = false;
                             }
-                            needs_redraw = false;
-                        }
-                        WinitWindowEvent::Resized(physical_size) => {
-                            // Handle window resize
-                            if let Some(ref mut r) = renderer {
-                                r.resize(physical_size.width, physical_size.height);
+                            WinitWindowEvent::Resized(physical_size) => {
+                                // Handle window resize
+                                if let Some(ref mut r) = RENDERER {
+                                    r.resize(Size::new(physical_size.width as f32, physical_size.height as f32));
+                                }
+                                app.handle_event(Event::Window(WindowEvent::Resize {
+                                    width: physical_size.width,
+                                    height: physical_size.height,
+                                }));
+                                NEEDS_REDRAW = true;
                             }
-                            app.handle_event(Event::Window(WindowEvent::Resize {
-                                width: physical_size.width,
-                                height: physical_size.height,
-                            }));
-                            needs_redraw = true;
-                        }
-                        _ => {
-                            if let Some(oxide_event) = convert_window_event(event) {
-                                app.handle_event(oxide_event);
-                                needs_redraw = true;
+                            _ => {
+                                if let Some(oxide_event) = convert_window_event(event) {
+                                    app.handle_event(oxide_event);
+                                    NEEDS_REDRAW = true;
+                                }
                             }
                         }
                     }
-                }
-                WinitEvent::AboutToWait => {
-                    // Frame rate limiting and redraw scheduling
-                    let now = Instant::now();
-                    let frame_time = Duration::from_millis(16); // ~60 FPS
-                    
-                    if needs_redraw && now.duration_since(last_update) >= frame_time {
-                        if let Some(ref window) = winit_window {
-                            window.request_redraw();
-                            last_update = now;
+                    WinitEvent::AboutToWait => {
+                        // Frame rate limiting and redraw scheduling
+                        let now = Instant::now();
+                        let frame_time = Duration::from_millis(16); // ~60 FPS
+                        let last_update = LAST_UPDATE.unwrap();
+                        
+                        if NEEDS_REDRAW && now.duration_since(last_update) >= frame_time {
+                            if let Some(ref window) = WINIT_WINDOW {
+                                window.request_redraw();
+                                LAST_UPDATE = Some(now);
+                            }
+                        }
+                        
+                        if NEEDS_REDRAW {
+                            elwt.set_control_flow(ControlFlow::Poll);
+                        } else {
+                            elwt.set_control_flow(ControlFlow::WaitUntil(last_update + frame_time));
                         }
                     }
-                    
-                    if needs_redraw {
-                        elwt.set_control_flow(ControlFlow::Poll);
-                    } else {
-                        elwt.set_control_flow(ControlFlow::WaitUntil(last_update + frame_time));
+                    WinitEvent::UserEvent(custom) => {
+                        app.handle_event(custom.event);
+                        NEEDS_REDRAW = true;
                     }
+                    _ => {}
                 }
-                WinitEvent::UserEvent(custom) => {
-                    app.handle_event(custom.event);
-                    needs_redraw = true;
-                }
-                _ => {}
             }
         }).expect("Event loop failed");
+        
+        // This should never be reached, but if it is, exit the process
+        std::process::exit(0);
     }
 
     /// Run the event loop for WASM
@@ -392,11 +415,7 @@ impl EventLoopProxy {
     }
 }
 
-/// Custom event wrapper
-#[cfg(not(target_arch = "wasm32"))]
-pub struct CustomEvent {
-    pub event: Event,
-}
+
 
 /// Event loop error
 #[derive(Debug, thiserror::Error)]
