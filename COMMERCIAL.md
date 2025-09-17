@@ -1,4 +1,4 @@
-OXIDEUI COMMERCIAL LICENSE
+                  OXIDEUI COMMERCIAL LICENSE
                        Version 1.0, 2025
 
  Copyright (C) 2025 OxideUI Project Contributors

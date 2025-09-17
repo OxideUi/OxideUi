@@ -1,47 +1,47 @@
-Questa todo list/goal list è ordinata in base a: **Priorità (P)**, **Difficoltà (D)**, **Complessità (C)** e **Valore (V)** su una scala 1–5 (5 = massimo).
-Questa todolist verrà aggiornata periodicamente man mano che il progetto evolverà.
+This todo list/goal list is ordered by: **Priority (P)**, **Difficulty (D)**, **Complexity (C)** and **Value (V)** on a scale of 1–5 (5 = maximum).
+This todolist will be updated periodically as the project evolves.
 
 ---
 
-## 🏁 Fondamentali del Core Engine
+## 🏁 Core Engine Fundamentals
 
-* [ ] **1. Event loop cross-platform** – P5 D3 C3 V5
+* [ ] **1. Cross-platform event loop** – P5 D3 C3 V5
 * [ ] **2. Virtual DOM / diff engine** – P5 D4 C4 V5
-* [ ] **3. Sistema di layout Flexbox (Taffy)** – P5 D3 C3 V5
-* [ ] **4. Gestione stato reattivo (signals/store)** – P5 D4 C4 V5
+* [ ] **3. Flexbox layout system (Taffy)** – P5 D3 C3 V5
+* [ ] **4. Reactive state management (signals/store)** – P5 D4 C4 V5
 * [ ] **5. Hot reload / live preview** – P5 D4 C4 V5
-* [ ] **6. Supporto theming & dark mode** – P5 D2 C2 V5
-* [ ] **7. Sistema di plugin / componenti custom** – P5 D4 C4 V5
-* [ ] **8. Routing interno (multi-page)** – P4 D3 C3 V4
-* [ ] **9. DevTools integrati (inspector)** – P4 D4 C4 V5
-* [ ] **10. Persistenza stato su disco** – P4 D2 C2 V4
+* [x] **6. Theming & dark mode support** – P5 D2 C2 V5
+* [ ] **7. Plugin system / custom components** – P5 D4 C4 V5
+* [ ] **8. Internal routing (multi-page)** – P4 D3 C3 V4
+* [ ] **9. Integrated DevTools (inspector)** – P4 D4 C4 V5
+* [ ] **10. State persistence to disk** – P4 D2 C2 V4
 
 ---
 
-## 🎨 Rendering e Grafica
+## 🎨 Rendering and Graphics
 
-* [ ] 11\. Backend `wgpu` multipiattaforma – P5 D4 C4 V5
-* [ ] 12\. Layer 2D vettoriale (lyon) – P5 D3 C3 V5
-* [ ] 13\. Text shaping avanzato (swash/harfbuzz) – P5 D4 C4 V5
+* [ ] 11\. Multi-platform `wgpu` backend – P5 D4 C4 V5
+* [ ] 12\. 2D vector layer (lyon) – P5 D3 C3 V5
+* [ ] 13\. Advanced text shaping (swash/harfbuzz) – P5 D4 C4 V5
 * [ ] 14\. GPU text caching (glyph atlas) – P5 D3 C3 V5
-* [ ] 15\. Animazioni con timeline – P4 D4 C4 V5
-* [ ] 16\. Effetti shader personalizzati – P3 D4 C4 V4
-* [ ] 17\. Supporto HiDPI/Retina – P4 D3 C3 V5
-* [ ] 18\. Gradienti, blur, shadows – P4 D3 C3 V4
+* [ ] 15\. Timeline animations – P4 D4 C4 V5
+* [ ] 16\. Custom shader effects – P3 D4 C4 V4
+* [ ] 17\. HiDPI/Retina support – P4 D3 C3 V5
+* [ ] 18\. Gradients, blur, shadows – P4 D3 C3 V4
 * [ ] 19\. Video embedding – P3 D4 C4 V3
-* [ ] 20\. Motore 3D opzionale – P2 D5 C5 V4
+* [ ] 20\. Optional 3D engine – P2 D5 C5 V4
 
 ---
 
-## 🧩 Set di Widget Base
+## 🧩 Basic Widget Set
 
-* [ ] 21\. Button – P5 D2 C2 V5
-* [ ] 22\. Label/Text – P5 D2 C2 V5
-* [ ] 23\. TextInput/Password – P5 D3 C3 V5
+* [x] 21\. Button – P5 D2 C2 V5
+* [x] 22\. Label/Text – P5 D2 C2 V5
+* [x] 23\. TextInput/Password – P5 D3 C3 V5
 * [ ] 24\. Checkbox/Radio – P5 D2 C2 V5
 * [ ] 25\. Slider/Progress – P5 D3 C3 V4
 * [ ] 26\. ListView/ScrollView – P5 D3 C3 V5
-* [ ] 27\. Grid/Stack container – P5 D3 C3 V5
+* [x] 27\. Grid/Stack container – P5 D3 C3 V5
 * [ ] 28\. MenuBar/ContextMenu – P4 D3 C3 V4
 * [ ] 29\. Tabs – P4 D3 C3 V4
 * [ ] 30\. TreeView – P4 D4 C4 V4
@@ -53,27 +53,27 @@ Questa todolist verrà aggiornata periodicamente man mano che il progetto evolve
 
 ---
 
-## 🔌 Integrazione e Platform
+## 🔌 Integration and Platform
 
 * [ ] 36\. Windows/macOS/Linux backend – P5 D3 C3 V5
 * [ ] 37\. WebAssembly (wasm-bindgen) – P5 D4 C4 V5
 * [ ] 38\. Mobile (Android/iOS) – P3 D5 C5 V4
-* [ ] 39\. Drag & drop nativo – P4 D3 C3 V4
-* [ ] 40\. Notifiche sistema – P3 D3 C3 V3
+* [ ] 39\. Native drag & drop – P4 D3 C3 V4
+* [ ] 40\. System notifications – P3 D3 C3 V3
 * [ ] 41\. Clipboard API – P5 D2 C2 V5
-* [ ] 42\. Accesso a file system – P4 D3 C3 V4
+* [ ] 42\. File system access – P4 D3 C3 V4
 * [ ] 43\. Multimedia (audio) – P3 D3 C3 V3
 * [ ] 44\. OpenGL fallback – P3 D4 C4 V3
 * [ ] 45\. WebSocket & HTTP client – P4 D3 C3 V4
 
 ---
 
-## 🧱 Architettura e Dev Experience
+## 🧱 Architecture and Dev Experience
 
 * [ ] 46\. CLI `oxideui` (scaffold, build, serve) – P5 D3 C3 V5
-* [ ] 47\. Configurazione basata su file (ron/toml) – P5 D2 C2 V4
+* [ ] 47\. File-based configuration (ron/toml) – P5 D2 C2 V4
 * [ ] 48\. Macro `view!{}` DSL – P5 D4 C4 V5
-* [ ] 49\. Type-safe props e state – P5 D3 C3 V5
+* [ ] 49\. Type-safe props and state – P5 D3 C3 V5
 * [ ] 50\. Async/await friendly – P4 D3 C3 V4
 * [ ] 51\. Snapshot testing – P4 D3 C3 V4
 * [ ] 52\. Internationalization (i18n) – P4 D3 C3 V4
@@ -109,7 +109,7 @@ Questa todolist verrà aggiornata periodicamente man mano che il progetto evolve
 * [ ] 72\. Material/Fluent design kits – P4 D3 C3 V4
 * [ ] 73\. Vector icons pack – P3 D2 C2 V3
 * [ ] 74\. Gesture support (touch/pen) – P4 D3 C3 V4
-* [ ] 75\. Undo/redo global – P3 D3 C3 V4
+* [ ] 75\. Global undo/redo – P3 D3 C3 V4
 * [ ] 76\. State time-travel debugger – P3 D4 C4 V4
 * [ ] 77\. Data-binding to external DB – P3 D3 C3 V4
 * [ ] 78\. Graph/Chart widgets – P3 D3 C3 V4
@@ -130,7 +130,7 @@ Questa todolist verrà aggiornata periodicamente man mano che il progetto evolve
 * [ ] 93\. Scripting engine (Lua/JS) – P2 D4 C4 V4
 * [ ] 94\. Remote debugging via browser – P2 D4 C4 V3
 * [ ] 95\. Visual UI designer WYSIWYG – P3 D5 C5 V5
-* [ ] 96\. Marketplace per componenti – P1 D4 C4 V3
+* [ ] 96\. Component marketplace – P1 D4 C4 V3
 * [ ] 97\. Plugin store – P1 D4 C4 V3
 * [ ] 98\. Data-flow visual editor – P1 D5 C5 V3
 * [ ] 99\. Cloud build service – P1 D4 C4 V2
@@ -138,10 +138,10 @@ Questa todolist verrà aggiornata periodicamente man mano che il progetto evolve
 
 ---
 
-### 💡 Come leggerla
+### 💡 How to read it
 
-* **P (Priorità)**: cosa serve prima per avere un framework usabile.
-* **D (Difficoltà)** e **C (Complessità)**: fatica di sviluppo e numero di sottosistemi coinvolti.
-* **V (Valore)**: impatto percepito dagli utenti.
+* **P (Priority)**: what is needed first to have a usable framework.
+* **D (Difficulty)** and **C (Complexity)**: development effort and number of subsystems involved.
+* **V (Value)**: perceived impact by users.
 
 
