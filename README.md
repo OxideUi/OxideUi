@@ -5,7 +5,15 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-lightgrey.svg)](https://github.com/oxideui/oxide-ui)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/seregonwar?label=GitHub%20Sponsors&style=flat&logo=GitHub)](https://github.com/sponsors/seregonwar)
 
+
 **OxideUI** is a next-generation, lightweight, secure, and reactive UI framework written in pure Rust. It combines the declarative programming model of Flutter/React with Rust's performance and safety guarantees, offering GPU-accelerated rendering for desktop applications and WebAssembly support for web deployment.
+> ⚠️ **Important Notice**
+>
+> We are currently considering a name change for this framework.  
+> The current name (`OxideUI`) is temporary and may change in future releases.  
+> If you have creative ideas or suggestions for a new name, feel free to share them by opening an **issue** or 
+> contacting us directly.
+
 ![Logo OxideUi](https://github.com/OxideUi/OxideUi/raw/main/logos/OxideUi-org.jpg)
 
 ## Features
