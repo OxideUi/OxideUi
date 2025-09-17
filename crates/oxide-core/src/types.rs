@@ -318,7 +318,8 @@ impl Transform {
 
     /// Apply transform to a point
     pub fn transform_point(&self, point: Point) -> Point {
-        let transformed = self.matrix * Vec4::new(point.x, point.y, 0.0, 1.0);
+        let vec = Vec4::new(point.x, point.y, 0.0, 1.0);
+        let transformed = self.matrix * vec;
         Point::new(transformed.x, transformed.y)
     }
 

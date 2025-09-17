@@ -6,12 +6,12 @@ use oxide_core::{
     layout::{Size, Constraints, Layout},
     types::Rect,
     state::Signal,
-    theme::{Theme, ColorPalette, Color},
+    theme::{Theme, Color},
     types::{Point, Transform},
     event::{Event, EventResult},
 };
 use oxide_renderer::{
-    vertex::{Vertex, VertexBuilder},
+    vertex::VertexBuilder,
     batch::RenderBatch,
 };
 use crate::widget::{Widget, WidgetId, generate_id};
@@ -115,6 +115,18 @@ impl ButtonStyle {
             hover_color: Color::rgba(0.0, 0.0, 0.0, 0.05),
             pressed_color: Color::rgba(0.0, 0.0, 0.0, 0.1),
             text_color: Color::rgba(0.3, 0.3, 0.3, 1.0),
+            border_width: 0.0,
+            ..Default::default()
+        }
+    }
+
+    /// Create a text button style (transparent background)
+    pub fn text() -> Self {
+        Self {
+            background_color: Color::rgba(0.0, 0.0, 0.0, 0.0),
+            hover_color: Color::rgba(0.0, 0.0, 0.0, 0.05),
+            pressed_color: Color::rgba(0.0, 0.0, 0.0, 0.1),
+            text_color: Color::rgba(0.0, 0.4, 0.8, 1.0),
             border_width: 0.0,
             ..Default::default()
         }
@@ -238,6 +250,13 @@ impl Button {
     /// Set theme
     pub fn theme(mut self, theme: Arc<Theme>) -> Self {
         self.theme = Some(theme);
+        self
+    }
+
+    /// Set button size (width, height)
+    pub fn size(mut self, width: f32, height: f32) -> Self {
+        self.style.min_width = width;
+        self.style.min_height = height;
         self
     }
 
@@ -572,7 +591,7 @@ impl Widget for Button {
         self.id
     }
 
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, _constraints: Constraints) -> Size {
         let text_width = self.text.len() as f32 * self.style.font_size * 0.6;
         let text_height = self.style.font_size;
         
@@ -619,7 +638,7 @@ impl Widget for Button {
         );
     }
 
-    fn handle_event(&mut self, event: &Event) -> EventResult {
+    fn handle_event(&mut self, _event: &Event) -> EventResult {
         // Handle button events
         EventResult::Ignored
     }

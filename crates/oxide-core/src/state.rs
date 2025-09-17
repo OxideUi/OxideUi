@@ -4,7 +4,7 @@
 //! effects, and automatic dependency tracking similar to modern reactive frameworks
 
 use std::sync::Arc;
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::collections::HashMap;
 use parking_lot::{RwLock, Mutex};
 use dashmap::DashMap;
@@ -136,16 +136,12 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
     /// Create a new signal with a specific reactive context
     pub fn with_context(initial: T, context: Arc<ReactiveContext>) -> Self {
         use slotmap::SlotMap;
-        static mut SLOT_MAP: Option<SlotMap<StateId, ()>> = None;
-        static INIT: std::sync::Once = std::sync::Once::new();
+        use std::sync::OnceLock;
         
-        INIT.call_once(|| unsafe {
-            SLOT_MAP = Some(SlotMap::new());
-        });
+        static SLOT_MAP: OnceLock<Mutex<SlotMap<StateId, ()>>> = OnceLock::new();
         
-        let id = unsafe {
-            SLOT_MAP.as_mut().unwrap().insert(())
-        };
+        let slot_map = SLOT_MAP.get_or_init(|| Mutex::new(SlotMap::new()));
+        let id = slot_map.lock().insert(());
 
         Self {
             id,

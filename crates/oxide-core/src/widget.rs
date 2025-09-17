@@ -6,8 +6,8 @@
 
 use crate::{
     event::Event,
-    layout::{Layout, LayoutConstraints, Size},
-    types::{Rect, Point},
+    layout::{LayoutConstraints, Size},
+    types::Rect,
     error::OxideResult,
 };
 use std::{

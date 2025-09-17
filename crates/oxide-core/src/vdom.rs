@@ -1,6 +1,6 @@
 //! Virtual DOM implementation with efficient diffing
 
-use crate::types::{NodeId, ElementId};
+use crate::types::NodeId;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -152,15 +152,18 @@ impl VNode {
         }
     }
 
-    /// Get mutable children of the node
+    /// Get mutable children for element, component, and fragment nodes
     pub fn get_children_mut(&mut self) -> &mut Vec<VNode> {
         match self {
             VNode::Element { children, .. } | VNode::Component { children, .. } => children,
             VNode::Fragment(children) => children,
             VNode::Text(_) => {
                 // Return an empty vec that will be ignored
-                static mut EMPTY: Vec<VNode> = Vec::new();
-                unsafe { &mut EMPTY }
+                use std::sync::OnceLock;
+                static EMPTY: OnceLock<Vec<VNode>> = OnceLock::new();
+                // Since we can't return a mutable reference to a static, we'll panic
+                // This method shouldn't be called on Text nodes anyway
+                panic!("Cannot get mutable children from Text node")
             }
         }
     }

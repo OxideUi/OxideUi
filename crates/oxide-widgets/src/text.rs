@@ -10,7 +10,7 @@ use oxide_core::{
     event::{Event, EventResult},
 };
 use oxide_renderer::{
-    vertex::{Vertex, VertexBuilder},
+    vertex::VertexBuilder,
     batch::RenderBatch,
 };
 use crate::widget::{Widget, WidgetId, generate_id};
@@ -350,6 +350,12 @@ impl Text {
     /// Set theme
     pub fn theme(mut self, theme: Arc<Theme>) -> Self {
         self.theme = Some(theme);
+        self
+    }
+
+    /// Set text size (font size)
+    pub fn size(mut self, size: f32) -> Self {
+        self.style.font_size = size;
         self
     }
 
@@ -777,7 +783,7 @@ impl Widget for Text {
         );
     }
 
-    fn handle_event(&mut self, event: &Event) -> EventResult {
+    fn handle_event(&mut self, _event: &Event) -> EventResult {
         // Handle text events
         EventResult::Ignored
     }

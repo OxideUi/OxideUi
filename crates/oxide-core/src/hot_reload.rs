@@ -4,10 +4,7 @@
 //! for rapid development and iteration
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::{Duration, SystemTime};
-use std::collections::HashMap;
-use parking_lot::{RwLock, Mutex};
+use std::time::SystemTime;
 use serde::{Serialize, Deserialize};
 
 #[cfg(feature = "hot-reload")]

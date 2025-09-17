@@ -217,6 +217,7 @@ pub struct FontManager {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Fields are used for font storage but not in simplified implementation
 struct FontData {
     family: String,
     data: Vec<u8>,
@@ -436,7 +437,8 @@ pub enum TextError {
 }
 
 /// Global text system instance
-static mut TEXT_SYSTEM: Option<TextSystem> = None;
+use std::sync::OnceLock;
+static TEXT_SYSTEM: OnceLock<TextSystem> = OnceLock::new();
 
 /// Main text system
 pub struct TextSystem {
@@ -473,19 +475,13 @@ impl TextSystem {
 
 /// Initialize the global text system
 pub fn init_text_system() -> Result<(), TextError> {
-    unsafe {
-        if TEXT_SYSTEM.is_none() {
-            TEXT_SYSTEM = Some(TextSystem::new());
-        }
-    }
+    TEXT_SYSTEM.get_or_init(|| TextSystem::new());
     Ok(())
 }
 
 /// Get the global text system instance
 pub fn text_system() -> &'static TextSystem {
-    unsafe {
-        TEXT_SYSTEM.as_ref().expect("Text system not initialized")
-    }
+    TEXT_SYSTEM.get().expect("Text system not initialized")
 }
 
 #[cfg(test)]

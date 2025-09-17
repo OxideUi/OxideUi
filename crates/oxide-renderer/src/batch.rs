@@ -55,6 +55,7 @@ pub struct RenderBatch {
 
 /// Texture information for batching
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Fields are used for texture management but not in simplified implementation
 struct TextureInfo {
     width: u32,
     height: u32,

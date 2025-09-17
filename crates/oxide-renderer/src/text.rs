@@ -64,11 +64,13 @@ impl Default for Font {
 
 /// Glyph cache for efficient text rendering
 pub struct GlyphCache {
+    #[allow(dead_code)] // Field is used for glyph caching but not in simplified implementation
     cache: SwashCache,
     glyphs: DashMap<u64, CachedGlyph>,
 }
 
 /// Cached glyph data
+#[allow(dead_code)] // Fields are used for glyph rendering but not in simplified implementation
 struct CachedGlyph {
     texture_coords: (f32, f32, f32, f32),
     size: (u32, u32),
@@ -206,6 +208,7 @@ impl TextRenderer {
     }
 
     /// Hash text and font for caching
+    #[allow(dead_code)] // Used for text caching but not in simplified implementation
     fn hash_text(text: &str, font: &Font) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};

@@ -8,10 +8,7 @@ use crate::{
     types::{Size, Point, Rect},
     error::{OxideResult, OxideError},
 };
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::collections::HashMap;
 
 /// Unique identifier for windows
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

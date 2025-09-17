@@ -344,6 +344,8 @@ struct FlexLine {
 
 /// Layout engine for calculating widget positions
 pub struct LayoutEngine {
+    // Allow dead code for cache field as it's part of future optimization plans
+    #[allow(dead_code)]
     cache: dashmap::DashMap<u64, Layout>,
 }
 

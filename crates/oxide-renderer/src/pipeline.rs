@@ -2,11 +2,10 @@
 
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, Device, PipelineLayout,
+    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, Device,
     PipelineLayoutDescriptor, RenderPipeline, RenderPipelineDescriptor, ShaderStages,
     TextureSampleType, TextureViewDimension, VertexState, FragmentState, ColorTargetState,
-    BlendState, ColorWrites, PrimitiveState, MultisampleState, VertexBufferLayout,
-    VertexAttribute, VertexFormat, BufferAddress, VertexStepMode,
+    BlendState, ColorWrites, PrimitiveState, MultisampleState,
 };
 use crate::vertex::Vertex;
 

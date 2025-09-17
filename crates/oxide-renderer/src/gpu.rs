@@ -18,6 +18,7 @@ pub struct Renderer<'a> {
     uniform_buffer: Buffer,
     bind_group: BindGroup,
     batch: RenderBatch,
+    #[allow(dead_code)] // Field is used for renderer configuration but not in simplified implementation
     config: RendererConfig,
 }
 

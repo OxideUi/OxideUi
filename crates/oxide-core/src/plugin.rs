@@ -4,7 +4,7 @@
 //! with custom widgets, themes, and behaviors.
 
 use std::{
-    any::{Any, TypeId},
+    any::Any,
     collections::HashMap,
     sync::{Arc, RwLock},
 };

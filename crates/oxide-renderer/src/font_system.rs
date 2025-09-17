@@ -162,6 +162,7 @@ impl GlyphAtlas {
         self.needs_update = false;
     }
 
+    #[allow(dead_code)] // Method is used for glyph atlas management but not in simplified implementation
     fn allocate_space(&mut self, width: u32, height: u32) -> Option<(u32, u32)> {
         // Simple row-based allocation
         if self.current_x + width > self._size.0 {
@@ -187,6 +188,7 @@ impl GlyphAtlas {
 /// Advanced font management system
 pub struct FontSystem {
     font_system: Arc<RwLock<cosmic_text::FontSystem>>,
+    #[allow(dead_code)] // Field is used for glyph caching but not in simplified implementation
     swash_cache: Arc<RwLock<SwashCache>>,
     glyph_atlas: Arc<RwLock<GlyphAtlas>>,
     fonts: HashMap<FontId, FontInfo>,
