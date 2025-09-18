@@ -55,6 +55,7 @@ pub struct Application {
     root_widget: Option<Box<dyn Widget>>,
     event_loop: Option<EventLoop>,
     initial_window: Option<WindowBuilder>,
+    render_batch: Option<oxide_renderer::RenderBatch>,
     // Renderer is managed by the event loop to avoid lifetime issues
 }
 
@@ -65,8 +66,9 @@ impl Application {
             title: title.into(),
             windows: HashMap::new(),
             root_widget: None,
-            event_loop: Some(EventLoop::new()),
+            event_loop: Some(EventLoop::new().expect("Failed to create event loop")),
             initial_window: Some(initial_window),
+            render_batch: None,
         }
     }
 
@@ -96,7 +98,7 @@ impl Application {
     }
 
     /// Render the application using the provided renderer
-    pub fn render(&mut self, renderer: &mut Renderer<'_>) -> anyhow::Result<()> {
+    pub fn render(&mut self, renderer: &mut Renderer) -> anyhow::Result<()> {
         if let Some(root_widget) = self.root_widget.as_mut() {
             let mut batch = oxide_renderer::batch::RenderBatch::new();
             
@@ -117,18 +119,70 @@ impl Application {
         Ok(())
     }
 
+    /// Render the application with a simple approach (no actual GPU rendering)
+    pub fn render_simple(&mut self) -> anyhow::Result<()> {
+        if let Some(root_widget) = self.root_widget.as_mut() {
+            let mut batch = oxide_renderer::RenderBatch::new();
+            
+            // Compute layout constraints
+            let constraints = oxide_core::layout::Constraints {
+                min_width: 0.0,
+                max_width: 800.0,
+                min_height: 0.0,
+                max_height: 600.0,
+            };
+            
+            // Layout and render the root widget
+            let size = root_widget.layout(constraints);
+            let layout = oxide_core::layout::Layout::new(
+                glam::Vec2::new(0.0, 0.0),
+                size
+            );
+            root_widget.render(&mut batch, layout);
+            
+            tracing::info!("Rendered {} draw commands", batch.vertices.len());
+            
+            // Return the batch for actual rendering
+            self.render_batch = Some(batch);
+        } else {
+            tracing::warn!("No root widget to render");
+        }
+        Ok(())
+    }
+    
+    /// Get the current render batch
+    pub fn get_render_batch(&mut self) -> Option<oxide_renderer::RenderBatch> {
+        self.render_batch.take()
+    }
+
     /// Run the application
     pub fn run(mut self) -> ! {
-        let event_loop = self.event_loop.take().expect("Event loop already taken");
-        
         #[cfg(not(target_arch = "wasm32"))]
         {
             if let Some(window_builder) = self.initial_window.take() {
-                event_loop.run_with_window_and_app(window_builder, self)
+                if let Some(event_loop) = self.event_loop.take() {
+                    match event_loop.run_with_window_and_app(window_builder, self, move |_event| {
+                        // Event handling is now done inside the event loop
+                    }) {
+                        Ok(_) => std::process::exit(0),
+                        Err(e) => {
+                            eprintln!("Event loop error: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                } else {
+                    eprintln!("No event loop available");
+                    std::process::exit(1);
+                }
             } else {
-                event_loop.run(move |event| {
-                    self.handle_event(event);
-                })
+                if let Some(event_loop) = self.event_loop.take() {
+                    event_loop.run(move |_event| {
+                        // Handle event
+                    });
+                } else {
+                    eprintln!("No event loop available");
+                    std::process::exit(1);
+                }
             }
         }
         
@@ -150,7 +204,8 @@ impl Application {
             Event::Window(oxide_core::event::WindowEvent::Close) => {
                 // Handle window close - for now, just log it
                 // The application will continue running
-                println!("Window close requested");
+                use oxide_core::{oxide_info, logging::LogCategory};
+                oxide_info!(LogCategory::Platform, "Window close requested");
             }
             _ => {}
         }

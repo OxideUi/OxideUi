@@ -82,6 +82,11 @@ impl RenderBatch {
         self.vertex_count = 0;
     }
 
+    /// Get the number of draw commands in the batch
+    pub fn command_count(&self) -> usize {
+        self.commands.len()
+    }
+
     /// Add a rectangle to the batch
     pub fn add_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
         let command = DrawCommand::Rect { rect, color, transform };
@@ -148,8 +153,10 @@ impl RenderBatch {
 
     /// Batch text into vertices and indices (simple implementation using rectangles)
     fn batch_text(&mut self, text: &str, position: (f32, f32), color: Color, font_size: f32) {
-        println!("DEBUG: Batching text '{}' at position ({}, {}) with color ({}, {}, {}, {}) and font size {}", 
-                 text, position.0, position.1, color.r, color.g, color.b, color.a, font_size);
+        use oxide_core::{oxide_trace, logging::LogCategory};
+        
+        oxide_trace!(LogCategory::Text, "Batching text '{}' at ({:.1}, {:.1}) size {:.1}", 
+                    text, position.0, position.1, font_size);
         
         let char_width = font_size * 0.6; // Approximate character width
         let char_height = font_size;
@@ -158,9 +165,6 @@ impl RenderBatch {
             let x = position.0 + (i as f32 * char_width);
             let y = position.1;
             
-            println!("DEBUG: Creating character {} at position ({}, {}) with size {}x{}", 
-                     i, x, y, char_width, char_height);
-            
             // Create a small rectangle for each character
             let char_rect = Rect::new(x, y, char_width, char_height);
             let transform = Transform::default();
@@ -168,8 +172,8 @@ impl RenderBatch {
             self.batch_rect(char_rect, color, transform);
         }
         
-        println!("DEBUG: Finished batching text. Total vertices: {}, Total indices: {}", 
-                 self.vertices.len(), self.indices.len());
+        oxide_trace!(LogCategory::Text, "Text batch complete: {} vertices, {} indices", 
+                    self.vertices.len(), self.indices.len());
     }
 
     /// Batch a rectangle into vertices and indices

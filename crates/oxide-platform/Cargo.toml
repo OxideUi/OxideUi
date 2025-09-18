@@ -21,8 +21,11 @@ winit.workspace = true
 raw-window-handle.workspace = true
 
 # Async
-tokio = { workspace = true, optional = true }
+tokio = { workspace = true }
 futures.workspace = true
+
+# Logging
+tracing.workspace = true
 
 # Error handling
 thiserror.workspace = true
@@ -30,9 +33,6 @@ anyhow.workspace = true
 
 # Async utilities
 pollster = "0.3"
-
-# Logging
-tracing.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen.workspace = true
@@ -54,4 +54,3 @@ console_error_panic_hook.workspace = true
 
 [features]
 default = []
-async = ["dep:tokio"]

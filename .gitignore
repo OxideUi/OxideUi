@@ -1,2 +1,5 @@
 /target
 IMPLEMENTATION_SUMMARY.md
+*.lock
+
+WARP.md

@@ -1,29 +1,56 @@
-//! GPU-accelerated renderer for OxideUI framework
+//! OxideUI Renderer
 //!
-//! This crate provides the rendering backend using wgpu for cross-platform GPU acceleration.
+//! A high-performance, GPU-accelerated 2D renderer built on wgpu.
+//! Designed for modern UI frameworks with a focus on performance and flexibility.
+//!
+//! ## Features
+//! - Advanced GPU device management with multi-adapter support
+//! - Intelligent resource management with automatic pooling and deframmentation
+//! - Sophisticated memory management with multi-tier allocation
+//! - Dynamic shader compilation with hot-reload support
+//! - Modular pipeline system with render graph optimization
+//! - Efficient buffer management with lock-free operations
+//! - Comprehensive performance profiling and monitoring
+//! - Enterprise-grade error handling and recovery
 
+pub mod batch;
+pub mod buffer;
+pub mod device;
+pub mod font_system;
 pub mod gpu;
+pub mod memory;
 pub mod pipeline;
+pub mod profiler;
+pub mod resources;
+pub mod shader;
 pub mod text;
 pub mod texture;
-pub mod batch;
 pub mod vertex;
-pub mod font_system;
 
-pub use gpu::{Renderer, RenderContext, Surface};
-pub use pipeline::{UIPipeline, TextPipeline, PipelineManager, UIUniforms};
-pub use text::{TextRenderer, Font, GlyphCache};
-pub use texture::{Texture, TextureAtlas};
-pub use batch::{DrawCommand, RenderBatch};
-pub use vertex::{Vertex, TextVertex, VertexBuilder};
-pub use font_system::*;
+pub mod integration;
+
+// Re-export commonly used types
+pub use batch::RenderBatch;
+pub use buffer::{BufferManager, DynamicBuffer, BufferPool};
+pub use device::{ManagedDevice, DeviceManager, AdapterInfo};
+pub use integration::{IntegratedRenderer, RendererBuilder, RenderContext, RenderStats};
+pub use memory::{MemoryManager, MemoryPool, AllocationStrategy};
+pub use pipeline::{PipelineManager, RenderGraph, RenderNode};
+pub use profiler::{Profiler, PerformanceReport, FrameStats};
+pub use resources::{ResourceManager, ResourceHandle, ResourceType};
+pub use shader::{ShaderManager, ShaderSource, CompiledShader};
+
+
 
 use oxide_core::types::{Color, Rect, Transform};
+use wgpu::Surface;
+use std::collections::{BTreeSet};
+use slotmap::SlotMap;
 
 /// Rendering backend trait
-pub trait Backend<'a>: Send + Sync {
+pub trait Backend: Send + Sync {
     /// Initialize the backend
-    fn init(&mut self, surface: &Surface<'a>) -> anyhow::Result<()>;
+    fn init(&mut self, surface: &Surface) -> anyhow::Result<()>;
     
     /// Begin a new frame
     fn begin_frame(&mut self) -> anyhow::Result<()>;
@@ -36,6 +63,9 @@ pub trait Backend<'a>: Send + Sync {
     
     /// Draw text
     fn draw_text(&mut self, text: &str, position: (f32, f32), color: Color);
+    
+    /// Set the background color
+    fn set_background_color(&mut self, color: Color);
     
     /// Submit draw commands
     fn submit(&mut self) -> anyhow::Result<()>;

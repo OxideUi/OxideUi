@@ -1,15 +1,42 @@
 //! Event loop management
 
-use oxide_core::event::{Event, MouseButton, MouseEvent, KeyboardEvent, KeyCode, Modifiers, WindowEvent};
-use oxide_core::types::Size;
-use oxide_renderer::gpu::Renderer;
-use std::sync::mpsc;
+use std::cell::RefCell;
 use std::time::{Duration, Instant};
+use oxide_core::event::{Event, MouseButton, MouseEvent, KeyboardEvent, KeyCode, Modifiers, WindowEvent};
+use std::sync::Arc;
+use std::rc::Rc;
+use winit::window::Window;
+use crate::Application;
 
 /// Custom event for the event loop
 #[derive(Debug)]
 pub struct CustomEvent {
     pub event: Event,
+}
+
+/// Application state for managing event loop state safely
+struct AppState {
+    window_created: bool,
+    winit_window: Option<Arc<Window>>,
+    renderer: Option<oxide_renderer::gpu::Renderer>,
+    renderer_initialized: bool,
+    needs_redraw: bool,
+    last_update: Instant,
+    app: Option<Application>,
+}
+
+impl AppState {
+    fn new() -> Self {
+        Self {
+            window_created: false,
+            winit_window: None,
+            renderer: None,
+            renderer_initialized: false,
+            needs_redraw: false,
+            last_update: Instant::now(),
+            app: None,
+        }
+    }
 }
 
 /// Event loop wrapper with cross-platform support
@@ -22,22 +49,22 @@ pub struct EventLoop {
 
 impl EventLoop {
     /// Create a new event loop
-    pub fn new() -> Self {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            Self {
-                inner: winit::event_loop::EventLoopBuilder::with_user_event()
-                    .build()
-                    .expect("Failed to create event loop"),
-            }
-        }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new() -> Result<Self, EventLoopError> {
+        use winit::event_loop::EventLoopBuilder;
         
-        #[cfg(target_arch = "wasm32")]
-        {
-            Self {
-                _phantom: std::marker::PhantomData,
-            }
-        }
+        let inner = EventLoopBuilder::with_user_event()
+            .build()
+            .map_err(|_| EventLoopError::CreationFailed)?;
+        
+        Ok(Self { inner })
+    }
+    
+    #[cfg(target_arch = "wasm32")]
+    pub fn new() -> Result<Self, EventLoopError> {
+        Ok(Self {
+            _phantom: std::marker::PhantomData,
+        })
     }
 
     /// Create an event loop proxy for sending custom events
@@ -100,7 +127,7 @@ impl EventLoop {
                     }
                 }
                 WinitEvent::UserEvent(custom) => {
-                    handler(custom.event);
+                    handler(Event::Custom(Arc::new(custom.event)));
                 }
                 _ => {}
             }
@@ -112,210 +139,188 @@ impl EventLoop {
 
     /// Run the event loop with a window
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn run_with_window<F>(self, window_builder: crate::WindowBuilder, mut handler: F) -> !
+    pub fn run_with_window<F>(
+        self,
+        window_builder: crate::WindowBuilder,
+        mut handler: F,
+    ) -> Result<(), EventLoopError>
     where
         F: FnMut(Event) + 'static,
     {
         use winit::event::{Event as WinitEvent, WindowEvent as WinitWindowEvent};
         use winit::event_loop::ControlFlow;
         
-        let mut window_created = false;
-        let mut winit_window: Option<winit::window::Window> = None;
-        let mut needs_redraw = true;
-        let mut last_update = Instant::now();
+        let state = Rc::new(RefCell::new(AppState::new()));
         
-        self.inner.run(move |event, elwt| {
-            // Create window on first iteration
-            if !window_created {
-                match window_builder.build_winit(elwt) {
-                    Ok(window) => {
-                        winit_window = Some(window);
-                        window_created = true;
-                        needs_redraw = true;
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to create window: {}", e);
-                        elwt.exit();
-                        return;
-                    }
-                }
-            }
+        self.inner.run(move |event, event_loop_window_target| {
+            event_loop_window_target.set_control_flow(ControlFlow::Poll);
+            
+            let mut state = state.borrow_mut();
             
             match event {
+                WinitEvent::Resumed => {
+                    if !state.window_created {
+                        let window = Arc::new(
+                            window_builder
+                                .build_winit(event_loop_window_target)
+                                .expect("Failed to create window"),
+                        );
+                        
+                        state.winit_window = Some(window);
+                        state.window_created = true;
+                        state.needs_redraw = true;
+                        state.last_update = Instant::now();
+                    }
+                }
+                WinitEvent::WindowEvent { event, .. } => {
+                    if let Some(oxide_event) = convert_window_event(event) {
+                        handler(oxide_event);
+                    }
+                }
+                WinitEvent::AboutToWait => {
+                    let now = Instant::now();
+                    let frame_time = Duration::from_millis(16);
+                    
+                    if state.needs_redraw && now.duration_since(state.last_update) >= frame_time {
+                        if let Some(ref window) = state.winit_window {
+                            window.request_redraw();
+                            state.last_update = now;
+                        }
+                    }
+                }
+                WinitEvent::UserEvent(custom) => {
+                    handler(Event::Custom(Arc::new(custom.event)));
+                }
+                _ => {}
+            }
+        }).map_err(|_| EventLoopError::RunFailed)
+    }
+
+    /// Run the event loop with a window and application
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn run_with_window_and_app<F>(
+        self,
+        window_builder: crate::WindowBuilder,
+        app: Application,
+        handler: F,
+    ) -> Result<(), Box<dyn std::error::Error>>
+    where
+        F: FnMut(Event) + 'static,
+    {
+        use winit::event::{Event as WinitEvent, WindowEvent};
+        
+        let app_state = Rc::new(RefCell::new(AppState::new()));
+        let mut handler = handler;
+        
+        // Store the application in the state
+        app_state.borrow_mut().app = Some(app);
+        
+        self.inner.run(move |event, event_loop_window_target| {
+            let mut state = app_state.borrow_mut();
+            
+            match event {
+                WinitEvent::Resumed => {
+                    if !state.window_created {
+                        let window = Arc::new(
+                            window_builder
+                                .build_winit(event_loop_window_target)
+                                .expect("Failed to create window"),
+                        );
+                        
+                        // Store the window first
+                        state.winit_window = Some(window);
+                        
+                        // Initialize the GPU renderer
+                        if let Some(window) = &state.winit_window {
+                            // Clone the window Arc to avoid borrowing issues
+                            let window_clone = window.clone();
+                            let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
+                            let config = oxide_renderer::RendererConfig {
+                                msaa_samples: 1,
+                                vsync: true,
+                                max_texture_size: 2048,
+                                validation: false,
+                            };
+                            
+                            let renderer = rt.block_on(async {
+                                oxide_renderer::gpu::Renderer::new(&*window_clone, config).await
+                                    .expect("Failed to create renderer")
+                            });
+                            
+                            state.renderer = Some(renderer);
+                        }
+                        state.renderer_initialized = true;
+                        state.window_created = true;
+                        state.needs_redraw = true;
+                        state.last_update = Instant::now();
+                    }
+                }
                 WinitEvent::WindowEvent { event, .. } => {
                     match event {
-                        WinitWindowEvent::CloseRequested => {
-                            handler(Event::Window(WindowEvent::Close));
-                            elwt.exit();
-                        }
-                        WinitWindowEvent::RedrawRequested => {
-                            // Redraw completed
-                            needs_redraw = false;
-                        }
-                        WinitWindowEvent::Resized(physical_size) => {
-                            handler(Event::Window(WindowEvent::Resize {
+                        WindowEvent::Resized(physical_size) => {
+                            // Resize the renderer when the window is resized
+                            if let Some(renderer) = &mut state.renderer {
+                                let new_size = oxide_core::types::Size {
+                                    width: physical_size.width as f32,
+                                    height: physical_size.height as f32,
+                                };
+                                renderer.resize(new_size);
+                            }
+                            
+                            handler(oxide_core::event::Event::Window(oxide_core::event::WindowEvent::Resize {
                                 width: physical_size.width,
                                 height: physical_size.height,
                             }));
-                            needs_redraw = true;
+                        }
+                        WindowEvent::RedrawRequested => {
+                            state.needs_redraw = false;
+                            // Call the application's render method and get the render batch
+                            if let Some(app) = &mut state.app {
+                                if let Err(e) = app.render_simple() {
+                                    eprintln!("Render error: {}", e);
+                                } else {
+                                    // Get the render batch
+                                    if let Some(batch) = app.get_render_batch() {
+                                        if let Some(renderer) = &mut state.renderer {
+                                            // Set background color to blue for testing
+                                            use oxide_renderer::Backend;
+                                            renderer.set_background_color(oxide_core::types::Color::rgba(0.2, 0.2, 0.8, 1.0));
+                                            
+                                            if let Err(e) = renderer.render(&batch) {
+                                                tracing::error!("GPU render error: {}", e);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        WindowEvent::CloseRequested => {
+                            handler(oxide_core::event::Event::Window(oxide_core::event::WindowEvent::Close));
+                            event_loop_window_target.exit();
                         }
                         _ => {
                             if let Some(oxide_event) = convert_window_event(event) {
                                 handler(oxide_event);
-                                needs_redraw = true;
                             }
                         }
                     }
                 }
                 WinitEvent::AboutToWait => {
-                    // Frame rate limiting and redraw scheduling
-                    let now = Instant::now();
-                    let frame_time = Duration::from_millis(16); // ~60 FPS
-                    
-                    if needs_redraw && now.duration_since(last_update) >= frame_time {
-                        if let Some(ref window) = winit_window {
+                    if state.needs_redraw && state.renderer_initialized {
+                        if let Some(window) = &state.winit_window {
                             window.request_redraw();
-                            last_update = now;
                         }
-                    }
-                    
-                    if needs_redraw {
-                        elwt.set_control_flow(ControlFlow::Poll);
-                    } else {
-                        elwt.set_control_flow(ControlFlow::WaitUntil(last_update + frame_time));
+                        state.needs_redraw = false;
                     }
                 }
-                WinitEvent::UserEvent(custom) => {
-                    handler(custom.event);
-                    needs_redraw = true;
+                WinitEvent::UserEvent(custom_event) => {
+                    handler(custom_event.event);
                 }
                 _ => {}
             }
         }).expect("Event loop failed");
         
-        // This should never be reached, but if it is, exit the process
-        std::process::exit(0);
-    }
-
-    /// Run the event loop with a window and application
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn run_with_window_and_app(self, window_builder: crate::WindowBuilder, mut app: crate::Application) -> ! {
-        use winit::event::{Event as WinitEvent, WindowEvent as WinitWindowEvent};
-        use winit::event_loop::ControlFlow;
-        
-        self.inner.run(move |event, elwt| {
-            // Static variables to maintain state across closure calls
-            static mut WINDOW_CREATED: bool = false;
-            static mut WINIT_WINDOW: Option<winit::window::Window> = None;
-            static mut RENDERER: Option<Renderer> = None;
-            static mut NEEDS_REDRAW: bool = true;
-            static mut LAST_UPDATE: Option<Instant> = None;
-            
-            unsafe {
-                // Initialize last_update on first call
-                if LAST_UPDATE.is_none() {
-                    LAST_UPDATE = Some(Instant::now());
-                }
-                
-                // Create window on first iteration
-                if !WINDOW_CREATED {
-                    match window_builder.build_winit(elwt) {
-                        Ok(window) => {
-                             // Move window first, then create renderer
-                             WINIT_WINDOW = Some(window);
-                             
-                             // Initialize renderer using the stored window
-                             if let Some(ref window) = WINIT_WINDOW {
-                                 match pollster::block_on(Renderer::new(window, oxide_renderer::RendererConfig::default())) {
-                                     Ok(r) => {
-                                         RENDERER = Some(r);
-                                         WINDOW_CREATED = true;
-                                         NEEDS_REDRAW = true;
-                                     }
-                                     Err(e) => {
-                                         eprintln!("Failed to initialize renderer: {}", e);
-                                         elwt.exit();
-                                         return;
-                                     }
-                                 }
-                             }
-                         }
-                        Err(e) => {
-                            eprintln!("Failed to create window: {}", e);
-                            elwt.exit();
-                            return;
-                        }
-                    }
-                }
-                
-                match event {
-                    WinitEvent::WindowEvent { event, .. } => {
-                        match event {
-                            WinitWindowEvent::CloseRequested => {
-                                app.handle_event(Event::Window(WindowEvent::Close));
-                                elwt.exit();
-                            }
-                            WinitWindowEvent::RedrawRequested => {
-                                // Handle redraw with proper error handling
-                                if let (Some(ref window), Some(ref mut r)) = (&WINIT_WINDOW, &mut RENDERER) {
-                                    let size = window.inner_size();
-                                    if size.width > 0 && size.height > 0 {
-                                        if let Err(e) = app.render(r) {
-                                            eprintln!("Render error: {}", e);
-                                        }
-                                    }
-                                }
-                                NEEDS_REDRAW = false;
-                            }
-                            WinitWindowEvent::Resized(physical_size) => {
-                                // Handle window resize
-                                if let Some(ref mut r) = RENDERER {
-                                    r.resize(Size::new(physical_size.width as f32, physical_size.height as f32));
-                                }
-                                app.handle_event(Event::Window(WindowEvent::Resize {
-                                    width: physical_size.width,
-                                    height: physical_size.height,
-                                }));
-                                NEEDS_REDRAW = true;
-                            }
-                            _ => {
-                                if let Some(oxide_event) = convert_window_event(event) {
-                                    app.handle_event(oxide_event);
-                                    NEEDS_REDRAW = true;
-                                }
-                            }
-                        }
-                    }
-                    WinitEvent::AboutToWait => {
-                        // Frame rate limiting and redraw scheduling
-                        let now = Instant::now();
-                        let frame_time = Duration::from_millis(16); // ~60 FPS
-                        let last_update = LAST_UPDATE.unwrap();
-                        
-                        if NEEDS_REDRAW && now.duration_since(last_update) >= frame_time {
-                            if let Some(ref window) = WINIT_WINDOW {
-                                window.request_redraw();
-                                LAST_UPDATE = Some(now);
-                            }
-                        }
-                        
-                        if NEEDS_REDRAW {
-                            elwt.set_control_flow(ControlFlow::Poll);
-                        } else {
-                            elwt.set_control_flow(ControlFlow::WaitUntil(last_update + frame_time));
-                        }
-                    }
-                    WinitEvent::UserEvent(custom) => {
-                        app.handle_event(custom.event);
-                        NEEDS_REDRAW = true;
-                    }
-                    _ => {}
-                }
-            }
-        }).expect("Event loop failed");
-        
-        // This should never be reached, but if it is, exit the process
-        std::process::exit(0);
+        Ok(())
     }
 
     /// Run the event loop for WASM
@@ -386,7 +391,7 @@ impl EventLoop {
 
 impl Default for EventLoop {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("Failed to create default event loop")
     }
 }
 
@@ -422,6 +427,10 @@ impl EventLoopProxy {
 pub enum EventLoopError {
     #[error("Failed to send event")]
     SendFailed,
+    #[error("Failed to create event loop")]
+    CreationFailed,
+    #[error("Failed to run event loop")]
+    RunFailed,
 }
 
 /// Convert winit event to OxideUI event

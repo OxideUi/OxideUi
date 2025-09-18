@@ -7,10 +7,10 @@ use oxide_core::types::{Color, Rect, Transform, Size};
 use crate::{Backend, RendererConfig, vertex::Vertex, batch::RenderBatch};
 
 /// Main renderer struct
-pub struct Renderer<'a> {
+pub struct Renderer {
     device: Arc<Device>,
     queue: Arc<Queue>,
-    surface: Surface<'a>,
+    surface: Surface,
     surface_config: SurfaceConfiguration,
     render_pipeline: RenderPipeline,
     vertex_buffer: Buffer,
@@ -18,6 +18,7 @@ pub struct Renderer<'a> {
     uniform_buffer: Buffer,
     bind_group: BindGroup,
     batch: RenderBatch,
+    background_color: Color,
     #[allow(dead_code)] // Field is used for renderer configuration but not in simplified implementation
     config: RendererConfig,
 }
@@ -69,10 +70,10 @@ impl RenderContext {
     }
 }
 
-impl<'a> Renderer<'a> {
+impl Renderer {
     /// Create a new renderer
     pub async fn new(
-        window: &'a Window,
+        window: &Window,
         config: RendererConfig,
     ) -> anyhow::Result<Self> {
         let context = RenderContext::new().await?;
@@ -214,6 +215,7 @@ impl<'a> Renderer<'a> {
             uniform_buffer,
             bind_group,
             batch: RenderBatch::new(),
+            background_color: Color::rgba(0.1, 0.1, 0.1, 1.0), // Default dark gray background
             config,
         })
     }
@@ -269,8 +271,8 @@ impl<'a> Renderer<'a> {
     }
 }
 
-impl<'a> Backend<'a> for Renderer<'a> {
-    fn init(&mut self, _surface: &crate::Surface<'a>) -> anyhow::Result<()> {
+impl Backend for Renderer {
+    fn init(&mut self, _surface: &crate::Surface) -> anyhow::Result<()> {
         self.update_projection_matrix();
         Ok(())
     }
@@ -281,7 +283,23 @@ impl<'a> Backend<'a> for Renderer<'a> {
     }
 
     fn end_frame(&mut self) -> anyhow::Result<()> {
-        let output = self.surface.inner.get_current_texture()?;
+        let output = match self.surface.inner.get_current_texture() {
+            Ok(output) => output,
+            Err(SurfaceError::Lost | SurfaceError::Outdated) => {
+                // Surface has changed, reconfigure it
+                self.surface.inner.configure(&self.device, &self.surface_config);
+                // Try again after reconfiguration
+                self.surface.inner.get_current_texture()?
+            }
+            Err(SurfaceError::OutOfMemory) => {
+                return Err(anyhow::anyhow!("Out of memory"));
+            }
+            Err(SurfaceError::Timeout) => {
+                // This is usually fine, just skip this frame
+                return Ok(());
+            }
+        };
+
         let view = output.texture.create_view(&TextureViewDescriptor::default());
 
         let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor {
@@ -296,10 +314,10 @@ impl<'a> Backend<'a> for Renderer<'a> {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.1,
-                            b: 0.1,
-                            a: 1.0,
+                            r: self.background_color.r as f64,
+                            g: self.background_color.g as f64,
+                            b: self.background_color.b as f64,
+                            a: self.background_color.a as f64,
                         }),
                         store: StoreOp::Store,
                     },
@@ -352,6 +370,10 @@ impl<'a> Backend<'a> for Renderer<'a> {
         );
     }
 
+    fn set_background_color(&mut self, color: Color) {
+        self.background_color = color;
+    }
+
     fn submit(&mut self) -> anyhow::Result<()> {
         // Commands are submitted in end_frame
         Ok(())
@@ -359,13 +381,13 @@ impl<'a> Backend<'a> for Renderer<'a> {
 }
 
 /// Surface wrapper for cross-platform compatibility
-pub struct Surface<'a> {
-    pub inner: wgpu::Surface<'a>,
+pub struct Surface {
+    pub inner: wgpu::Surface<'static>,
 }
 
-impl<'a> Surface<'a> {
-    pub fn new(window: &'a Window, instance: &Instance) -> anyhow::Result<Self> {
-        let surface = instance.create_surface(window)?;
+impl Surface {
+    pub fn new(window: &Window, instance: &Instance) -> anyhow::Result<Self> {
+        let surface = unsafe { instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(window)?) }?;
         Ok(Self { inner: surface })
     }
 }
