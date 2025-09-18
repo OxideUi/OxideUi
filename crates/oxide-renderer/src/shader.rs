@@ -676,9 +676,7 @@ impl ShaderManager {
 
 impl Drop for ShaderManager {
     fn drop(&mut self) {
-        if let Some(watcher) = self.file_watcher.lock().take() {
-            // Watcher will be dropped automatically, no need to explicitly unwatch
-        }
+        // File watcher cleanup disabled for compatibility
     }
 }
 

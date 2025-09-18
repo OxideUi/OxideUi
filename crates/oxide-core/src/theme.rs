@@ -339,7 +339,7 @@ impl ColorPalette {
             on_primary: Color::WHITE,
             on_secondary: Color::WHITE,
             on_background: Color::from_hex("#111827").unwrap(),
-            on_surface: Color::from_hex("#374151").unwrap(),
+            on_surface: Color::from_hex("#FFFF00").unwrap(), // Bright yellow for visibility
             error: Color::from_hex("#EF4444").unwrap(),
             on_error: Color::WHITE,
             warning: Color::from_hex("#F59E0B").unwrap(),
@@ -369,7 +369,7 @@ impl ColorPalette {
             on_primary: Color::from_hex("#1E1B4B").unwrap(),
             on_secondary: Color::from_hex("#831843").unwrap(),
             on_background: Color::from_hex("#F9FAFB").unwrap(),
-            on_surface: Color::from_hex("#E5E7EB").unwrap(),
+            on_surface: Color::from_hex("#00FFFF").unwrap(), // Bright cyan for visibility
             error: Color::from_hex("#F87171").unwrap(),
             on_error: Color::from_hex("#7F1D1D").unwrap(),
             warning: Color::from_hex("#FBBF24").unwrap(),

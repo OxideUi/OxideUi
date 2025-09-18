@@ -9,11 +9,12 @@ use oxide_core::layout::Size;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use dashmap::DashMap;
+use crate::glyph_atlas::{GlyphAtlasManager, GlyphInfo};
 
 /// Font wrapper
 pub struct Font {
     family: Family<'static>,
-    size: f32,
+    pub size: f32,
     weight: u16,
     italic: bool,
 }
@@ -44,7 +45,7 @@ impl Font {
     }
 
     /// Convert to cosmic-text attributes
-    fn to_attrs(&self) -> Attrs<'static> {
+    pub fn to_attrs(&self) -> Attrs<'static> {
         Attrs::new()
             .family(self.family.clone())
             .weight(cosmic_text::Weight(self.weight))
@@ -58,7 +59,20 @@ impl Font {
 
 impl Default for Font {
     fn default() -> Self {
-        Self::new("sans-serif", 16.0)
+        // Use platform-specific default fonts
+        #[cfg(target_os = "windows")]
+        let default_family = "Segoe UI";
+        
+        #[cfg(target_os = "macos")]
+        let default_family = "San Francisco";
+        
+        #[cfg(target_os = "linux")]
+        let default_family = "Ubuntu";
+        
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        let default_family = "sans-serif";
+        
+        Self::new(default_family, 16.0)
     }
 }
 
@@ -96,6 +110,7 @@ impl GlyphCache {
 pub struct TextRenderer {
     font_system: Arc<RwLock<FontSystem>>,
     glyph_cache: Arc<RwLock<GlyphCache>>,
+    glyph_atlas_manager: Arc<RwLock<GlyphAtlasManager>>,
     buffers: DashMap<u64, Buffer>,
 }
 
@@ -104,10 +119,27 @@ impl TextRenderer {
     pub fn new() -> Self {
         let mut font_system = FontSystem::new();
         
-        // Load system fonts
+        // Load system fonts with error handling and fallback
         #[cfg(target_os = "windows")]
         {
+            use oxide_core::{oxide_trace, logging::LogCategory};
+            
+            oxide_trace!(LogCategory::Text, "Loading Windows system fonts");
             font_system.db_mut().load_system_fonts();
+            
+            // Ensure we have at least some common fallback fonts
+            let fallbacks = ["Segoe UI", "Arial", "Tahoma", "Calibri", "system-ui"];
+            for fallback in &fallbacks {
+                let faces: Vec<_> = font_system.db().faces().collect();
+                if !faces.iter().any(|face| {
+                    face.families.iter().any(|(name, _)| name == fallback)
+                }) {
+                    oxide_trace!(LogCategory::Text, "Fallback font '{}' not found in system", fallback);
+                }
+            }
+            
+            let face_count = font_system.db().faces().count();
+            oxide_trace!(LogCategory::Text, "Loaded {} font faces", face_count);
         }
         #[cfg(target_os = "macos")]
         {
@@ -121,6 +153,7 @@ impl TextRenderer {
         Self {
             font_system: Arc::new(RwLock::new(font_system)),
             glyph_cache: Arc::new(RwLock::new(GlyphCache::new())),
+            glyph_atlas_manager: Arc::new(RwLock::new(GlyphAtlasManager::new((1024, 1024)))),
             buffers: DashMap::new(),
         }
     }
@@ -134,45 +167,34 @@ impl TextRenderer {
         color: Color,
         max_width: Option<f32>,
     ) -> Vec<TextVertex> {
-        let mut font_system = self.font_system.write();
         let mut vertices = Vec::new();
+        let mut glyph_atlas = self.glyph_atlas_manager.write();
         
-        // Create buffer for text layout
-        let metrics = Metrics::new(font.size, font.size * 1.2);
-        let mut buffer = Buffer::new(&mut font_system, metrics);
-        buffer.set_text(&mut font_system, text, font.to_attrs(), Shaping::Advanced);
+        let mut current_x = position.x;
+        let current_y = position.y;
         
-        if let Some(width) = max_width {
-            buffer.set_wrap(&mut font_system, Wrap::Word);
-            buffer.set_size(&mut font_system, Some(width), Some(f32::MAX));
-        }
-        
-        buffer.shape_until_scroll(&mut font_system, false);
-        
-        // Generate vertices for each glyph
-        for run in buffer.layout_runs() {
-            for glyph in run.glyphs {
-                let physical_glyph = glyph.physical((position.x, position.y), 1.0);
+        // Generate vertices for each character
+        for character in text.chars() {
+            if let Some((atlas_index, glyph_info)) = glyph_atlas.get_or_create_glyph(font, character) {
+                let glyph_x = current_x + glyph_info.bearing.0 as f32;
+                let glyph_y = current_y + glyph_info.bearing.1 as f32;
+                let glyph_w = glyph_info.size.0 as f32;
+                let glyph_h = glyph_info.size.1 as f32;
+                
+                let (u0, v0, u1, v1) = glyph_info.uv_rect;
                 
                 // Create quad vertices for this glyph
-                let x = physical_glyph.x;
-                let y = physical_glyph.y;
-                let w = glyph.w;
-                let h = run.line_height;
-                
-                // Texture coordinates (will be set by glyph cache)
-                let u0 = 0.0;
-                let v0 = 0.0;
-                let u1 = 1.0;
-                let v1 = 1.0;
-                
-                // Create quad (two triangles)
                 vertices.extend_from_slice(&[
-                    TextVertex::new([x as f32, y as f32], color, [u0, v0]),
-                    TextVertex::new([x as f32 + w, y as f32], color, [u1, v0]),
-                    TextVertex::new([x as f32 + w, y as f32 + h], color, [u1, v1]),
-                    TextVertex::new([x as f32, y as f32 + h], color, [u0, v1]),
+                    TextVertex::new([glyph_x, glyph_y], color, [u0, v0]),
+                    TextVertex::new([glyph_x + glyph_w, glyph_y], color, [u1, v0]),
+                    TextVertex::new([glyph_x + glyph_w, glyph_y + glyph_h], color, [u1, v1]),
+                    TextVertex::new([glyph_x, glyph_y + glyph_h], color, [u0, v1]),
                 ]);
+                
+                current_x += glyph_info.advance;
+            } else {
+                // Character not available, skip or use fallback
+                current_x += font.size * 0.5; // Fallback advance
             }
         }
         

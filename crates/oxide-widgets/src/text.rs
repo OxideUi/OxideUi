@@ -117,14 +117,14 @@ impl Default for TextStyle {
             font_size: 14.0,
             font_weight: FontWeight::Normal,
             font_style: FontStyle::Normal,
-            color: Color::rgba(0.0, 0.0, 0.0, 1.0),
+            color: Color::rgba(1.0, 1.0, 0.0, 1.0), // Bright yellow for visibility
             line_height: 1.4,
             letter_spacing: 0.0,
             word_spacing: 0.0,
             text_align: TextAlign::Left,
             vertical_align: VerticalAlign::Top,
             text_decoration: TextDecoration::None,
-            decoration_color: Color::rgba(0.0, 0.0, 0.0, 1.0),
+            decoration_color: Color::rgba(0.0, 1.0, 0.0, 1.0), // Bright green for decoration
             text_overflow: TextOverflow::Clip,
             max_lines: None,
             selectable: false,
@@ -177,7 +177,7 @@ impl TextStyle {
         Self {
             font_family: "monospace".to_string(),
             font_size: 13.0,
-            color: Color::rgba(0.2, 0.2, 0.2, 1.0),
+            color: Color::rgba(0.0, 1.0, 1.0, 1.0), // Bright cyan for code
             letter_spacing: 0.5,
             ..Default::default()
         }
@@ -186,7 +186,7 @@ impl TextStyle {
     /// Create a link style
     pub fn link() -> Self {
         Self {
-            color: Color::rgba(0.0, 0.0, 0.0, 1.0),
+            color: Color::rgba(1.0, 0.0, 1.0, 1.0), // Bright magenta for links
             text_decoration: TextDecoration::Underline,
             decoration_color: Color::rgba(0.0, 0.4, 0.8, 1.0),
             ..Default::default()

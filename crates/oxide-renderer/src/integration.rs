@@ -134,12 +134,14 @@ impl IntegratedRenderer {
         info!("Selected GPU device: {}", device.capabilities.device_name);
         
         // Initialize management systems  
-        let resource_manager = Arc::new(ResourceManager::new(device.clone())?);
-        let memory_manager = Arc::new(parking_lot::Mutex::new(MemoryManager::new(device.clone())));
+        let resource_manager = Arc::new(ResourceManager::new(
+            device.clone(),
+        )?);
+        let memory_manager = MemoryManager::new(device.clone());
         
         let shader_manager = Arc::new(ShaderManager::new(device.clone())?);
         
-        let memory_manager_shared = memory_manager.clone();
+        let memory_manager_shared = Arc::new(parking_lot::Mutex::new(memory_manager));
         let buffer_manager = Arc::new(BufferManager::new(
             device.clone(),
             memory_manager_shared.clone(),
@@ -263,7 +265,7 @@ impl IntegratedRenderer {
     /// Get render statistics
     pub fn get_stats(&self) -> RenderStats {
         let memory_usage = self.memory_manager.lock().get_total_allocated();
-        let active_resources = self.resource_manager.get_active_count() as u32;
+        let active_resources = self.resource_manager.get_active_count();
         
         let (average_frame_time, shader_reloads, pipeline_switches) = if let Some(ref profiler) = self.profiler {
             let report = profiler.get_performance_report();
@@ -280,7 +282,7 @@ impl IntegratedRenderer {
             frame_count: self.frame_count,
             average_frame_time,
             memory_usage,
-            active_resources,
+            active_resources: active_resources.try_into().unwrap(),
             shader_reloads,
             pipeline_switches,
         }
@@ -377,7 +379,7 @@ impl IntegratedRenderer {
         
         // Cleanup resources
         self.resource_manager.cleanup_all();
-        let _ = self.memory_manager.lock().cleanup();
+        self.memory_manager.lock().cleanup();
         
         self.initialized = false;
         info!("Renderer shutdown complete");

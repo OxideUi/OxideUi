@@ -19,6 +19,9 @@ pub struct Renderer {
     bind_group: BindGroup,
     batch: RenderBatch,
     background_color: Color,
+    text_texture: Texture,
+    text_texture_view: TextureView,
+    text_sampler: Sampler,
     #[allow(dead_code)] // Field is used for renderer configuration but not in simplified implementation
     config: RendererConfig,
 }
@@ -120,29 +123,86 @@ impl Renderer {
             mapped_at_creation: false,
         });
 
+        // Create text texture (placeholder - will be updated with actual glyph atlas)
+        let text_texture = context.device.create_texture(&TextureDescriptor {
+            label: Some("Text Atlas Texture"),
+            size: Extent3d {
+                width: 1024,
+                height: 1024,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::R8Unorm,
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        
+        let text_texture_view = text_texture.create_view(&TextureViewDescriptor::default());
+        
+        let text_sampler = context.device.create_sampler(&SamplerDescriptor {
+            label: Some("Text Sampler"),
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            address_mode_w: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Nearest,
+            ..Default::default()
+        });
+
         // Create bind group layout
         let bind_group_layout = context.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("Bind Group Layout"),
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
                 },
-                count: None,
-            }],
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: TextureViewDimension::D2,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
         });
 
         // Create bind group
         let bind_group = context.device.create_bind_group(&BindGroupDescriptor {
             label: Some("Bind Group"),
             layout: &bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: uniform_buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&text_texture_view),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::Sampler(&text_sampler),
+                },
+            ],
         });
 
         // Create render pipeline
@@ -216,6 +276,9 @@ impl Renderer {
             bind_group,
             batch: RenderBatch::new(),
             background_color: Color::rgba(0.1, 0.1, 0.1, 1.0), // Default dark gray background
+            text_texture,
+            text_texture_view,
+            text_sampler,
             config,
         })
     }
@@ -257,6 +320,32 @@ impl Renderer {
         self.surface_config.format
     }
 
+    /// Update text atlas texture if needed
+    pub fn update_text_atlas(&mut self, atlas_data: &[u8], width: u32, height: u32) {
+        // Update the texture data on the GPU
+        let texture_size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+        
+        self.queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &self.text_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            atlas_data,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(width),
+                rows_per_image: Some(height),
+            },
+            texture_size,
+        );
+    }
+
     /// Render a batch of commands
     pub fn render(&mut self, batch: &RenderBatch) -> anyhow::Result<()> {
         // Copy the batch data to our internal batch
@@ -265,6 +354,9 @@ impl Renderer {
         
         self.batch.vertices.extend_from_slice(&batch.vertices);
         self.batch.indices.extend_from_slice(&batch.indices);
+        
+        // Check if we need to update the text atlas
+        // TODO: Access atlas from batch and update if dirty
         
         // Render the frame
         self.end_frame()

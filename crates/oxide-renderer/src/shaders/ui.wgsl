@@ -19,6 +19,12 @@ struct Uniforms {
 @group(0) @binding(0)
 var<uniform> uniforms: Uniforms;
 
+@group(0) @binding(1)
+var text_texture: texture_2d<f32>;
+
+@group(0) @binding(2)
+var text_sampler: sampler;
+
 @vertex
 fn vs_main(model: VertexInput) -> VertexOutput {
     var out: VertexOutput;
@@ -31,5 +37,15 @@ fn vs_main(model: VertexInput) -> VertexOutput {
 // Fragment shader
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color;
+    // Check if this is a text vertex (using tex_coords to determine)
+    // For debug rectangles and solid shapes, tex_coords will be (0,0)
+    if (in.tex_coords.x != 0.0 || in.tex_coords.y != 0.0) {
+        // Text rendering: sample from texture atlas and multiply by vertex color
+        let text_sample = textureSample(text_texture, text_sampler, in.tex_coords);
+        // Use the alpha from texture for text transparency
+        return vec4<f32>(in.color.rgb, in.color.a * text_sample.a);
+    } else {
+        // Solid color rendering (rectangles, shapes, etc.)
+        return in.color;
+    }
 }

@@ -306,11 +306,12 @@ impl EventLoop {
                     }
                 }
                 WinitEvent::AboutToWait => {
-                    if state.needs_redraw && state.renderer_initialized {
+                    // Always request redraw to maintain continuous rendering
+                    if state.renderer_initialized {
                         if let Some(window) = &state.winit_window {
                             window.request_redraw();
                         }
-                        state.needs_redraw = false;
+                        state.needs_redraw = true; // Keep requesting redraws
                     }
                 }
                 WinitEvent::UserEvent(custom_event) => {

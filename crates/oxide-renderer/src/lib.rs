@@ -17,6 +17,7 @@ pub mod batch;
 pub mod buffer;
 pub mod device;
 pub mod font_system;
+pub mod glyph_atlas;
 pub mod gpu;
 pub mod memory;
 pub mod pipeline;
@@ -24,6 +25,7 @@ pub mod profiler;
 pub mod resources;
 pub mod shader;
 pub mod text;
+pub mod simple_text;
 pub mod texture;
 pub mod vertex;
 
