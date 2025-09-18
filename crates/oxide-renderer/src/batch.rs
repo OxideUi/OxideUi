@@ -165,10 +165,11 @@ impl RenderBatch {
             let x = position.0 + (i as f32 * char_width);
             let y = position.1;
             
-            // Create a small rectangle for each character
+            // Create a visible rectangle for each character with the specified color
             let char_rect = Rect::new(x, y, char_width, char_height);
             let transform = Transform::default();
             
+            // Use the provided color instead of transparent/default color
             self.batch_rect(char_rect, color, transform);
         }
         
