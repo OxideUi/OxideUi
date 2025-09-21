@@ -7,7 +7,7 @@
 //! - High-performance text rendering with caching
 
 use cosmic_text::{
-    Attrs, Buffer, Family, Metrics, Shaping, SwashCache, Wrap,
+    Attrs, Buffer, Family, Metrics, Shaping, SwashCache, Wrap, FontSystem as CosmicFontSystem,
 };
 use dashmap::DashMap;
 use oxide_core::types::{Color, Point};
@@ -186,8 +186,13 @@ impl GlyphAtlas {
 }
 
 /// Advanced font management system
+/// Creates a safe font system that loads only specific fonts to avoid problematic system fonts
+/// This function has been moved to font_config.rs for centralized configuration
+/// 
+/// FontSystem implementation with advanced text rendering capabilities
+
 pub struct FontSystem {
-    font_system: Arc<RwLock<cosmic_text::FontSystem>>,
+    font_system: Arc<RwLock<CosmicFontSystem>>,
     #[allow(dead_code)] // Field is used for glyph caching but not in simplified implementation
     swash_cache: Arc<RwLock<SwashCache>>,
     glyph_atlas: Arc<RwLock<GlyphAtlas>>,
@@ -198,34 +203,92 @@ pub struct FontSystem {
 
 impl FontSystem {
     pub fn new(device: &Device) -> Self {
-        let font_system = cosmic_text::FontSystem::new();
+        let font_system = crate::font_config::create_safe_font_system();
         
         // Register default fonts
         let mut fonts = HashMap::new();
         
-        // Default system font
+        // Default system font with platform-specific fallbacks
+        #[cfg(target_os = "windows")]
+        let default_font_chain = vec![
+            "Segoe UI".to_string(),
+            "Tahoma".to_string(),
+            "Arial".to_string(),
+            "sans-serif".to_string(),
+        ];
+        
+        #[cfg(target_os = "macos")]
+        let default_font_chain = vec![
+            "SF Pro Display".to_string(),
+            "Helvetica Neue".to_string(),
+            "Arial".to_string(),
+            "sans-serif".to_string(),
+        ];
+        
+        #[cfg(target_os = "linux")]
+        let default_font_chain = vec![
+            "Ubuntu".to_string(),
+            "DejaVu Sans".to_string(),
+            "Liberation Sans".to_string(),
+            "Arial".to_string(),
+            "sans-serif".to_string(),
+        ];
+        
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        let default_font_chain = vec![
+            "Arial".to_string(),
+            "sans-serif".to_string(),
+        ];
+
         fonts.insert(FontId::DEFAULT, FontInfo {
             id: FontId::DEFAULT,
-            family: "system-ui".to_string(),
-            fallback_chain: vec![
-                "system-ui".to_string(),
-                "sans-serif".to_string(),
-            ],
+            family: default_font_chain[0].clone(),
+            fallback_chain: default_font_chain.clone(),
             supports_cjk: false,
             supports_emoji: false,
         });
 
         // System font with CJK support
+        #[cfg(target_os = "windows")]
+        let system_font_chain = vec![
+            "Segoe UI".to_string(),
+            "Microsoft YaHei".to_string(),
+            "SimSun".to_string(),
+            "Tahoma".to_string(),
+            "Arial".to_string(),
+            "sans-serif".to_string(),
+        ];
+        
+        #[cfg(target_os = "macos")]
+        let system_font_chain = vec![
+            "SF Pro Display".to_string(),
+            "Hiragino Sans".to_string(),
+            "PingFang SC".to_string(),
+            "Helvetica Neue".to_string(),
+            "Arial".to_string(),
+            "sans-serif".to_string(),
+        ];
+        
+        #[cfg(target_os = "linux")]
+        let system_font_chain = vec![
+            "Ubuntu".to_string(),
+            "Noto Sans CJK".to_string(),
+            "DejaVu Sans".to_string(),
+            "Liberation Sans".to_string(),
+            "Arial".to_string(),
+            "sans-serif".to_string(),
+        ];
+        
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        let system_font_chain = vec![
+            "Arial".to_string(),
+            "sans-serif".to_string(),
+        ];
+
         fonts.insert(FontId::SYSTEM, FontInfo {
             id: FontId::SYSTEM,
-            family: "system-ui".to_string(),
-            fallback_chain: vec![
-                "system-ui".to_string(),
-                "Noto Sans CJK".to_string(),
-                "Hiragino Sans".to_string(),
-                "Microsoft YaHei".to_string(),
-                "sans-serif".to_string(),
-            ],
+            family: system_font_chain[0].clone(),
+            fallback_chain: system_font_chain,
             supports_cjk: true,
             supports_emoji: true,
         });

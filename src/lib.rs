@@ -3,14 +3,14 @@
 //! OxideUI provides a modern, declarative approach to building user interfaces
 //! with a focus on performance, security, and developer experience.
 
-pub use oxide_core as core;
-pub use oxide_widgets as widgets;
-pub use oxide_platform as platform;
+pub use oxide_core;
+pub use oxide_widgets;
+pub use oxide_platform;
 
-// Re-export commonly used types
-pub use oxide_core::{OxideError, Result};
-pub use oxide_widgets::prelude::*;
-pub use oxide_platform::{Application, ApplicationBuilder, Window, WindowBuilder};
+// Re-export the new granular initialization system
+pub use oxide_platform::init::{InitBuilder, InitConfig, init_all, init_with_config, get_text_renderer, is_initialized};
+
+use oxide_core::Result;
 
 /// Unified prelude module that exports all commonly used types
 pub mod prelude {
@@ -19,15 +19,33 @@ pub mod prelude {
     pub use oxide_platform::{Application, ApplicationBuilder, Window, WindowBuilder};
 }
 
-/// Initialize all OxideUI modules at once
+/// Legacy initialization function - now uses the new granular system
 /// 
-/// This is a convenience function that initializes all core modules
-/// in the correct order. Use this for simple applications that don't
-/// need fine-grained control over initialization.
-pub fn init_all() -> Result<()> {
+/// This function is kept for backward compatibility but internally uses
+/// the new InitBuilder system with default configuration.
+/// 
+/// For better control over initialization, use InitBuilder directly:
+/// ```rust
+/// use oxide_ui::{InitBuilder, InitConfig};
+/// 
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let config = InitConfig {
+///         skip_problematic_fonts: true,
+///         max_font_faces: Some(50),
+///         ..Default::default()
+///     };
+/// 
+///     InitBuilder::new()
+///         .with_config(config)
+///         .init_all()?;
+///     Ok(())
+/// }
+/// ```
+#[deprecated(since = "0.2.0", note = "Use InitBuilder for better control over initialization")]
+pub fn init_all_legacy() -> Result<()> {
     oxide_core::init()?;
     oxide_widgets::init()?;
-    oxide_platform::init().map_err(|e| OxideError::platform(e.to_string()))?;
+    oxide_platform::init().map_err(|e| oxide_core::OxideError::platform(format!("Platform init failed: {}", e)))?;
     Ok(())
 }
 

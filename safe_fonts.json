@@ -1,0 +1,36 @@
+{
+  "safe_fonts": {
+    "windows": [
+      "segoeui.ttf",
+      "arial.ttf",
+      "tahoma.ttf",
+      "calibri.ttf",
+      "verdana.ttf",
+      "trebuc.ttf",
+      "georgia.ttf",
+      "times.ttf"
+    ],
+    "macos": [
+      "SF-Pro-Display-Regular.otf",
+      "HelveticaNeue.ttc",
+      "Arial.ttf",
+      "Helvetica.ttc",
+      "Times.ttc",
+      "Georgia.ttf"
+    ],
+    "linux": [
+      "DejaVuSans.ttf",
+      "LiberationSans-Regular.ttf",
+      "NotoSans-Regular.ttf",
+      "Ubuntu-R.ttf",
+      "FreeSans.ttf",
+      "DejaVuSerif.ttf"
+    ]
+  },
+  "fallback_fonts": [
+    "sans-serif",
+    "Arial",
+    "Helvetica",
+    "DejaVu Sans"
+  ]
+}

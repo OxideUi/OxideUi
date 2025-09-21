@@ -358,7 +358,10 @@ impl WindowBuilder {
     /// Build the window
     pub fn build(self) -> OxideResult<Box<dyn Window>> {
         // This would be implemented by the platform-specific backend
-        Err(OxideError::NotImplemented("Window creation not implemented".to_string()))
+        Err(OxideError::NotImplemented { 
+            message: "Window creation not implemented".to_string(),
+            context: None,
+        })
     }
 }
 

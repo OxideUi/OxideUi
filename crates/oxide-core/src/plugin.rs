@@ -268,9 +268,10 @@ impl PluginManager {
         
         // Check for duplicate names
         if self.plugins.contains_key(&name) {
-            return Err(OxideError::PluginError(format!(
-                "Plugin '{}' is already registered", name
-            )));
+            return Err(OxideError::PluginError { 
+                message: format!("Plugin '{}' is already registered", name),
+                context: None,
+            });
         }
 
         // Validate dependencies
@@ -286,9 +287,10 @@ impl PluginManager {
     /// Load a plugin
     pub fn load_plugin(&mut self, name: &str) -> Result<()> {
         if !self.plugins.contains_key(name) {
-            return Err(OxideError::PluginError(format!(
-                "Plugin '{}' not found", name
-            )));
+            return Err(OxideError::PluginError { 
+                message: format!("Plugin '{}' not found", name),
+                context: None,
+            });
         }
 
         // Check current state
@@ -298,9 +300,10 @@ impl PluginManager {
                     return Ok(()); // Already loaded
                 }
                 PluginState::Loading => {
-                    return Err(OxideError::PluginError(format!(
-                        "Plugin '{}' is already loading", name
-                    )));
+                    return Err(OxideError::PluginError { 
+                        message: format!("Plugin '{}' is already loading", name),
+                        context: None,
+                    });
                 }
                 _ => {}
             }
@@ -326,14 +329,18 @@ impl PluginManager {
                     Err(e) => {
                         let error_msg = format!("Failed to initialize plugin '{}': {}", name, e);
                         self.plugin_states.insert(name.to_string(), PluginState::Error(error_msg.clone()));
-                        return Err(OxideError::PluginError(error_msg));
+                        return Err(OxideError::PluginError { 
+                            message: error_msg,
+                            context: None,
+                        });
                     }
                 }
             }
             None => {
-                return Err(OxideError::PluginError(format!(
-                    "Plugin '{}' not found", name
-                )));
+                return Err(OxideError::PluginError { 
+                    message: format!("Plugin '{}' not found", name),
+                    context: None,
+                });
             }
         }
 
@@ -361,14 +368,18 @@ impl PluginManager {
                     Err(e) => {
                         let error_msg = format!("Failed to activate plugin '{}': {}", name, e);
                         self.plugin_states.insert(name.to_string(), PluginState::Error(error_msg.clone()));
-                        return Err(OxideError::PluginError(error_msg));
+                        return Err(OxideError::PluginError { 
+                            message: error_msg,
+                            context: None,
+                        });
                     }
                 }
             }
             None => {
-                return Err(OxideError::PluginError(format!(
-                    "Plugin '{}' not found", name
-                )));
+                return Err(OxideError::PluginError { 
+                    message: format!("Plugin '{}' not found", name),
+                    context: None,
+                });
             }
         }
 
@@ -385,9 +396,10 @@ impl PluginManager {
                     tracing::info!("Plugin '{}' deactivated", name);
                 }
                 None => {
-                    return Err(OxideError::PluginError(format!(
-                        "Plugin '{}' not found", name
-                    )));
+                    return Err(OxideError::PluginError { 
+                        message: format!("Plugin '{}' not found", name),
+                        context: None,
+                    });
                 }
             }
         }
@@ -408,9 +420,10 @@ impl PluginManager {
                 tracing::info!("Plugin '{}' unloaded", name);
             }
             None => {
-                return Err(OxideError::PluginError(format!(
-                    "Plugin '{}' not found", name
-                )));
+                return Err(OxideError::PluginError { 
+                    message: format!("Plugin '{}' not found", name),
+                    context: None,
+                });
             }
         }
 
@@ -494,10 +507,13 @@ impl PluginManager {
     fn validate_dependencies(&self, metadata: &PluginMetadata) -> Result<()> {
         for dep in &metadata.dependencies {
             if !self.plugins.contains_key(dep) {
-                return Err(OxideError::PluginError(format!(
-                    "Plugin '{}' depends on '{}' which is not registered",
-                    metadata.name, dep
-                )));
+                return Err(OxideError::PluginError { 
+                    message: format!(
+                        "Plugin '{}' depends on '{}' which is not registered",
+                        metadata.name, dep
+                    ),
+                    context: None,
+                });
             }
         }
         Ok(())

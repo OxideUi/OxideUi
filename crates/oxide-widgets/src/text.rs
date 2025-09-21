@@ -112,19 +112,32 @@ pub struct TextStyle {
 
 impl Default for TextStyle {
     fn default() -> Self {
+        // Use platform-specific default fonts instead of generic "system-ui"
+        #[cfg(target_os = "windows")]
+        let default_family = "Segoe UI";
+        
+        #[cfg(target_os = "macos")]
+        let default_family = "SF Pro Display";
+        
+        #[cfg(target_os = "linux")]
+        let default_family = "Ubuntu";
+        
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        let default_family = "Arial";
+        
         Self {
-            font_family: "system-ui".to_string(),
+            font_family: default_family.to_string(),
             font_size: 14.0,
             font_weight: FontWeight::Normal,
             font_style: FontStyle::Normal,
-            color: Color::rgba(1.0, 1.0, 0.0, 1.0), // Bright yellow for visibility
+            color: Color::rgba(0.0, 0.0, 0.0, 1.0), // Black text for better readability
             line_height: 1.4,
             letter_spacing: 0.0,
             word_spacing: 0.0,
             text_align: TextAlign::Left,
             vertical_align: VerticalAlign::Top,
             text_decoration: TextDecoration::None,
-            decoration_color: Color::rgba(0.0, 1.0, 0.0, 1.0), // Bright green for decoration
+            decoration_color: Color::rgba(0.0, 0.0, 0.0, 1.0), // Black decoration
             text_overflow: TextOverflow::Clip,
             max_lines: None,
             selectable: false,

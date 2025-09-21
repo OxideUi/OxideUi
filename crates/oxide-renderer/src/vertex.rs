@@ -6,39 +6,43 @@ use wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode, Bu
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
-    pub position: [f32; 3],
+    pub position: [f32; 2],     // Changed from 3D to 2D to match shader
     pub color: [f32; 4],
-    pub tex_coords: [f32; 2],
-    pub flags: u32, // For different rendering modes (solid, textured, etc.)
+    pub uv: [f32; 2],           // Renamed from tex_coords to match shader
+    pub params: [f32; 4],       // Added params field to match shader
+    pub flags: u32,             // For different rendering modes (solid, textured, etc.)
 }
 
 impl Vertex {
     /// Create a new vertex
-    pub fn new(position: [f32; 3], color: [f32; 4], tex_coords: [f32; 2]) -> Self {
+    pub fn new(position: [f32; 2], color: [f32; 4], uv: [f32; 2]) -> Self {
         Self {
             position,
             color,
-            tex_coords,
+            uv,
+            params: [0.0, 0.0, 0.0, 0.0],
             flags: 0,
         }
     }
 
     /// Create a vertex with solid color (no texture)
-    pub fn solid(position: [f32; 3], color: [f32; 4]) -> Self {
+    pub fn solid(position: [f32; 2], color: [f32; 4]) -> Self {
         Self {
             position,
             color,
-            tex_coords: [0.0, 0.0],
+            uv: [0.0, 0.0],
+            params: [0.0, 0.0, 0.0, 0.0],
             flags: 1, // Solid color flag
         }
     }
 
     /// Create a vertex with texture coordinates
-    pub fn textured(position: [f32; 3], tex_coords: [f32; 2], color: [f32; 4]) -> Self {
+    pub fn textured(position: [f32; 2], uv: [f32; 2], color: [f32; 4]) -> Self {
         Self {
             position,
             color,
-            tex_coords,
+            uv,
+            params: [0.0, 0.0, 0.0, 0.0],
             flags: 2, // Textured flag
         }
     }
@@ -53,24 +57,30 @@ impl Vertex {
                 VertexAttribute {
                     offset: 0,
                     shader_location: 0,
-                    format: VertexFormat::Float32x3,
+                    format: VertexFormat::Float32x2,
                 },
                 // Color
                 VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as BufferAddress,
+                    offset: std::mem::size_of::<[f32; 2]>() as BufferAddress,
                     shader_location: 1,
                     format: VertexFormat::Float32x4,
                 },
-                // Texture coordinates
+                // UV coordinates
                 VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 7]>() as BufferAddress,
+                    offset: std::mem::size_of::<[f32; 6]>() as BufferAddress,
                     shader_location: 2,
                     format: VertexFormat::Float32x2,
                 },
+                // Params
+                VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 8]>() as BufferAddress,
+                    shader_location: 3,
+                    format: VertexFormat::Float32x4,
+                },
                 // Flags
                 VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 9]>() as BufferAddress,
-                    shader_location: 3,
+                    offset: std::mem::size_of::<[f32; 12]>() as BufferAddress,
+                    shader_location: 4,
                     format: VertexFormat::Uint32,
                 },
             ],
@@ -147,10 +157,10 @@ impl VertexBuilder {
         color: [f32; 4],
     ) -> (Vec<Vertex>, Vec<u16>) {
         let vertices = vec![
-            Vertex::solid([x, y, 0.0], color),                           // Top-left
-            Vertex::solid([x + width, y, 0.0], color),                   // Top-right
-            Vertex::solid([x + width, y + height, 0.0], color),          // Bottom-right
-            Vertex::solid([x, y + height, 0.0], color),                  // Bottom-left
+            Vertex::solid([x, y], color),                           // Top-left
+            Vertex::solid([x + width, y], color),                   // Top-right
+            Vertex::solid([x + width, y + height], color),          // Bottom-right
+            Vertex::solid([x, y + height], color),                  // Bottom-left
         ];
 
         let indices = vec![0, 1, 2, 2, 3, 0];
@@ -167,10 +177,10 @@ impl VertexBuilder {
         color: [f32; 4],
     ) -> (Vec<Vertex>, Vec<u16>) {
         let vertices = vec![
-            Vertex::textured([x, y, 0.0], [0.0, 0.0], color),                           // Top-left
-            Vertex::textured([x + width, y, 0.0], [1.0, 0.0], color),                   // Top-right
-            Vertex::textured([x + width, y + height, 0.0], [1.0, 1.0], color),          // Bottom-right
-            Vertex::textured([x, y + height, 0.0], [0.0, 1.0], color),                  // Bottom-left
+            Vertex::textured([x, y], [0.0, 0.0], color),                           // Top-left
+            Vertex::textured([x + width, y], [1.0, 0.0], color),                   // Top-right
+            Vertex::textured([x + width, y + height], [1.0, 1.0], color),          // Bottom-right
+            Vertex::textured([x, y + height], [0.0, 1.0], color),                  // Bottom-left
         ];
 
         let indices = vec![0, 1, 2, 2, 3, 0];
@@ -190,14 +200,14 @@ impl VertexBuilder {
         let mut indices = Vec::with_capacity((segments * 3) as usize);
 
         // Center vertex
-        vertices.push(Vertex::solid([center_x, center_y, 0.0], color));
+        vertices.push(Vertex::solid([center_x, center_y], color));
 
         // Create vertices around the circle
         for i in 0..segments {
             let angle = (i as f32) * 2.0 * std::f32::consts::PI / (segments as f32);
             let x = center_x + radius * angle.cos();
             let y = center_y + radius * angle.sin();
-            vertices.push(Vertex::solid([x, y, 0.0], color));
+            vertices.push(Vertex::solid([x, y], color));
         }
 
         // Create triangles
@@ -358,14 +368,14 @@ impl VertexBuilder {
         let mut indices = Vec::with_capacity((segments * 3) as usize);
 
         // Center vertex
-        vertices.push(Vertex::solid([center_x, center_y, 0.0], color));
+        vertices.push(Vertex::solid([center_x, center_y], color));
 
         // Create vertices around the sector
         for i in 0..=segments {
             let angle = start_angle + (i as f32) * angle_span / (segments as f32);
             let x = center_x + radius * angle.cos();
             let y = center_y + radius * angle.sin();
-            vertices.push(Vertex::solid([x, y, 0.0], color));
+            vertices.push(Vertex::solid([x, y], color));
         }
 
         // Create triangles
@@ -400,10 +410,10 @@ impl VertexBuilder {
         let half_thickness = thickness * 0.5;
         
         let vertices = vec![
-            Vertex::solid([start_x + nx * half_thickness, start_y + ny * half_thickness, 0.0], color),
-            Vertex::solid([start_x - nx * half_thickness, start_y - ny * half_thickness, 0.0], color),
-            Vertex::solid([end_x - nx * half_thickness, end_y - ny * half_thickness, 0.0], color),
-            Vertex::solid([end_x + nx * half_thickness, end_y + ny * half_thickness, 0.0], color),
+            Vertex::solid([start_x + nx * half_thickness, start_y + ny * half_thickness], color),
+            Vertex::solid([start_x - nx * half_thickness, start_y - ny * half_thickness], color),
+            Vertex::solid([end_x - nx * half_thickness, end_y - ny * half_thickness], color),
+            Vertex::solid([end_x + nx * half_thickness, end_y + ny * half_thickness], color),
         ];
 
         let indices = vec![0, 1, 2, 2, 3, 0];
@@ -418,24 +428,24 @@ mod tests {
 
     #[test]
     fn test_vertex_creation() {
-        let vertex = Vertex::new([1.0, 2.0, 3.0], [1.0, 0.0, 0.0, 1.0], [0.5, 0.5]);
-        assert_eq!(vertex.position, [1.0, 2.0, 3.0]);
+        let vertex = Vertex::new([1.0, 2.0], [1.0, 0.0, 0.0, 1.0], [0.5, 0.5]);
+        assert_eq!(vertex.position, [1.0, 2.0]);
         assert_eq!(vertex.color, [1.0, 0.0, 0.0, 1.0]);
-        assert_eq!(vertex.tex_coords, [0.5, 0.5]);
+        assert_eq!(vertex.uv, [0.5, 0.5]);
     }
 
     #[test]
     fn test_vertex_solid() {
-        let vertex = Vertex::solid([0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0]);
+        let vertex = Vertex::solid([0.0, 0.0], [1.0, 1.0, 1.0, 1.0]);
         assert_eq!(vertex.flags, 1);
-        assert_eq!(vertex.tex_coords, [0.0, 0.0]);
+        assert_eq!(vertex.uv, [0.0, 0.0]);
     }
 
     #[test]
     fn test_vertex_textured() {
-        let vertex = Vertex::textured([0.0, 0.0, 0.0], [1.0, 1.0], [1.0, 1.0, 1.0, 1.0]);
+        let vertex = Vertex::textured([0.0, 0.0], [1.0, 1.0], [1.0, 1.0, 1.0, 1.0]);
         assert_eq!(vertex.flags, 2);
-        assert_eq!(vertex.tex_coords, [1.0, 1.0]);
+        assert_eq!(vertex.uv, [1.0, 1.0]);
     }
 
     #[test]
@@ -443,8 +453,55 @@ mod tests {
         let (vertices, indices) = VertexBuilder::rectangle(0.0, 0.0, 100.0, 50.0, [1.0, 0.0, 0.0, 1.0]);
         assert_eq!(vertices.len(), 4);
         assert_eq!(indices.len(), 6);
-        assert_eq!(vertices[0].position, [0.0, 0.0, 0.0]);
-        assert_eq!(vertices[2].position, [100.0, 50.0, 0.0]);
+        assert_eq!(vertices[0].position, [0.0, 0.0]);
+        assert_eq!(vertices[2].position, [100.0, 50.0]);
+    }
+
+    #[test]
+    fn test_circle_builder() {
+        let (vertices, indices) = VertexBuilder::circle(50.0, 50.0, 25.0, [0.0, 1.0, 0.0, 1.0], 8);
+        assert_eq!(vertices.len(), 9); // Center + 8 segments
+        assert_eq!(indices.len(), 24); // 8 triangles * 3 indices
+    }
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vertex_creation() {
+        let vertex = Vertex::new([1.0, 2.0], [1.0, 0.0, 0.0, 1.0], [0.5, 0.5]);
+        assert_eq!(vertex.position, [1.0, 2.0]);
+        assert_eq!(vertex.color, [1.0, 0.0, 0.0, 1.0]);
+        assert_eq!(vertex.uv, [0.5, 0.5]);
+    }
+
+    #[test]
+    fn test_solid_vertex() {
+        let vertex = Vertex::solid([0.0, 0.0], [1.0, 1.0, 1.0, 1.0]);
+        assert_eq!(vertex.position, [0.0, 0.0]);
+        assert_eq!(vertex.color, [1.0, 1.0, 1.0, 1.0]);
+        assert_eq!(vertex.flags, 1);
+    }
+
+    #[test]
+    fn test_textured_vertex() {
+        let vertex = Vertex::textured([0.0, 0.0], [1.0, 1.0], [1.0, 1.0, 1.0, 1.0]);
+        assert_eq!(vertex.position, [0.0, 0.0]);
+        assert_eq!(vertex.uv, [1.0, 1.0]);
+        assert_eq!(vertex.flags, 2);
+    }
+
+    #[test]
+    fn test_rectangle_builder() {
+        let (vertices, indices) = VertexBuilder::rectangle(0.0, 0.0, 100.0, 50.0, [1.0, 0.0, 0.0, 1.0]);
+        assert_eq!(vertices.len(), 4);
+        assert_eq!(indices.len(), 6);
+        assert_eq!(vertices[0].position, [0.0, 0.0]);
+        assert_eq!(vertices[2].position, [100.0, 50.0]);
     }
 
     #[test]

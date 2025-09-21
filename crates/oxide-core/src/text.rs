@@ -82,8 +82,21 @@ pub struct FontDescriptor {
 
 impl Default for FontDescriptor {
     fn default() -> Self {
+        // Use platform-specific default fonts instead of generic "system-ui"
+        #[cfg(target_os = "windows")]
+        let default_family = "Segoe UI";
+        
+        #[cfg(target_os = "macos")]
+        let default_family = "SF Pro Display";
+        
+        #[cfg(target_os = "linux")]
+        let default_family = "Ubuntu";
+        
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        let default_family = "Arial";
+        
         Self {
-            family: "system-ui".to_string(),
+            family: default_family.to_string(),
             size: 14.0,
             weight: FontWeight::Normal,
             style: FontStyle::Normal,
@@ -218,10 +231,10 @@ pub struct FontManager {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // Fields are used for font storage but not in simplified implementation
-struct FontData {
-    family: String,
-    data: Vec<u8>,
-    index: u32,
+pub struct FontData {
+    pub family: String,
+    pub data: Vec<u8>,
+    pub index: u32,
 }
 
 impl FontManager {
@@ -284,6 +297,7 @@ impl TextShaper {
     pub fn shape_text(&self, text: &str, style: &TextStyle) -> Result<Vec<PositionedGlyph>, TextError> {
         // Simplified shaping - in a real implementation, this would use
         // libraries like HarfBuzz for proper text shaping
+        // TODO: Use self.font_manager to get proper font metrics
         let mut glyphs = Vec::new();
         let mut x = 0.0;
         

@@ -146,8 +146,21 @@ pub struct Typography {
 
 impl Default for Typography {
     fn default() -> Self {
+        // Use platform-specific default fonts with proper fallbacks
+        #[cfg(target_os = "windows")]
+        let font_family = "Segoe UI, Tahoma, Arial, sans-serif";
+        
+        #[cfg(target_os = "macos")]
+        let font_family = "SF Pro Display, Helvetica Neue, Arial, sans-serif";
+        
+        #[cfg(target_os = "linux")]
+        let font_family = "Ubuntu, DejaVu Sans, Liberation Sans, Arial, sans-serif";
+        
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        let font_family = "Arial, sans-serif";
+        
         Self {
-            font_family: "system-ui, -apple-system, sans-serif".to_string(),
+            font_family: font_family.to_string(),
             font_family_mono: "Consolas, Monaco, monospace".to_string(),
             h1: TextStyle { size: 96.0, weight: 300, letter_spacing: -1.5 },
             h2: TextStyle { size: 60.0, weight: 300, letter_spacing: -0.5 },

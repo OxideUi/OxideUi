@@ -66,6 +66,8 @@ pub fn current_platform() -> Box<dyn Platform> {
     }
 }
 
+pub mod init;
+
 /// Initialize the platform layer
 pub fn init() -> Result<(), PlatformError> {
     tracing::info!("OxideUI Platform initialized");

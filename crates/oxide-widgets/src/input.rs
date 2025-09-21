@@ -69,6 +69,19 @@ pub struct InputStyle {
 
 impl Default for InputStyle {
     fn default() -> Self {
+        // Use platform-specific default fonts
+        #[cfg(target_os = "windows")]
+        let font_family = "Segoe UI";
+        
+        #[cfg(target_os = "macos")]
+        let font_family = "SF Pro Display";
+        
+        #[cfg(target_os = "linux")]
+        let font_family = "Ubuntu";
+        
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        let font_family = "Arial";
+        
         Self {
             background_color: Color::WHITE,
             border_color: Color::GRAY,
@@ -80,7 +93,7 @@ impl Default for InputStyle {
             border_radius: 4.0,
             padding: (8.0, 12.0, 8.0, 12.0),
             font_size: 14.0,
-            font_family: "Arial".to_string(),
+            font_family: font_family.to_string(),
             line_height: 1.2,
         }
     }

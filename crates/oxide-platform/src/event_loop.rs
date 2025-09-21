@@ -91,7 +91,7 @@ impl EventLoop {
     where
         F: FnMut(Event) + 'static,
     {
-        use winit::event::{Event as WinitEvent, WindowEvent as WinitWindowEvent};
+        use winit::event::{Event as WinitEvent};
         use winit::event_loop::ControlFlow;
         
         let mut last_update = Instant::now();

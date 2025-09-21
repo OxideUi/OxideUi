@@ -1,10 +1,10 @@
 //! Render batching system for efficient GPU rendering
 
 use std::collections::HashMap;
-use oxide_core::types::{Color, Rect, Transform, Point};
+use oxide_core::types::{Color, Rect, Transform};
+use oxide_core::oxide_text_debug;
 use crate::vertex::Vertex;
-use crate::text::{TextRenderer, Font};
-use crate::simple_text::{SimpleTextRenderer, SimpleFont, ColorExt};
+use crate::text::TextRenderer;
 
 /// Draw command types
 #[derive(Debug, Clone)]
@@ -54,16 +54,15 @@ pub struct RenderBatch {
     vertex_count: u16,
     texture_atlas: HashMap<u32, TextureInfo>,
     text_renderer: TextRenderer,
-    simple_text_renderer: SimpleTextRenderer,
 }
 
 /// Texture information for batching
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // Fields are used for texture management but not in simplified implementation
-struct TextureInfo {
-    width: u32,
-    height: u32,
-    format: wgpu::TextureFormat,
+pub struct TextureInfo {
+    pub width: u32,
+    pub height: u32,
+    pub format: wgpu::TextureFormat,
 }
 
 impl RenderBatch {
@@ -76,7 +75,6 @@ impl RenderBatch {
             vertex_count: 0,
             texture_atlas: HashMap::new(),
             text_renderer: TextRenderer::new(),
-            simple_text_renderer: SimpleTextRenderer::new(),
         }
     }
 
@@ -102,61 +100,18 @@ impl RenderBatch {
 
     /// Add text to the batch
     pub fn add_text(&mut self, text: String, position: (f32, f32), color: Color, font_size: f32) {
-        // DEBUG: Always print when add_text is called
-        println!("DEBUG: add_text called with text='{}' position=({:.1},{:.1}) color=({:.2},{:.2},{:.2},{:.2}) size={:.1}", 
-                text, position.0, position.1, color.r, color.g, color.b, color.a, font_size);
-        
-        let command = DrawCommand::Text { text: text.clone(), position, color, font_size };
+        let command = DrawCommand::Text {
+            text: text.clone(),
+            position,
+            color,
+            font_size,
+        };
         self.commands.push(command);
         
-        // Use the new simple text rendering system
-        self.batch_text_simple(&text, position, color, font_size);
+        // Use the advanced text rendering system
+        self.batch_text(&text, position, color, font_size);
     }
-    
-    /// Add text using the simple text rendering system
-    pub fn batch_text_simple(&mut self, text: &str, position: (f32, f32), color: Color, font_size: f32) {
-        println!("DEBUG: batch_text_simple called with text='{}' at ({:.1}, {:.1}) size {:.1}", 
-                text, position.0, position.1, font_size);
-        
-        // Create simple font
-        let font = SimpleFont::system(font_size);
-        
-        // Get font info for debugging
-        let font_info = self.simple_text_renderer.get_font_info();
-        println!("DEBUG: Using font system: {}", font_info);
-        
-        // Render text vertices
-        let vertices = self.simple_text_renderer.render_text_simple(
-            text,
-            &font,
-            Point::new(position.0, position.1),
-            color,
-        );
-        
-        println!("DEBUG: Generated {} vertices for text '{}'", vertices.len(), text);
-        
-        // Convert vertices to indices and add them
-        let mut indices = Vec::new();
-        let base_vertex = self.vertices.len() as u16;
-        
-        // Each character has 4 vertices, make 2 triangles (6 indices) per character
-        for i in (0..vertices.len()).step_by(4) {
-            let base = base_vertex + i as u16;
-            indices.extend_from_slice(&[
-                base, base + 1, base + 2,  // First triangle
-                base, base + 2, base + 3,  // Second triangle
-            ]);
-        }
-        
-        // Add vertices and indices
-        self.vertices.extend(vertices);
-        self.indices.extend(indices);
-        
-        self.vertex_count += self.vertices.len() as u16;
-        
-        println!("DEBUG: Text batch complete: {} total vertices, {} total indices", 
-                self.vertices.len(), self.indices.len());
-    }
+
 
     /// Add a textured quad to the batch
     pub fn add_textured_quad(
@@ -209,38 +164,20 @@ impl RenderBatch {
 
     /// Batch text into vertices and indices (temporary simple implementation for debugging)
     fn batch_text(&mut self, text: &str, position: (f32, f32), color: Color, font_size: f32) {
-        use oxide_core::{oxide_trace, logging::LogCategory};
-        
-        // DEBUG: Always print to console
-        println!("DEBUG: batch_text called with text='{}' at ({:.1}, {:.1}) size {:.1} color ({:.2}, {:.2}, {:.2}, {:.2})", 
-                text, position.0, position.1, font_size, color.r, color.g, color.b, color.a);
-        
-        oxide_trace!(LogCategory::Text, "Batching text '{}' at ({:.1}, {:.1}) size {:.1} color ({:.2}, {:.2}, {:.2}, {:.2})", 
-                    text, position.0, position.1, font_size, color.r, color.g, color.b, color.a);
-        
-        // TEMPORARY: Simple rectangle rendering for each character (for debugging)
-        let char_width = font_size * 0.6; // Approximate character width
-        let char_height = font_size;
-        
-        println!("DEBUG: Creating {} rectangles for text '{}'", text.chars().count(), text);
-        
-        for (i, _char) in text.chars().enumerate() {
-            let x = position.0 + (i as f32 * char_width);
-            let y = position.1;
-            
-            println!("DEBUG: Character {} at ({:.1}, {:.1}) size ({:.1} x {:.1})", i, x, y, char_width, char_height);
-            
-            // Create a solid rectangle for each character
-            let char_rect = Rect::new(x, y, char_width, char_height);
-            let transform = Transform::default();
-            
-            // Use the provided color for the rectangle
-            self.batch_rect(char_rect, color, transform);
-        }
-        
-        println!("DEBUG: Text batch complete: {} vertices, {} indices", self.vertices.len(), self.indices.len());
-        oxide_trace!(LogCategory::Text, "Text batch complete: {} vertices, {} indices", 
-                    self.vertices.len(), self.indices.len());
+        // Use the new text debug macro instead of println! and excessive oxide_trace!
+        oxide_text_debug!("Batching text: '{}' at {:?} with size {} and color {:?}", 
+                         text, position, font_size, color);
+
+        // Create text command and add to current batch
+        let command = DrawCommand::Text {
+            text: text.to_string(),
+            position,
+            font_size,
+            color,
+        };
+
+        self.commands.push(command);
+        oxide_text_debug!("Added text command to batch (total commands: {})", self.commands.len());
     }
 
     /// Batch a rectangle into vertices and indices
@@ -259,26 +196,30 @@ impl RenderBatch {
         let vertices = [
             Vertex {
                 position: positions[0],
-                tex_coords: [0.0, 0.0], // Solid color - no texture
+                uv: [0.0, 0.0], // Solid color - no texture
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
             Vertex {
                 position: positions[1],
-                tex_coords: [0.0, 0.0], // Solid color - no texture
+                uv: [0.0, 0.0], // Solid color - no texture
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
             Vertex {
                 position: positions[2],
-                tex_coords: [0.0, 0.0], // Solid color - no texture
+                uv: [0.0, 0.0], // Solid color - no texture
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
             Vertex {
                 position: positions[3],
-                tex_coords: [0.0, 0.0], // Solid color - no texture
+                uv: [0.0, 0.0], // Solid color - no texture
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
         ];
@@ -313,26 +254,30 @@ impl RenderBatch {
         let vertices = [
             Vertex {
                 position: positions[0],
-                tex_coords: [u, v],
+                uv: [u, v],
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
             Vertex {
                 position: positions[1],
-                tex_coords: [u + uw, v],
+                uv: [u + uw, v],
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
             Vertex {
                 position: positions[2],
-                tex_coords: [u + uw, v + vh],
+                uv: [u + uw, v + vh],
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
             Vertex {
                 position: positions[3],
-                tex_coords: [u, v + vh],
+                uv: [u, v + vh],
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
         ];
@@ -354,9 +299,10 @@ impl RenderBatch {
         
         // Center vertex
         self.vertices.push(Vertex {
-            position: [cx, cy, 0.0],
-            tex_coords: [0.5, 0.5],
+            position: [cx, cy],
+            uv: [0.5, 0.5],
             color: [color.r, color.g, color.b, color.a],
+            params: [0.0, 0.0, 0.0, 0.0],
             flags: 0,
         });
 
@@ -370,9 +316,10 @@ impl RenderBatch {
             let y = cy + radius * angle.sin();
             
             self.vertices.push(Vertex {
-                position: [x, y, 0.0],
-                tex_coords: [0.5 + 0.5 * angle.cos(), 0.5 + 0.5 * angle.sin()],
+                position: [x, y],
+                uv: [0.5 + 0.5 * angle.cos(), 0.5 + 0.5 * angle.sin()],
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             });
 
@@ -408,27 +355,31 @@ impl RenderBatch {
         // Create line vertices
         let vertices = [
             Vertex {
-                position: [x1 + nx, y1 + ny, 0.0],
-                tex_coords: [0.0, 0.0],
+                position: [x1 + nx, y1 + ny],
+                uv: [0.0, 0.0],
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
             Vertex {
-                position: [x2 + nx, y2 + ny, 0.0],
-                tex_coords: [1.0, 0.0],
+                position: [x2 + nx, y2 + ny],
+                uv: [1.0, 0.0],
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
             Vertex {
-                position: [x2 - nx, y2 - ny, 0.0],
-                tex_coords: [1.0, 1.0],
+                position: [x2 - nx, y2 - ny],
+                uv: [1.0, 1.0],
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
             Vertex {
-                position: [x1 - nx, y1 - ny, 0.0],
-                tex_coords: [0.0, 1.0],
+                position: [x1 - nx, y1 - ny],
+                uv: [0.0, 1.0],
                 color: [color.r, color.g, color.b, color.a],
+                params: [0.0, 0.0, 0.0, 0.0],
                 flags: 0,
             },
         ];
@@ -445,11 +396,11 @@ impl RenderBatch {
     }
 
     /// Apply transform to a position
-    fn apply_transform(&self, pos: [f32; 2], transform: Transform) -> [f32; 3] {
+    fn apply_transform(&self, pos: [f32; 2], transform: Transform) -> [f32; 2] {
         // Transform uses a matrix internally, so we need to transform the point
         let point = oxide_core::types::Point::new(pos[0], pos[1]);
         let transformed = transform.transform_point(point);
-        [transformed.x, transformed.y, 0.0]
+        [transformed.x, transformed.y]
     }
 
     /// Get the number of draw calls

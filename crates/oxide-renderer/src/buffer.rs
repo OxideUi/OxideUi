@@ -10,18 +10,18 @@
 //! - Performance profiling and analytics
 //! - Lock-free buffer operations where possible
 
-use std::collections::{HashMap, BTreeMap, VecDeque};
-use std::sync::{Arc, Weak, atomic::{AtomicU64, AtomicUsize, AtomicBool, Ordering}};
-use std::time::{Duration, Instant};
 use std::ops::Range;
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, atomic::{AtomicU64, AtomicUsize, AtomicBool, Ordering}};
+use std::time::{Duration, Instant};
 use parking_lot::{RwLock, Mutex};
-use wgpu::*;
-use anyhow::{Result, Context, bail};
-use tracing::{info, warn, error, debug, instrument};
+use wgpu::{Device, Buffer, BufferUsages, BufferDescriptor, MapMode, Maintain};
+use anyhow::{Result, Context};
+use tracing::{info, warn, debug, instrument};
 use serde::{Serialize, Deserialize};
 
 use crate::device::ManagedDevice;
-use crate::memory::{MemoryManager, MemoryBlock, UsagePattern, MemoryTier};
+use crate::memory::{MemoryManager, MemoryTier};
 use crate::resources::ResourceHandle;
 
 /// Buffer usage patterns for optimization
@@ -477,7 +477,7 @@ impl DynamicBuffer {
             .context("Failed to get buffer allocation")?;
         
         // Copy existing data if needed
-        if let Some(old_buffer) = self.current_buffer.read().as_ref() {
+        if let Some(_old_buffer) = self.current_buffer.read().as_ref() {
             // In a real implementation, you would copy data here
             // This requires a command encoder and proper synchronization
         }

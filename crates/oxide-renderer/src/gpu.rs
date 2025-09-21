@@ -1,7 +1,9 @@
 //! GPU rendering backend using wgpu for cross-platform support
 
 use std::sync::Arc;
-use wgpu::*;
+use wgpu::{
+    *, BindGroupDescriptor, BindGroupEntry, BufferDescriptor, BufferUsages, MapMode, Maintain
+};
 use winit::window::Window;
 use oxide_core::types::{Color, Rect, Transform, Size};
 use crate::{Backend, RendererConfig, vertex::Vertex, batch::RenderBatch};
@@ -169,17 +171,17 @@ impl Renderer {
                 BindGroupLayoutEntry {
                     binding: 1,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: TextureViewDimension::D2,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
                 BindGroupLayoutEntry {
                     binding: 2,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: TextureViewDimension::D2,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                    },
                     count: None,
                 },
             ],
@@ -196,11 +198,11 @@ impl Renderer {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::TextureView(&text_texture_view),
+                    resource: BindingResource::Sampler(&text_sampler),
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: BindingResource::Sampler(&text_sampler),
+                    resource: BindingResource::TextureView(&text_texture_view),
                 },
             ],
         });
@@ -472,6 +474,23 @@ impl Backend for Renderer {
     }
 }
 
+impl Renderer {
+    /// Explicit cleanup method for WGPU resources
+    pub fn cleanup(&mut self) {
+        // Force cleanup of GPU resources to prevent WGPU warnings
+        // This ensures proper resource deallocation before Drop
+        
+        // Clear any pending operations
+        self.queue.submit(std::iter::empty());
+        
+        // Wait for all operations to complete
+        self.device.poll(wgpu::Maintain::Wait);
+        
+        // The actual resource cleanup will happen when the fields are dropped
+        // but this ensures all GPU operations are complete first
+    }
+}
+
 /// Surface wrapper for cross-platform compatibility
 pub struct Surface {
     pub inner: wgpu::Surface<'static>,
@@ -492,6 +511,32 @@ mod tests {
     async fn test_render_context_creation() {
         let context = RenderContext::new().await;
         assert!(context.is_ok());
+    }
+}
+
+/// Implement Drop trait for proper WGPU resource cleanup
+impl Drop for Renderer {
+    fn drop(&mut self) {
+        // Ensure all GPU operations are complete before dropping resources
+        self.queue.submit(std::iter::empty());
+        self.device.poll(wgpu::Maintain::Wait);
+        
+        // Resources will be automatically dropped in reverse order of declaration:
+        // 1. config (last field)
+        // 2. text_sampler
+        // 3. text_texture_view  
+        // 4. text_texture
+        // 5. background_color
+        // 6. batch
+        // 7. bind_group
+        // 8. uniform_buffer
+        // 9. index_buffer
+        // 10. vertex_buffer
+        // 11. render_pipeline
+        // 12. surface_config
+        // 13. surface
+        // 14. queue (Arc will decrement ref count)
+        // 15. device (Arc will decrement ref count, cleanup when last ref is dropped)
     }
 }
 

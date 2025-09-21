@@ -8,14 +8,19 @@
 //! - Power management and thermal monitoring
 //! - Vendor-specific optimizations (NVIDIA, AMD, Intel, Apple)
 
-use std::collections::{HashMap, BTreeMap};
-use std::sync::{Arc, Weak, atomic::{AtomicBool, AtomicU64, Ordering}};
+use std::collections::HashMap;
+use std::sync::{Arc, atomic::{AtomicBool, AtomicU64, Ordering}};
 use std::time::{Duration, Instant};
-use parking_lot::{RwLock, Mutex};
-use wgpu::*;
-use anyhow::{Result, Context, bail};
-use tracing::{info, warn, error, debug, instrument};
+use parking_lot::RwLock;
+use wgpu::{
+    Adapter, Device, DeviceDescriptor, Features, Instance, Limits, Queue, RequestDeviceError, Surface, SurfaceConfiguration,
+    DeviceType, InstanceDescriptor, Backends, InstanceFlags, Dx12Compiler, Gles3MinorVersion,
+    PowerPreference, RequestAdapterOptions
+};
+use anyhow::{Result, bail};
+use tracing::{info, warn, debug, instrument};
 use serde::{Serialize, Deserialize};
+use oxide_core::{oxide_error_rate_limited, oxide_warn, oxide_debug, logging::LogCategory};
 
 /// GPU vendor identification
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -498,55 +503,74 @@ impl DeviceManager {
     
     /// Create managed device from adapter
     async fn create_device(&self, adapter: &Adapter, capabilities: &GpuCapabilities) -> Result<ManagedDevice> {
-        let required_features = Features::empty()
-            | Features::TIMESTAMP_QUERY
-            | Features::PIPELINE_STATISTICS_QUERY
-            | Features::TEXTURE_COMPRESSION_BC
-            | Features::TEXTURE_COMPRESSION_ETC2
-            | Features::TEXTURE_COMPRESSION_ASTC;
+        info!("Creating device for adapter: {}", capabilities.device_name);
         
-        let actual_features = adapter.features() & required_features;
+        let required_features = Features::empty();
+        let required_limits = Limits::default();
         
-        let (device, queue) = adapter.request_device(
-            &DeviceDescriptor {
-                label: Some(&format!("OxideUI Device - {}", capabilities.device_name)),
-                required_features: actual_features,
-                required_limits: Limits::default(),
-            },
-            None,
-        ).await.context("Failed to create device")?;
+        // Set up error callback for Vulkan validation errors
+        let device_descriptor = DeviceDescriptor {
+            label: Some(&format!("OxideUI Device - {}", capabilities.device_name)),
+            required_features,
+            required_limits: required_limits.clone(),
+        };
         
-        // Set up device lost callback
-        let health = Arc::new(DeviceHealth::default());
-        let health_clone = health.clone();
-        
-        device.on_uncaptured_error(Box::new(move |error| {
-            error!("Uncaptured device error: {:?}", error);
-            health_clone.error_count.fetch_add(1, Ordering::Relaxed);
-            *health_clone.last_error.write() = Some(format!("{:?}", error));
-            
-            match error {
-                wgpu::Error::OutOfMemory { .. } => {
-                    health_clone.is_lost.store(true, Ordering::Relaxed);
-                }
-                wgpu::Error::Validation { .. } => {
-                    // Validation errors don't necessarily mean device loss
-                }
-                wgpu::Error::Internal { .. } => {
-                    // Internal errors may indicate device issues
-                    health_clone.is_lost.store(true, Ordering::Relaxed);
-                }
+        match adapter.request_device(&device_descriptor, None).await {
+            Ok((device, queue)) => {
+                // Set up error callback to handle Vulkan validation errors with rate limiting
+                device.on_uncaptured_error(Box::new(|error| {
+                    match error {
+                        wgpu::Error::Validation { description, .. } => {
+                            // Rate limit Vulkan validation errors, especially VUID-vkQueueSubmit
+                            if description.contains("VUID-vkQueueSubmit") || 
+                               description.contains("pSignalSemaphores") {
+                                oxide_error_rate_limited!(LogCategory::Vulkan, 
+                                    "Vulkan validation warning (known WGPU issue): {}", description);
+                            } else {
+                                oxide_error_rate_limited!(LogCategory::Vulkan, 
+                                    "Vulkan validation error: {}", description);
+                            }
+                        }
+                        wgpu::Error::OutOfMemory { .. } => {
+                            oxide_error_rate_limited!(LogCategory::Vulkan, 
+                                "GPU out of memory: {}", error);
+                        }
+                        _ => {
+                            oxide_warn!(LogCategory::Vulkan, "GPU error: {}", error);
+                        }
+                    }
+                }));
+                
+                let health = Arc::new(DeviceHealth::default());
+                health.last_successful_operation.write().clone_from(&Instant::now());
+                
+                let optimization_hints = capabilities.get_optimization_hints();
+                
+                oxide_debug!(LogCategory::Renderer, 
+                    "Successfully created device '{}' with {} MB memory", 
+                    capabilities.device_name, 
+                    capabilities.memory_size / (1024 * 1024)
+                );
+                
+                Ok(ManagedDevice {
+                    device,
+                    queue,
+                    capabilities: capabilities.clone(),
+                    optimization_hints,
+                    creation_time: Instant::now(),
+                    health,
+                })
             }
-        }));
-        
-        Ok(ManagedDevice {
-            device,
-            queue,
-            capabilities: capabilities.clone(),
-            optimization_hints: capabilities.get_optimization_hints(),
-            creation_time: Instant::now(),
-            health,
-        })
+            Err(e) => {
+                oxide_error_rate_limited!(LogCategory::Vulkan, 
+                    "Failed to create device for adapter '{}': {}", 
+                    capabilities.device_name, e
+                );
+                
+                // All device creation errors are treated the same way
+                bail!("Failed to create device: {}", e);
+            }
+        }
     }
     
     /// Get current active device

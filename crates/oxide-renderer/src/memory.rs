@@ -9,18 +9,17 @@
 //! - Resource streaming and prefetching
 //! - Memory usage profiling and analytics
 
-use std::collections::{HashMap, BTreeMap, VecDeque, BinaryHeap};
-use std::sync::{Arc, Weak, atomic::{AtomicU64, AtomicUsize, AtomicBool, Ordering}};
+use std::collections::{HashMap, BTreeMap, BinaryHeap};
+use std::sync::{Arc, atomic::{AtomicU64, AtomicBool, Ordering}};
 use std::time::{Duration, Instant};
-use std::cmp::{Ordering as CmpOrdering, Reverse};
-use parking_lot::{RwLock, Mutex};
-use wgpu::*;
-use anyhow::{Result, Context, bail};
-use tracing::{info, warn, error, debug, instrument};
+use std::cmp::Ordering as CmpOrdering;
+use parking_lot::RwLock;
+use wgpu::{Device, Buffer, BufferUsages, BufferDescriptor};
+use anyhow::{Result, Context};
+use tracing::{info, warn, debug, instrument};
 use serde::{Serialize, Deserialize};
-
+use oxide_core::{oxide_debug, oxide_warn, oxide_error_rate_limited, logging::LogCategory};
 use crate::device::{ManagedDevice, OptimizationHints};
-use crate::resources::ResourceHandle;
 
 /// Memory allocation strategy
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -198,7 +197,7 @@ impl MemoryPool {
         region: FreeRegion,
         size: u64,
         alignment: u64,
-        device: &Device,
+        _device: &Device,
     ) -> Result<Arc<MemoryBlock>> {
         let aligned_offset = Self::align_offset(region.offset, alignment);
         let padding = aligned_offset - region.offset;
@@ -340,7 +339,7 @@ impl MemoryPool {
             return 0.0;
         }
         
-        let used = self.used_size.load(Ordering::Relaxed);
+        let _used = self.used_size.load(Ordering::Relaxed);
         let free_regions = self.free_regions.len();
         
         // Fragmentation increases with number of free regions and decreases with usage
@@ -360,7 +359,7 @@ impl MemoryPool {
     }
     
     /// Find buffer that contains the given offset
-    fn find_buffer_for_offset(&self, offset: u64) -> Result<Arc<Buffer>> {
+    fn find_buffer_for_offset(&self, _offset: u64) -> Result<Arc<Buffer>> {
         // This is a simplified implementation
         // In practice, you'd need to track which buffer contains which offset range
         self.blocks.first()

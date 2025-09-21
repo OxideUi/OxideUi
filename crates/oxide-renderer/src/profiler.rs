@@ -10,15 +10,15 @@
 //! - Historical performance data analysis
 //! - Multi-threaded profiling support
 
-use std::collections::{HashMap, VecDeque, BTreeMap};
-use std::sync::{Arc, atomic::{AtomicU64, AtomicU32, AtomicBool, Ordering}};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex, atomic::{AtomicU32, AtomicU64, AtomicBool, Ordering}};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use std::thread;
-use parking_lot::{RwLock, Mutex};
-use wgpu::*;
-use anyhow::{Result, Context};
-use tracing::{info, warn, error, debug, instrument};
+use parking_lot::RwLock;
+use anyhow::Result;
+use tracing::{info, warn, debug, instrument};
 use serde::{Serialize, Deserialize};
+use wgpu::{QuerySetDescriptor, QueryType, QuerySet, Buffer, CommandEncoder, BufferDescriptor, BufferUsages, MapMode, Maintain};
+use thread_local::ThreadLocal;
 
 use crate::device::ManagedDevice;
 use crate::resources::ResourceHandle;
@@ -109,7 +109,7 @@ pub struct CpuProfiler {
     samples: RwLock<VecDeque<PerformanceSample>>,
     active_timers: RwLock<HashMap<String, Instant>>,
     max_samples: usize,
-    thread_local_data: thread_local::ThreadLocal<Mutex<ThreadProfileData>>,
+    thread_local_data: ThreadLocal<Mutex<ThreadProfileData>>,
 }
 
 /// Thread-local profiling data
@@ -407,7 +407,7 @@ impl CpuProfiler {
             samples: RwLock::new(VecDeque::with_capacity(max_samples)),
             active_timers: RwLock::new(HashMap::new()),
             max_samples,
-            thread_local_data: thread_local::ThreadLocal::new(),
+            thread_local_data: ThreadLocal::new(),
         }
     }
     
@@ -424,7 +424,7 @@ impl CpuProfiler {
             })
         });
         
-        let mut data = thread_data.lock();
+        let mut data = thread_data.lock().unwrap();
         data.active_timers.insert(name.to_string(), Instant::now());
     }
     
@@ -441,7 +441,7 @@ impl CpuProfiler {
             })
         });
         
-        let mut data = thread_data.lock();
+        let mut data = thread_data.lock().unwrap();
         if let Some(start_time) = data.active_timers.remove(name) {
             let duration = start_time.elapsed();
             let sample = PerformanceSample {
@@ -461,10 +461,10 @@ impl CpuProfiler {
     
     /// Collect samples from all threads
     pub fn collect_samples(&self) -> Vec<PerformanceSample> {
-        let mut all_samples = Vec::new();
+        let mut all_samples: Vec<PerformanceSample> = Vec::new();
         
         for thread_data in self.thread_local_data.iter() {
-            let mut data = thread_data.lock();
+            let mut data = thread_data.lock().unwrap();
             all_samples.extend(data.samples.drain(..));
         }
         
@@ -481,7 +481,7 @@ impl CpuProfiler {
     }
     
     /// Get average timing for a section
-    pub fn get_average_time(&self, name: &str) -> Option<f64> {
+    pub fn get_average_time(&self, _name: &str) -> Option<f64> {
         let samples = self.samples.read();
         let matching_samples: Vec<f64> = samples
             .iter()

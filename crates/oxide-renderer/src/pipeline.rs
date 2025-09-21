@@ -10,20 +10,20 @@
 //! - Hot-swappable pipeline configurations
 //! - Cross-platform pipeline optimization
 
-use std::collections::{HashMap, BTreeMap, HashSet, VecDeque};
-use std::sync::{Arc, Weak, atomic::{AtomicU64, AtomicUsize, AtomicBool, Ordering}};
-use std::time::{Duration, Instant};
-use parking_lot::{RwLock, Mutex};
-use wgpu::*;
-use anyhow::{Result, Context, bail};
-use tracing::{info, warn, error, debug, instrument};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+use parking_lot::RwLock;
+use wgpu::{
+    Device, RenderPipeline, ComputePipeline, PipelineLayout, BindGroupLayout, ShaderModule,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, ShaderStages, BindingType, BufferBindingType,
+    TextureSampleType, TextureViewDimension, PipelineLayoutDescriptor, RenderPipelineDescriptor,
+    VertexState, FragmentState, ColorTargetState, BlendState, ColorWrites, PrimitiveState,
+    MultisampleState, Buffer, BindGroup, BindGroupDescriptor, BindGroupEntry
+};
+use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
-
 use crate::vertex::Vertex;
-use crate::device::ManagedDevice;
-use crate::shader::{ShaderManager, ShaderVariant, CompiledShader};
-use crate::memory::{MemoryManager, UsagePattern, MemoryTier};
-use crate::resources::ResourceHandle;
 
 /// Uniform data for the UI shader
 #[repr(C)]
@@ -101,22 +101,22 @@ impl UIPipeline {
                     },
                     count: None,
                 },
-                // Texture
+                // Sampler
                 BindGroupLayoutEntry {
                     binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+                // Texture
+                BindGroupLayoutEntry {
+                    binding: 2,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Texture {
                         sample_type: TextureSampleType::Float { filterable: true },
                         view_dimension: TextureViewDimension::D2,
                         multisampled: false,
                     },
-                    count: None,
-                },
-                // Sampler
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
             ],
@@ -255,11 +255,11 @@ impl UIPipeline {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(texture_view),
+                    resource: wgpu::BindingResource::Sampler(sampler),
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Sampler(sampler),
+                    resource: wgpu::BindingResource::TextureView(texture_view),
                 },
             ],
         })

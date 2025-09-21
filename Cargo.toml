@@ -1,5 +1,5 @@
 [workspace]
-members = [ "examples/hello_world", "examples/counter", "examples/calculator",
+members = [ "examples/hello_world", "examples/counter", "examples/calculator", "examples/custom_init",
     "crates/oxide-core",
     "crates/oxide-renderer", 
     "crates/oxide-widgets",

@@ -158,10 +158,6 @@ impl VNode {
             VNode::Element { children, .. } | VNode::Component { children, .. } => children,
             VNode::Fragment(children) => children,
             VNode::Text(_) => {
-                // Return an empty vec that will be ignored
-                use std::sync::OnceLock;
-                static EMPTY: OnceLock<Vec<VNode>> = OnceLock::new();
-                // Since we can't return a mutable reference to a static, we'll panic
                 // This method shouldn't be called on Text nodes anyway
                 panic!("Cannot get mutable children from Text node")
             }

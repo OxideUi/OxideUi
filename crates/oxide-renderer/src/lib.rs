@@ -16,6 +16,7 @@
 pub mod batch;
 pub mod buffer;
 pub mod device;
+pub mod font_config;
 pub mod font_system;
 pub mod glyph_atlas;
 pub mod gpu;
@@ -25,7 +26,6 @@ pub mod profiler;
 pub mod resources;
 pub mod shader;
 pub mod text;
-pub mod simple_text;
 pub mod texture;
 pub mod vertex;
 
@@ -46,8 +46,6 @@ pub use shader::{ShaderManager, ShaderSource, CompiledShader};
 
 use oxide_core::types::{Color, Rect, Transform};
 use wgpu::Surface;
-use std::collections::{BTreeSet};
-use slotmap::SlotMap;
 
 /// Rendering backend trait
 pub trait Backend: Send + Sync {

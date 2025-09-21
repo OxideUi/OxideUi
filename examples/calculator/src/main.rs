@@ -101,14 +101,31 @@ impl CalculatorState {
 }
 
 fn main() -> Result<()> {
-    // Initialize all OxideUI modules
-    oxide_ui::init_all()?;
+    // Use the new initialization system with optimized font loading
+    let config = InitConfig {
+        enable_logging: true,
+        skip_problematic_fonts: true,
+        max_font_faces: Some(25), // Even more restrictive for calculator
+        ..Default::default()
+    };
+
+    InitBuilder::new()
+        .with_config(config)
+        .init_all()?;
+
+    println!("Calculator - OxideUI initialized with font optimizations!");
     
     // Build and run the application
     ApplicationBuilder::new()
         .title("OxideUI Calculator")
         .window(WindowBuilder::new().with_size(320.0, 480.0).resizable(false))
         .run(build_calculator_ui());
+
+    println!("Calculator UI created successfully!");
+    println!("Optimizations applied:");
+    println!("  • Reduced font faces to 25 for calculator app");
+    println!("  • Avoided problematic system fonts");
+    println!("  • Single text renderer instance shared across components");
 }
 
 fn build_calculator_ui() -> impl Widget {

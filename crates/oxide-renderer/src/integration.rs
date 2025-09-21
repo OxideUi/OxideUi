@@ -14,18 +14,18 @@
 
 use std::sync::Arc;
 use anyhow::{Result, Context};
-use tracing::{info, warn, error, debug, instrument};
+use tracing::{info, warn, debug, instrument};
 use wgpu::*;
 use slotmap::DefaultKey;
 
 use crate::{
-    device::{ManagedDevice, DeviceManager, AdapterInfo},
-    resources::{ResourceManager, ResourceHandle, ResourceType},
-    memory::{MemoryManager, MemoryPool, AllocationStrategy},
-    shader::{ShaderManager, ShaderSource, CompiledShader},
-    buffer::{BufferManager, DynamicBuffer, BufferPool},
-    profiler::{Profiler, PerformanceReport, FrameStats},
-    pipeline::{PipelineManager, RenderGraph, RenderNode},
+    device::{ManagedDevice, DeviceManager},
+    resources::{ResourceManager, ResourceHandle},
+    memory::{MemoryManager, AllocationStrategy},
+    shader::{ShaderManager, CompiledShader},
+    buffer::{BufferManager},
+    profiler::{Profiler, PerformanceReport},
+    pipeline::{PipelineManager},
 };
 
 /// Configuration for the integrated renderer system
@@ -221,7 +221,7 @@ impl IntegratedRenderer {
         });
         
         // Begin GPU timing
-        let gpu_timer_id = if let Some(ref profiler) = self.profiler {
+        let gpu_timer_id = if let Some(ref _profiler) = self.profiler {
             // Note: encoder is moved, so we need to handle this differently
             None // Placeholder - would need to restructure for actual GPU timing
         } else {
@@ -241,7 +241,7 @@ impl IntegratedRenderer {
     #[instrument(skip(self, context))]
     pub fn end_frame(&mut self, context: RenderContext) -> Result<()> {
         // End GPU timing if active
-        if let (Some(profiler), Some(timer_id)) = (&context.profiler, context.gpu_timer_id) {
+        if let (Some(_profiler), Some(_timer_id)) = (&context.profiler, context.gpu_timer_id) {
             // profiler.end_gpu_timing(&mut context.encoder, timer_id);
         }
         

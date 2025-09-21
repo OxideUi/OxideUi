@@ -7,8 +7,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use cosmic_text::{FontSystem, SwashCache};
-use image::{DynamicImage, ImageBuffer, Rgba};
-use oxide_core::types::{Color, Point, Size};
+use crate::font_config::create_safe_font_system;
+use oxide_core::types::Color;
 use crate::text::Font;
 
 /// Represents a glyph in the atlas
@@ -168,7 +168,7 @@ pub struct GlyphAtlasManager {
 impl GlyphAtlasManager {
     /// Create a new glyph atlas manager
     pub fn new(atlas_size: (u32, u32)) -> Self {
-        let font_system = Arc::new(Mutex::new(FontSystem::new()));
+        let font_system = Arc::new(Mutex::new(crate::font_config::create_safe_font_system()));
         let swash_cache = Arc::new(Mutex::new(SwashCache::new()));
         
         Self {
@@ -256,7 +256,7 @@ impl GlyphAtlasManager {
     /// Rasterize a glyph using cosmic-text
     fn rasterize_glyph(&self, font: &Font, character: char) -> Option<RasterizedGlyph> {
         use cosmic_text::{
-            Attrs, Buffer, Family, Metrics, Shaping,
+            Buffer, Family, Metrics, Shaping,
         };
         use oxide_core::{oxide_trace, logging::LogCategory};
         

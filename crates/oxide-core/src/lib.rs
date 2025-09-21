@@ -17,6 +17,7 @@ pub mod theme;
 pub mod plugin;
 pub mod text;
 pub mod logging;
+pub mod config;
 
 pub use event::{Event, EventHandler, EventResult};
 pub use layout::{Constraints, Layout, LayoutEngine, LayoutConstraints, Size};
@@ -24,7 +25,7 @@ pub use state::{Signal, State};
 pub use reactive::{Computed, Effect, Reactive};
 pub use types::{Color, Point, Rect, Transform};
 pub use error::{OxideError, OxideResult, Result};
-pub use logging::{Logger, LogLevel, LogCategory};
+pub use logging::{LogLevel, LogCategory};
 
 /// Re-export commonly used types
 pub mod prelude {
@@ -35,7 +36,7 @@ pub mod prelude {
         reactive::{Computed, Effect},
         types::{Color, Point, Rect},
         error::{OxideError, Result},
-        logging::{Logger, LogLevel, LogCategory},
+        logging::{LogLevel},
     };
 }
 
@@ -44,8 +45,14 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Initialize the core framework
 pub fn init() -> Result<()> {
-    // Initialize logging system
-    logging::init();
+    // Initialize logging system with default config
+    let config = config::LoggingConfig::default();
+    if let Err(e) = logging::init(&config) {
+        return Err(OxideError::Initialization { 
+            message: format!("Failed to initialize logging: {}", e),
+            context: None,
+        });
+    }
     
     // Initialize tracing
     tracing::info!("OxideUI Core v{} initialized", VERSION);

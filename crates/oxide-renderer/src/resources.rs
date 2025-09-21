@@ -10,17 +10,16 @@
 //! - Memory pressure detection and adaptive strategies
 //! - Resource dependency tracking and batch operations
 
-use std::collections::{HashMap, BTreeMap, HashSet, BTreeSet, VecDeque};
-use slotmap::{SlotMap, DefaultKey, Key};
-use std::sync::{Arc, Weak, atomic::{AtomicU64, AtomicUsize, AtomicBool, Ordering}};
+use std::collections::{HashMap, BTreeSet, VecDeque};
+use slotmap::{SlotMap, DefaultKey};
+use std::sync::{Arc, Weak, Mutex};
 use std::time::{Duration, Instant};
-use parking_lot::{RwLock, Mutex};
-use wgpu::*;
-use anyhow::{Result, Context, bail};
-use tracing::{info, warn, error, debug, instrument};
+use parking_lot::RwLock;
+use wgpu::{Device, Buffer, BufferUsages, BufferDescriptor, MapMode, Maintain, *};
+use anyhow::Result;
 use serde::{Serialize, Deserialize};
 
-use crate::device::{ManagedDevice, OptimizationHints};
+use crate::device::ManagedDevice;
 
 /// Enable advanced memory tracking and profiling
 const ENABLE_MEMORY_PROFILING: bool = cfg!(debug_assertions);
@@ -327,11 +326,11 @@ pub struct TextureAtlas {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct Region {
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
+pub struct Region {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -636,7 +635,7 @@ impl ResourceManager {
         };
 
         let device_ref = &managed_device.device;
-        let queue_ref = &managed_device.queue;
+        let _queue_ref = &managed_device.queue;
         
         Ok(Self {
             vertex_pool: Mutex::new(BufferPool::new(device_ref, vertex_config)?),
@@ -653,21 +652,21 @@ impl ResourceManager {
 
     /// Acquire a vertex buffer from the pool
     pub fn acquire_vertex_buffer(&self) -> Result<BufferRef> {
-        let mut pool = self.vertex_pool.lock();
+        let mut pool = self.vertex_pool.lock().unwrap();
         let buffer = pool.acquire(&self.managed_device.device)?;
         Ok(buffer.get_ref())
     }
 
     /// Acquire an index buffer from the pool
     pub fn acquire_index_buffer(&self) -> Result<BufferRef> {
-        let mut pool = self.index_pool.lock();
+        let mut pool = self.index_pool.lock().unwrap();
         let buffer = pool.acquire(&self.managed_device.device)?;
         Ok(buffer.get_ref())
     }
 
     /// Acquire a uniform buffer from the pool
     pub fn acquire_uniform_buffer(&self) -> Result<BufferRef> {
-        let mut pool = self.uniform_pool.lock();
+        let mut pool = self.uniform_pool.lock().unwrap();
         let buffer = pool.acquire(&self.managed_device.device)?;
         Ok(buffer.get_ref())
     }
@@ -693,22 +692,22 @@ impl ResourceManager {
 
     /// Release unused resources
     pub fn cleanup(&self) {
-        let mut last_cleanup = self.last_cleanup.lock();
+        let mut last_cleanup = self.last_cleanup.lock().unwrap();
         let now = std::time::Instant::now();
         
         if now.duration_since(*last_cleanup) > self.cleanup_interval {
             // Clean up buffer pools
-            self.vertex_pool.lock().cleanup(self.cleanup_interval);
-            self.index_pool.lock().cleanup(self.cleanup_interval);
-            self.uniform_pool.lock().cleanup(self.cleanup_interval);
+            self.vertex_pool.lock().unwrap().cleanup(self.cleanup_interval);
+            self.index_pool.lock().unwrap().cleanup(self.cleanup_interval);
+            self.uniform_pool.lock().unwrap().cleanup(self.cleanup_interval);
             
             // Clean up atlas
             self.texture_atlas.write().cleanup();
             
             // Release unused buffers
-            self.vertex_pool.lock().release_unused();
-            self.index_pool.lock().release_unused();
-            self.uniform_pool.lock().release_unused();
+            self.vertex_pool.lock().unwrap().release_unused();
+            self.index_pool.lock().unwrap().release_unused();
+            self.uniform_pool.lock().unwrap().release_unused();
             
             *last_cleanup = now;
         }
@@ -717,11 +716,11 @@ impl ResourceManager {
     /// Get comprehensive resource statistics
     pub fn stats(&self) -> ResourceStats {
         ResourceStats {
-            vertex_pool: self.vertex_pool.lock().stats(),
-            index_pool: self.index_pool.lock().stats(),
-            uniform_pool: self.uniform_pool.lock().stats(),
+            vertex_pool: self.vertex_pool.lock().unwrap().stats(),
+            index_pool: self.index_pool.lock().unwrap().stats(),
+            uniform_pool: self.uniform_pool.lock().unwrap().stats(),
             texture_atlas: self.texture_atlas.read().stats(),
-            memory_usage: self.memory_usage.lock().clone(),
+            memory_usage: self.memory_usage.lock().unwrap().clone(),
             texture_count: self.textures.read().len(),
         }
     }
@@ -731,15 +730,15 @@ impl ResourceManager {
         // More aggressive cleanup
         let long_duration = std::time::Duration::from_secs(0);
         
-        self.vertex_pool.lock().cleanup(long_duration);
-        self.index_pool.lock().cleanup(long_duration);
-        self.uniform_pool.lock().cleanup(long_duration);
+        self.vertex_pool.lock().unwrap().cleanup(long_duration);
+        self.index_pool.lock().unwrap().cleanup(long_duration);
+        self.uniform_pool.lock().unwrap().cleanup(long_duration);
         
         self.texture_atlas.write().cleanup();
         
-        self.vertex_pool.lock().release_unused();
-        self.index_pool.lock().release_unused();
-        self.uniform_pool.lock().release_unused();
+        self.vertex_pool.lock().unwrap().release_unused();
+        self.index_pool.lock().unwrap().release_unused();
+        self.uniform_pool.lock().unwrap().release_unused();
     }
     
     /// Get active resource count for integration

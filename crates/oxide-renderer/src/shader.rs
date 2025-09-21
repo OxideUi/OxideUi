@@ -10,15 +10,15 @@
 //! - Shader debugging and validation tools
 //! - Modular shader composition system
 
-use std::collections::{HashMap, HashSet, BTreeMap};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Weak, atomic::{AtomicU64, AtomicBool, Ordering}};
+use std::sync::{Arc, atomic::{AtomicU64, AtomicBool, Ordering}};
 use std::time::{Duration, Instant, SystemTime};
 use std::fs;
 use parking_lot::{RwLock, Mutex};
 use wgpu::*;
 use anyhow::{Result, Context, bail};
-use tracing::{info, warn, error, debug, instrument};
+use tracing::{info, instrument};
 use serde::{Serialize, Deserialize};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Event};
 use std::sync::mpsc;

@@ -1,15 +1,17 @@
 //! Text rendering with cosmic-text
 
 use cosmic_text::{
-    Attrs, Buffer, Family, FontSystem, Metrics, Shaping, SwashCache, Wrap,
+    Attrs, Buffer, Family, FontSystem, Metrics, Shaping,
+    Weight, Wrap, SwashCache,
 };
-use image::{DynamicImage, ImageBuffer, Rgba};
-use oxide_core::types::{Color, Point};
-use oxide_core::layout::Size;
+use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
 use parking_lot::RwLock;
-use std::sync::Arc;
 use dashmap::DashMap;
-use crate::glyph_atlas::{GlyphAtlasManager, GlyphInfo};
+use image::{DynamicImage, ImageBuffer, Rgba};
+use crate::glyph_atlas::{GlyphAtlasManager};
+use crate::vertex::{Vertex, TextVertex};
+use oxide_core::types::{Color, Point, Size};
 
 /// Font wrapper
 pub struct Font {
@@ -117,38 +119,7 @@ pub struct TextRenderer {
 impl TextRenderer {
     /// Create a new text renderer
     pub fn new() -> Self {
-        let mut font_system = FontSystem::new();
-        
-        // Load system fonts with error handling and fallback
-        #[cfg(target_os = "windows")]
-        {
-            use oxide_core::{oxide_trace, logging::LogCategory};
-            
-            oxide_trace!(LogCategory::Text, "Loading Windows system fonts");
-            font_system.db_mut().load_system_fonts();
-            
-            // Ensure we have at least some common fallback fonts
-            let fallbacks = ["Segoe UI", "Arial", "Tahoma", "Calibri", "system-ui"];
-            for fallback in &fallbacks {
-                let faces: Vec<_> = font_system.db().faces().collect();
-                if !faces.iter().any(|face| {
-                    face.families.iter().any(|(name, _)| name == fallback)
-                }) {
-                    oxide_trace!(LogCategory::Text, "Fallback font '{}' not found in system", fallback);
-                }
-            }
-            
-            let face_count = font_system.db().faces().count();
-            oxide_trace!(LogCategory::Text, "Loaded {} font faces", face_count);
-        }
-        #[cfg(target_os = "macos")]
-        {
-            font_system.db_mut().load_system_fonts();
-        }
-        #[cfg(target_os = "linux")]
-        {
-            font_system.db_mut().load_system_fonts();
-        }
+        let font_system = crate::font_config::create_safe_font_system();
 
         Self {
             font_system: Arc::new(RwLock::new(font_system)),
@@ -165,7 +136,7 @@ impl TextRenderer {
         font: &Font,
         position: Point,
         color: Color,
-        max_width: Option<f32>,
+        _max_width: Option<f32>,
     ) -> Vec<TextVertex> {
         let mut vertices = Vec::new();
         let mut glyph_atlas = self.glyph_atlas_manager.write();
@@ -175,7 +146,7 @@ impl TextRenderer {
         
         // Generate vertices for each character
         for character in text.chars() {
-            if let Some((atlas_index, glyph_info)) = glyph_atlas.get_or_create_glyph(font, character) {
+            if let Some((_atlas_index, glyph_info)) = glyph_atlas.get_or_create_glyph(font, character) {
                 let glyph_x = current_x + glyph_info.bearing.0 as f32;
                 let glyph_y = current_y + glyph_info.bearing.1 as f32;
                 let glyph_w = glyph_info.size.0 as f32;
@@ -185,10 +156,10 @@ impl TextRenderer {
                 
                 // Create quad vertices for this glyph
                 vertices.extend_from_slice(&[
-                    TextVertex::new([glyph_x, glyph_y], color, [u0, v0]),
-                    TextVertex::new([glyph_x + glyph_w, glyph_y], color, [u1, v0]),
-                    TextVertex::new([glyph_x + glyph_w, glyph_y + glyph_h], color, [u1, v1]),
-                    TextVertex::new([glyph_x, glyph_y + glyph_h], color, [u0, v1]),
+                    TextVertex::new([glyph_x, glyph_y, 0.0], [u0, v0], [color.r, color.g, color.b, color.a], 0),
+                    TextVertex::new([glyph_x + glyph_w, glyph_y, 0.0], [u1, v0], [color.r, color.g, color.b, color.a], 0),
+                    TextVertex::new([glyph_x + glyph_w, glyph_y + glyph_h, 0.0], [u1, v1], [color.r, color.g, color.b, color.a], 0),
+                    TextVertex::new([glyph_x, glyph_y + glyph_h, 0.0], [u0, v1], [color.r, color.g, color.b, color.a], 0),
                 ]);
                 
                 current_x += glyph_info.advance;
@@ -317,13 +288,13 @@ impl Default for TextRenderer {
 /// Text vertex for GPU rendering
 #[repr(C)]
 #[derive(Debug, Clone)]
-pub struct TextVertex {
+pub struct LocalTextVertex {
     pub position: [f32; 2],
     pub color: [f32; 4],
     pub tex_coords: [f32; 2],
 }
 
-impl TextVertex {
+impl LocalTextVertex {
     pub fn new(position: [f32; 2], color: Color, tex_coords: [f32; 2]) -> Self {
         Self {
             position,

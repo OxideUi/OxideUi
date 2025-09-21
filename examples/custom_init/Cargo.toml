@@ -1,0 +1,12 @@
+[package]
+name = "custom_init"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+oxide-ui = { path = "../../" }
+oxide-core = { path = "../../crates/oxide-core" }
+
+[[bin]]
+name = "custom_init"
+path = "src/main.rs"
