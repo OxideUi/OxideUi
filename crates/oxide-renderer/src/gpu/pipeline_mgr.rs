@@ -11,7 +11,7 @@ use wgpu::{
     ShaderStages, TextureFormat, VertexState,
 };
 
-use super::{buffer_mgr::{BufferManager, SimpleVertex}, shader_mgr::ShaderManager};
+use super::{buffer_mgr::{BufferManager, SimpleVertex}, shader_mgr::ShaderManager, texture_mgr::TextureManager};
 
 /// Manages render pipeline and bind groups
 pub struct PipelineManager {
@@ -27,38 +27,74 @@ impl PipelineManager {
     /// * `device` - GPU device
     /// * `shader` - Compiled shader module
     /// * `buffer_mgr` - Buffer manager (for uniform binding)
+    /// * `texture_mgr` - Texture manager (for texture binding)
     /// * `surface_format` - Surface texture format
     pub fn new(
         device: &Device,
         shader: &ShaderManager,
         buffer_mgr: &BufferManager,
+        texture_mgr: &TextureManager,
         surface_format: TextureFormat,
     ) -> anyhow::Result<Self> {
         println!("=== PIPELINE CREATION ===");
         
-        // Create bind group layout for uniform buffer
+        // Create bind group layout for uniform buffer + texture + sampler
         let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("Bind Group Layout"),
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
+            entries: &[
+                // Binding 0: Uniform buffer (projection matrix)
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
                 },
-                count: None,
-            }],
+                // Binding 1: Texture
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                // Binding 2: Sampler
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
         });
 
-        // Create bind group with actual uniform buffer
+        // Create bind group with actual resources
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: Some("Bind Group"),
             layout: &bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: buffer_mgr.uniform_buffer().as_entire_binding(),
-            }],
+            entries: &[
+                // Binding 0: Uniform buffer
+                BindGroupEntry {
+                    binding: 0,
+                    resource: buffer_mgr.uniform_buffer().as_entire_binding(),
+                },
+                // Binding 1: Texture view
+                BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(texture_mgr.atlas().view()),
+                },
+                // Binding 2: Sampler
+                BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(texture_mgr.atlas().sampler()),
+                },
+            ],
         });
 
         // Create pipeline layout
@@ -134,7 +170,7 @@ impl PipelineManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gpu::{DeviceManager, SurfaceManager};
+    use crate::gpu::{DeviceManager, SurfaceManager, TextureManager};
     use wgpu::Backends;
     use winit::dpi::PhysicalSize;
     use winit::event_loop::EventLoop;
@@ -150,11 +186,12 @@ mod tests {
         )
         .unwrap();
         let buffer_mgr = BufferManager::new(dm.device());
+        let texture_mgr = TextureManager::new(dm.device(), dm.queue());
 
         // Use a common format for testing
         let format = TextureFormat::Bgra8UnormSrgb;
 
-        let pipeline_mgr = PipelineManager::new(dm.device(), &shader, &buffer_mgr, format);
+        let pipeline_mgr = PipelineManager::new(dm.device(), &shader, &buffer_mgr, &texture_mgr, format);
 
         assert!(pipeline_mgr.is_ok());
     }
@@ -169,9 +206,10 @@ mod tests {
         )
         .unwrap();
         let buffer_mgr = BufferManager::new(dm.device());
+        let texture_mgr = TextureManager::new(dm.device(), dm.queue());
 
         let format = TextureFormat::Bgra8UnormSrgb;
-        let pipeline_mgr = PipelineManager::new(dm.device(), &shader, &buffer_mgr, format).unwrap();
+        let pipeline_mgr = PipelineManager::new(dm.device(), &shader, &buffer_mgr, &texture_mgr, format).unwrap();
 
         // Verify bind group exists
         let _bg = pipeline_mgr.bind_group();

@@ -11,6 +11,7 @@ use super::{
     render_pass_mgr::RenderPassManager,
     shader_mgr::ShaderManager,
     surface::SurfaceManager,
+    texture_mgr::TextureManager,
 };
 use wgpu::{CommandEncoderDescriptor, IndexFormat};
 use std::sync::Arc;
@@ -22,6 +23,7 @@ pub struct DrawingSystem {
     surface_mgr: SurfaceManager,
     shader_mgr: ShaderManager,
     buffer_mgr: BufferManager,
+    texture_mgr: TextureManager,
     pipeline_mgr: PipelineManager,
     render_pass_mgr: RenderPassManager,
 }
@@ -56,11 +58,16 @@ impl DrawingSystem {
         let buffer_mgr = BufferManager::new(device_mgr.device());
         println!("✅ BufferManager initialized");
         
+        // BLOCCO 8: Texture Management  
+        let texture_mgr = TextureManager::new_with_font(device_mgr.device(), device_mgr.queue());
+        println!("✅ TextureManager initialized");
+        
         // BLOCCO 5: Pipeline Creation
         let pipeline_mgr = PipelineManager::new(
             device_mgr.device(),
             &shader_mgr,
             &buffer_mgr,
+            &texture_mgr,
             surface_mgr.format(),
         )?;
         println!("✅ PipelineManager initialized");
@@ -76,6 +83,7 @@ impl DrawingSystem {
             surface_mgr,
             shader_mgr,
             buffer_mgr,
+            texture_mgr,
             pipeline_mgr,
             render_pass_mgr,
         })
@@ -83,15 +91,87 @@ impl DrawingSystem {
 
     /// Render a batch
     pub fn render(&mut self, batch: &RenderBatch) -> anyhow::Result<()> {
-        // 1. Convert Vertex to SimpleVertex
-        let vertices: Vec<SimpleVertex> = batch
-            .vertices
-            .iter()
-            .map(SimpleVertex::from)
-            .collect();
-        
-        // 2. Convert indices to u32
-        let indices: Vec<u32> = batch.indices.iter().map(|&i| i as u32).collect();
+        // 1. Process batch commands to generate vertices (including text)
+        // We rebuild the vertex buffer here to handle text rendering which needs TextureManager
+        let mut vertices: Vec<SimpleVertex> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
+        let mut vertex_count = 0;
+
+        for command in &batch.commands {
+            match command {
+                crate::batch::DrawCommand::Rect { rect, color, transform } => {
+                    // Re-implement rect batching logic here or reuse helper
+                    // For simplicity, we duplicate the logic for now to ensure correct ordering
+                    let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
+                    
+                    // Apply transform using oxide_core::Transform method
+                    let apply_transform = |p: [f32; 2]| -> [f32; 2] {
+                        let point = oxide_core::types::Point::new(p[0], p[1]);
+                        let transformed = transform.transform_point(point);
+                        [transformed.x, transformed.y]
+                    };
+
+                    let p0 = apply_transform([x, y]);
+                    let p1 = apply_transform([x + w, y]);
+                    let p2 = apply_transform([x + w, y + h]);
+                    let p3 = apply_transform([x, y + h]);
+
+                    let color_arr = [color.r, color.g, color.b, color.a];
+                    
+                    // Solid color vertices (uv = 0,0)
+                    vertices.push(SimpleVertex::from(&crate::vertex::Vertex::solid(p0, color_arr)));
+                    vertices.push(SimpleVertex::from(&crate::vertex::Vertex::solid(p1, color_arr)));
+                    vertices.push(SimpleVertex::from(&crate::vertex::Vertex::solid(p2, color_arr)));
+                    vertices.push(SimpleVertex::from(&crate::vertex::Vertex::solid(p3, color_arr)));
+
+                    indices.push(vertex_count);
+                    indices.push(vertex_count + 1);
+                    indices.push(vertex_count + 2);
+                    indices.push(vertex_count);
+                    indices.push(vertex_count + 2);
+                    indices.push(vertex_count + 3);
+
+                    vertex_count += 4;
+                }
+                crate::batch::DrawCommand::Text { text, position, color, font_size } => {
+                    let (mut x, y) = *position;
+                    let color_arr = [color.r, color.g, color.b, color.a];
+                    let font_size_u32 = *font_size as u32;
+
+                    for ch in text.chars() {
+                        if let Some(glyph) = self.texture_mgr.get_or_cache_glyph(
+                            self.device_mgr.queue(), 
+                            ch, 
+                            font_size_u32
+                        ) {
+                            let glyph_x = x + glyph.metrics.bearing_x as f32;
+                            let glyph_y = y - glyph.metrics.bearing_y as f32;
+                            let w = glyph.metrics.width as f32;
+                            let h = glyph.metrics.height as f32;
+                            let (u0, v0, u1, v1) = glyph.uv_rect;
+
+                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured([glyph_x, glyph_y], [u0, v0], color_arr)));
+                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured([glyph_x + w, glyph_y], [u1, v0], color_arr)));
+                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured([glyph_x + w, glyph_y + h], [u1, v1], color_arr)));
+                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured([glyph_x, glyph_y + h], [u0, v1], color_arr)));
+
+                            indices.push(vertex_count);
+                            indices.push(vertex_count + 1);
+                            indices.push(vertex_count + 2);
+                            indices.push(vertex_count);
+                            indices.push(vertex_count + 2);
+                            indices.push(vertex_count + 3);
+
+                            vertex_count += 4;
+                            x += glyph.metrics.advance;
+                        } else {
+                            x += *font_size * 0.5;
+                        }
+                    }
+                }
+                _ => {} // Handle other commands if needed
+            }
+        }
         
         // 3. Upload vertices and indices to GPU
         self.buffer_mgr.upload_vertices(

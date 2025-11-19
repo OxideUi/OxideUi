@@ -50,7 +50,7 @@ pub enum DrawCommand {
 pub struct RenderBatch {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
-    commands: Vec<DrawCommand>,
+    pub commands: Vec<DrawCommand>,
     vertex_count: u16,
     texture_atlas: HashMap<u32, TextureInfo>,
     text_renderer: TextRenderer,
@@ -162,37 +162,93 @@ impl RenderBatch {
         self.vertex_count += vertices.len() as u16;
     }
 
-    /// Batch text into vertices and indices (placeholder implementation using rectangles per character)
+    /// Batch text with GPU glyph rendering
+    /// 
+    /// Note: This is a temporary API that will be refactored to take TextureManager
+    /// For now, uses placeholder colored rectangles until full integration
     fn batch_text(&mut self, text: &str, position: (f32, f32), color: Color, font_size: f32) {
-        // Use the new text debug macro instead of println! and excessive oxide_trace!
         oxide_text_debug!("Batching text: '{}' at {:?} with size {} and color {:?}", 
                          text, position, font_size, color);
 
-        // TEMPORARY PLACEHOLDER: Render each character as a colored rectangle
-        // This allows text to be visible until proper glyph rendering is implemented
-        let char_width = font_size * 0.6;  // Approximate character width
-        let char_height = font_size;
-        let spacing = char_width * 0.1;    // Small spacing between characters
+        // Store command for deferred rendering
+        self.commands.push(DrawCommand::Text {
+            text: text.to_string(),
+            position,
+            color,
+            font_size,
+        });
         
+        // NOTE: We no longer generate placeholder vertices here.
+        // The DrawingSystem will generate the actual textured quads from the command.
+    }
+    
+    /// Batch text with real GPU glyph rendering (requires TextureManager access)
+    /// 
+    /// This is the full implementation that renders actual glyphs from the font atlas
+    #[allow(dead_code)]
+    fn batch_text_gpu(
+        &mut self,
+        texture_mgr: &mut crate::gpu::TextureManager,
+        queue: &wgpu::Queue,
+        text: &str,
+        position: (f32, f32),
+        color: Color,
+        font_size: u32,
+    ) {
         let (mut x, y) = position;
+        let color_arr = [color.r, color.g, color.b, color.a];
         
-        for _ch in text.chars() {
-            // Create a small rectangle for each character as a visual placeholder
-            let rect = Rect::new(x, y, char_width, char_height);
-            
-            // Batch this character rectangle
-            self.batch_rect(rect, color, Transform::identity());
-            
-            // Move to next character position
-            x += char_width + spacing;
+        for ch in text.chars() {
+            if let Some(glyph) = texture_mgr.get_or_cache_glyph(queue, ch, font_size) {
+                // Calculate glyph position with bearing
+                let glyph_x = x + glyph.metrics.bearing_x as f32;
+                let glyph_y = y - glyph.metrics.bearing_y as f32;
+                
+                // Glyph dimensions
+                let w = glyph.metrics.width as f32;
+                let h = glyph.metrics.height as f32;
+                
+                // UV coordinates from atlas
+                let (u0, v0, u1, v1) = glyph.uv_rect;
+                
+                // Create textured quad for this glyph
+                let base_idx = self.vertex_count;
+                
+                // Add 4 vertices for the quad
+                self.vertices.push(Vertex::textured([glyph_x, glyph_y], [u0, v0], color_arr));
+                self.vertices.push(Vertex::textured([glyph_x + w, glyph_y], [u1, v0], color_arr));
+                self.vertices.push(Vertex::textured([glyph_x + w, glyph_y + h], [u1, v1], color_arr));
+                self.vertices.push(Vertex::textured([glyph_x, glyph_y + h], [u0, v1], color_arr));
+                
+                // Add 2 triangles (6 indices)
+                self.indices.push(base_idx);
+                self.indices.push(base_idx + 1);
+                self.indices.push(base_idx + 2);
+                
+                self.indices.push(base_idx);
+                self.indices.push(base_idx + 2);
+                self.indices.push(base_idx + 3);
+                
+                self.vertex_count += 4;
+                
+                // Advance to next character position
+                x += glyph.metrics.advance;
+            } else {
+                // Fallback: advance by half font size if glyph unavailable
+                x += font_size as f32 * 0.5;
+            }
         }
-        
-        oxide_text_debug!("Batched {} character placeholders (total vertices: {})", 
-                         text.len(), self.vertices.len());
     }
 
     /// Batch a rectangle into vertices and indices
     fn batch_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
+        // Store command for deferred rendering (if needed)
+        self.commands.push(DrawCommand::Rect {
+            rect,
+            color,
+            transform,
+        });
+
         let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
         
         // Apply transform to vertices
