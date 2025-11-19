@@ -19,13 +19,12 @@ pub mod device;
 pub mod font_config;
 pub mod font_system;
 pub mod glyph_atlas;
-pub mod gpu;
+pub mod gpu;  // Modular GPU pipeline
 pub mod memory;
 pub mod pipeline;
 pub mod profiler;
 pub mod resources;
 pub mod shader;
-pub mod software;  // Software renderer for debugging
 pub mod text;
 pub mod texture;
 pub mod vertex;

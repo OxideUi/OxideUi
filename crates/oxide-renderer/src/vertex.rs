@@ -463,51 +463,5 @@ mod tests {
         assert_eq!(vertices.len(), 9); // Center + 8 segments
         assert_eq!(indices.len(), 24); // 8 triangles * 3 indices
     }
-}
 
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_vertex_creation() {
-        let vertex = Vertex::new([1.0, 2.0], [1.0, 0.0, 0.0, 1.0], [0.5, 0.5]);
-        assert_eq!(vertex.position, [1.0, 2.0]);
-        assert_eq!(vertex.color, [1.0, 0.0, 0.0, 1.0]);
-        assert_eq!(vertex.uv, [0.5, 0.5]);
-    }
-
-    #[test]
-    fn test_solid_vertex() {
-        let vertex = Vertex::solid([0.0, 0.0], [1.0, 1.0, 1.0, 1.0]);
-        assert_eq!(vertex.position, [0.0, 0.0]);
-        assert_eq!(vertex.color, [1.0, 1.0, 1.0, 1.0]);
-        assert_eq!(vertex.flags, 1);
-    }
-
-    #[test]
-    fn test_textured_vertex() {
-        let vertex = Vertex::textured([0.0, 0.0], [1.0, 1.0], [1.0, 1.0, 1.0, 1.0]);
-        assert_eq!(vertex.position, [0.0, 0.0]);
-        assert_eq!(vertex.uv, [1.0, 1.0]);
-        assert_eq!(vertex.flags, 2);
-    }
-
-    #[test]
-    fn test_rectangle_builder() {
-        let (vertices, indices) = VertexBuilder::rectangle(0.0, 0.0, 100.0, 50.0, [1.0, 0.0, 0.0, 1.0]);
-        assert_eq!(vertices.len(), 4);
-        assert_eq!(indices.len(), 6);
-        assert_eq!(vertices[0].position, [0.0, 0.0]);
-        assert_eq!(vertices[2].position, [100.0, 50.0]);
-    }
-
-    #[test]
-    fn test_circle_builder() {
-        let (vertices, indices) = VertexBuilder::circle(50.0, 50.0, 25.0, [0.0, 1.0, 0.0, 1.0], 8);
-        assert_eq!(vertices.len(), 9); // Center + 8 segments
-        assert_eq!(indices.len(), 24); // 8 triangles * 3 indices
-    }
 }

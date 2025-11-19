@@ -699,13 +699,13 @@ mod tests {
     fn test_shader_variant_equality() {
         let variant1 = ShaderVariant {
             macros: vec![ShaderMacro { name: "TEST".to_string(), value: None }],
-            features: HashSet::new(),
+            features: Vec::new(),
             optimization_level: 2,
         };
         
         let variant2 = ShaderVariant {
             macros: vec![ShaderMacro { name: "TEST".to_string(), value: None }],
-            features: HashSet::new(),
+            features: Vec::new(),
             optimization_level: 2,
         };
         

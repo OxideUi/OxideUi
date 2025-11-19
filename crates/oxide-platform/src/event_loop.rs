@@ -18,8 +18,7 @@ pub struct CustomEvent {
 struct AppState {
     window_created: bool,
     winit_window: Option<Arc<Window>>,
-    renderer: Option<oxide_renderer::gpu::Renderer>,
-    software_renderer: Option<oxide_renderer::software::SoftwareRenderer>,  // For debugging
+    drawing_system: Option<oxide_renderer::gpu::DrawingSystem>,  // New GPU renderer
     renderer_initialized: bool,
     needs_redraw: bool,
     last_update: Instant,
@@ -31,8 +30,7 @@ impl AppState {
         Self {
             window_created: false,
             winit_window: None,
-            renderer: None,
-            software_renderer: None,
+            drawing_system: None,
             renderer_initialized: false,
             needs_redraw: false,
             last_update: Instant::now(),
@@ -232,11 +230,12 @@ impl EventLoop {
                         // Store the window first
                         state.winit_window = Some(window.clone());
                         
-                        // TEMPORARY: Use software renderer for debugging
-                        println!("=== USING SOFTWARE RENDERER ===");
-                        let software_renderer = oxide_renderer::software::SoftwareRenderer::new(window)
-                            .expect("Failed to create software renderer");
-                        state.software_renderer = Some(software_renderer);
+                        // Initialize GPU DrawingSystem
+                        println!("=== INITIALIZING GPU DRAWING SYSTEM ===");
+                        let drawing_system = pollster::block_on(
+                            oxide_renderer::gpu::DrawingSystem::new(window)
+                        ).expect("Failed to create DrawingSystem");
+                        state.drawing_system = Some(drawing_system);
                         
                         state.renderer_initialized = true;
                         state.window_created = true;
@@ -247,10 +246,10 @@ impl EventLoop {
                 WinitEvent::WindowEvent { event, .. } => {
                     match event {
                         WindowEvent::Resized(physical_size) => {
-                            // Resize the software renderer when the window is resized
-                            if let Some(software_renderer) = &mut state.software_renderer {
-                                if let Err(e) = software_renderer.resize(physical_size.width, physical_size.height) {
-                                    tracing::error!("Failed to resize software renderer: {}", e);
+                            // Resize the drawing system when the window is resized
+                            if let Some(drawing_system) = &mut state.drawing_system {
+                                if let Err(e) = drawing_system.resize(physical_size.width, physical_size.height) {
+                                    tracing::error!("Failed to resize drawing system: {}", e);
                                 }
                             }
                             
@@ -277,10 +276,10 @@ impl EventLoop {
                                 } else {
                                     // Get the render batch
                                     if let Some(batch) = app.get_render_batch() {
-                                        // TEMPORARY: Use software renderer
-                                        if let Some(software_renderer) = &mut state.software_renderer {
-                                            if let Err(e) = software_renderer.render(&batch) {
-                                                tracing::error!("Software render error: {}", e);
+                                        // Use GPU DrawingSystem
+                                        if let Some(drawing_system) = &mut state.drawing_system {
+                                            if let Err(e) = drawing_system.render(&batch) {
+                                                tracing::error!("GPU render error: {}", e);
                                             }
                                         }
                                     }

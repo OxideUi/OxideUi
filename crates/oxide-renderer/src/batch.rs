@@ -449,7 +449,8 @@ impl Default for RenderBatch {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxide_core::types::{Vec2, Color};
+    use oxide_core::types::Color;
+    use glam::Vec2;
 
     #[test]
     fn test_batch_rect() {

@@ -2,7 +2,6 @@
 
 use oxide_core::event::Event;
 use oxide_widgets::widget::Widget;
-use oxide_renderer::gpu::Renderer;
 use crate::{Window, WindowBuilder, EventLoop};
 use std::collections::HashMap;
 
@@ -97,27 +96,6 @@ impl Application {
         self.windows.get_mut(&id)
     }
 
-    /// Render the application using the provided renderer
-    pub fn render(&mut self, renderer: &mut Renderer) -> anyhow::Result<()> {
-        if let Some(root_widget) = self.root_widget.as_mut() {
-            let mut batch = oxide_renderer::batch::RenderBatch::new();
-            
-            // Create a layout for the root widget
-            let constraints = oxide_core::layout::Constraints::loose(800.0, 600.0);
-            let size = root_widget.layout(constraints);
-            let layout = oxide_core::layout::Layout::new(
-                glam::Vec2::new(0.0, 0.0),
-                size
-            );
-            
-            // Render the root widget
-            root_widget.render(&mut batch, layout);
-            
-            // Render the batch
-            renderer.render(&batch)?;
-        }
-        Ok(())
-    }
 
     /// Render the application with a simple approach (no actual GPU rendering)
     pub fn render_simple(&mut self, window_width: f32, window_height: f32) -> anyhow::Result<()> {
@@ -132,11 +110,7 @@ impl Application {
                 max_height: window_height,
             };
             
-            println!("=== LAYOUT CONSTRAINTS ===");
-            println!("Window size: {}x{}", window_width, window_height);
-            println!("Constraints: min=({}, {}), max=({}, {})",
-                constraints.min_width, constraints.min_height,
-                constraints.max_width, constraints.max_height);
+
             
             // Layout and render the root widget
             let size = root_widget.layout(constraints);
@@ -146,22 +120,7 @@ impl Application {
             );
             root_widget.render(&mut batch, layout);
             
-            println!("=== RENDER DEBUG ===");
-            println!("Rendered {} vertices", batch.vertices.len());
-            println!("Rendered {} indices", batch.indices.len());
-            println!("Rendered {} triangles", batch.triangle_count());
-            println!("Render batch size: {:?}", size);
-            if batch.vertices.len() > 0 {
-                println!("First vertex: pos={:?}, color={:?}, flags={}", 
-                    batch.vertices[0].position,
-                    batch.vertices[0].color,
-                    batch.vertices[0].flags);
-                println!("Last vertex: pos={:?}, color={:?}, flags={}", 
-                    batch.vertices[batch.vertices.len()-1].position,
-                    batch.vertices[batch.vertices.len()-1].color,
-                    batch.vertices[batch.vertices.len()-1].flags);
-            }
-            println!("====================");            
+            
             tracing::info!("Rendered {} vertices in batch", batch.vertices.len());
             
             // Return the batch for actual rendering

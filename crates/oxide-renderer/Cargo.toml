@@ -17,7 +17,6 @@ lyon.workspace = true
 cosmic-text.workspace = true
 image.workspace = true
 bytemuck.workspace = true
-softbuffer = "0.4"  # Software renderer for debugging
 
 # Font Management
 ab_glyph = "0.2"
