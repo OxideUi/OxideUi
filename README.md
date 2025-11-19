@@ -2,7 +2,7 @@
 
 [![License: MIT/Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-orange.svg)](https://www.rust-lang.org)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-lightgrey.svg)](https://github.com/oxideui/oxide-ui)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-green.svg)](https://github.com/oxideui/oxide-ui)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/seregonwar?label=GitHub%20Sponsors&style=flat&logo=GitHub)](https://github.com/sponsors/seregonwar)
 
 
