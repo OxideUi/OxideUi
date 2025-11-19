@@ -1,0 +1,10 @@
+[package]
+name = "complex_demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+oxide-core = { path = "../../crates/oxide-core" }
+oxide-platform = { path = "../../crates/oxide-platform" }
+oxide-widgets = { path = "../../crates/oxide-widgets" }
+anyhow = "1.0"

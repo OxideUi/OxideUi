@@ -831,11 +831,14 @@ impl TextInput {
         };
         
         if !text_to_render.is_empty() {
+            let text_x = content_bounds.x;
+            let text_y = content_bounds.y;
             batch.add_text(
                 text_to_render.to_string(),
-                (content_bounds.x, content_bounds.y),
+                (text_x, text_y),
                 text_color,
-                style.font_size,
+                14.0,
+                0.0, // Default letter spacing
             );
         }
         

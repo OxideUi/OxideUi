@@ -21,6 +21,7 @@ pub enum DrawCommand {
         position: (f32, f32),
         color: Color,
         font_size: f32,
+        letter_spacing: f32,
     },
     /// Draw a textured quad
     TexturedQuad {
@@ -99,17 +100,15 @@ impl RenderBatch {
     }
 
     /// Add text to the batch
-    pub fn add_text(&mut self, text: String, position: (f32, f32), color: Color, font_size: f32) {
+    pub fn add_text(&mut self, text: String, position: (f32, f32), color: Color, font_size: f32, letter_spacing: f32) {
         let command = DrawCommand::Text {
             text: text.clone(),
             position,
             color,
             font_size,
+            letter_spacing,
         };
         self.commands.push(command);
-        
-        // Use the advanced text rendering system
-        self.batch_text(&text, position, color, font_size);
     }
 
 
@@ -160,26 +159,6 @@ impl RenderBatch {
         }
         
         self.vertex_count += vertices.len() as u16;
-    }
-
-    /// Batch text with GPU glyph rendering
-    /// 
-    /// Note: This is a temporary API that will be refactored to take TextureManager
-    /// For now, uses placeholder colored rectangles until full integration
-    fn batch_text(&mut self, text: &str, position: (f32, f32), color: Color, font_size: f32) {
-        oxide_text_debug!("Batching text: '{}' at {:?} with size {} and color {:?}", 
-                         text, position, font_size, color);
-
-        // Store command for deferred rendering
-        self.commands.push(DrawCommand::Text {
-            text: text.to_string(),
-            position,
-            color,
-            font_size,
-        });
-        
-        // NOTE: We no longer generate placeholder vertices here.
-        // The DrawingSystem will generate the actual textured quads from the command.
     }
     
     /// Batch text with real GPU glyph rendering (requires TextureManager access)

@@ -426,6 +426,7 @@ impl Button {
             (text_x, text_y),
             self.style.text_color.to_types_color(),
             self.style.font_size,
+            0.0, // Default letter spacing
         );
     }
 
@@ -606,6 +607,7 @@ impl Widget for Button {
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
         let bounds = Rect::new(layout.position.x, layout.position.y, layout.size.width, layout.size.height);
+        self.bounds.set(bounds);
         
         if !self.is_visible() {
             return;
@@ -635,11 +637,64 @@ impl Widget for Button {
             (text_x, text_y),
             self.style.text_color.to_types_color(),
             self.style.font_size,
+            0.0, // Default letter spacing
         );
     }
 
-    fn handle_event(&mut self, _event: &Event) -> EventResult {
-        // Handle button events
+    fn handle_event(&mut self, event: &Event) -> EventResult {
+        match event {
+            Event::MouseMove(mouse_event) => {
+                let bounds = self.bounds.get();
+                let point = oxide_core::types::Point::new(mouse_event.position.x, mouse_event.position.y);
+                let is_hovered = bounds.contains(point);
+                
+                if is_hovered {
+                    if self.get_state() != ButtonState::Pressed {
+                        self.state.set(ButtonState::Hovered);
+                    }
+                    if let Some(handler) = &self.on_hover {
+                        handler(true);
+                    }
+                    return EventResult::Handled;
+                } else {
+                    if self.get_state() == ButtonState::Hovered || self.get_state() == ButtonState::Pressed {
+                        self.state.set(ButtonState::Normal);
+                        if let Some(handler) = &self.on_hover {
+                            handler(false);
+                        }
+                    }
+                }
+            }
+            Event::MouseDown(mouse_event) => {
+                if mouse_event.button == Some(oxide_core::event::MouseButton::Left) {
+                    if self.get_state() == ButtonState::Hovered {
+                        self.state.set(ButtonState::Pressed);
+                        return EventResult::Handled;
+                    }
+                }
+            }
+            Event::MouseUp(mouse_event) => {
+                if mouse_event.button == Some(oxide_core::event::MouseButton::Left) {
+                    if self.get_state() == ButtonState::Pressed {
+                        // Check if we are still hovered to decide state
+                        let bounds = self.bounds.get();
+                        let point = oxide_core::types::Point::new(mouse_event.position.x, mouse_event.position.y);
+                        let is_hovered = bounds.contains(point);
+                        
+                        if is_hovered {
+                            self.state.set(ButtonState::Hovered);
+                            if let Some(handler) = &self.on_click {
+                                handler();
+                            }
+                        } else {
+                            self.state.set(ButtonState::Normal);
+                        }
+                        return EventResult::Handled;
+                    }
+                }
+            }
+            _ => {}
+        }
         EventResult::Ignored
     }
 

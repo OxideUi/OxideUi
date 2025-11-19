@@ -26,6 +26,7 @@ pub struct DrawingSystem {
     texture_mgr: TextureManager,
     pipeline_mgr: PipelineManager,
     render_pass_mgr: RenderPassManager,
+    scale_factor: f32,
 }
 
 impl DrawingSystem {
@@ -86,7 +87,13 @@ impl DrawingSystem {
             texture_mgr,
             pipeline_mgr,
             render_pass_mgr,
+            scale_factor: 1.0,
         })
+    }
+
+    /// Set the DPI scale factor
+    pub fn set_scale_factor(&mut self, scale_factor: f32) {
+        self.scale_factor = scale_factor;
     }
 
     /// Render a batch
@@ -133,27 +140,63 @@ impl DrawingSystem {
 
                     vertex_count += 4;
                 }
-                crate::batch::DrawCommand::Text { text, position, color, font_size } => {
+                crate::batch::DrawCommand::Text { text, position, color, font_size, letter_spacing } => {
                     let (mut x, y) = *position;
                     let color_arr = [color.r, color.g, color.b, color.a];
-                    let font_size_u32 = *font_size as u32;
+                    // font_size is &f32, dereference it for use as f32
+                    let font_size_val = *font_size; 
+                    let spacing_val = *letter_spacing;
+                    
+                    // Calculate baseline from top-left y
+                    // The layout engine passes top-left coordinates, but font rendering works relative to baseline.
+                    // We need to add the ascent to get the baseline Y.
+                    // Calculate this ONCE before the loop to avoid borrow checker issues and improve performance.
+                    let ascent = if let Some(metrics) = self.texture_mgr.get_line_metrics(font_size_val) {
+                        metrics.ascent
+                    } else {
+                        font_size_val * 0.8 // Fallback approximation
+                    };
+                    
+                    let baseline = y + ascent;
 
                     for ch in text.chars() {
                         if let Some(glyph) = self.texture_mgr.get_or_cache_glyph(
-                            self.device_mgr.queue(), 
+                            self.device_mgr.queue(),
                             ch, 
-                            font_size_u32
+                            font_size_val as u32
                         ) {
-                            let glyph_x = x + glyph.metrics.bearing_x as f32;
-                            let glyph_y = y - glyph.metrics.bearing_y as f32;
+                            let glyph_x = (x + glyph.metrics.bearing_x as f32).round();
+                            
+                            // Calculate glyph position relative to baseline
+                            // In screen coordinates (Y down), to go "up" to the top of the glyph from baseline,
+                            // we subtract the bearing_y (which is distance from baseline to top).
+                            let glyph_y = (baseline - glyph.metrics.bearing_y as f32).round();
+                            
                             let w = glyph.metrics.width as f32;
                             let h = glyph.metrics.height as f32;
                             let (u0, v0, u1, v1) = glyph.uv_rect;
 
-                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured([glyph_x, glyph_y], [u0, v0], color_arr)));
-                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured([glyph_x + w, glyph_y], [u1, v0], color_arr)));
-                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured([glyph_x + w, glyph_y + h], [u1, v1], color_arr)));
-                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured([glyph_x, glyph_y + h], [u0, v1], color_arr)));
+                            // Textured quad for glyph
+                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(
+                                [glyph_x, glyph_y], 
+                                [u0, v0],
+                                color_arr
+                            )));
+                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(
+                                [glyph_x + w, glyph_y], 
+                                [u1, v0],
+                                color_arr
+                            )));
+                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(
+                                [glyph_x + w, glyph_y + h], 
+                                [u1, v1],
+                                color_arr
+                            )));
+                            vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(
+                                [glyph_x, glyph_y + h], 
+                                [u0, v1],
+                                color_arr
+                            )));
 
                             indices.push(vertex_count);
                             indices.push(vertex_count + 1);
@@ -163,9 +206,14 @@ impl DrawingSystem {
                             indices.push(vertex_count + 3);
 
                             vertex_count += 4;
-                            x += glyph.metrics.advance;
+                            
+                            // Advance cursor
+                            x += glyph.metrics.advance + spacing_val;
                         } else {
-                            x += *font_size * 0.5;
+                            // Space or unknown char
+                            if ch == ' ' {
+                                x += font_size_val * 0.3 + spacing_val;
+                            }
                         }
                     }
                 }
@@ -186,9 +234,18 @@ impl DrawingSystem {
         );
         
         // 4. Upload projection matrix (orthographic for 2D)
+        // Use logical size for projection to handle DPI scaling correctly
         let width = self.surface_mgr.width() as f32;
         let height = self.surface_mgr.height() as f32;
-        let projection = create_orthographic_projection(width, height);
+        
+        // Adjust projection for DPI scale factor
+        // If scale_factor is 2.0 (Retina), physical width is 2x logical width.
+        // We want to use logical coordinates (e.g. 0..400) which map to physical pixels (0..800).
+        // So we project 0..width/scale to -1..1.
+        let logical_width = width / self.scale_factor;
+        let logical_height = height / self.scale_factor;
+        
+        let projection = create_orthographic_projection(logical_width, logical_height);
         self.buffer_mgr.upload_projection(self.device_mgr.queue(), &projection);
         
         // 5. Get surface texture

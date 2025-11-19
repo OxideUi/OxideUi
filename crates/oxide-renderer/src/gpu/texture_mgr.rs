@@ -66,7 +66,7 @@ impl GlyphCache {
 
 /// Glyph rasterizer using fontdue
 pub struct GlyphRasterizer {
-    font: fontdue::Font,
+    pub font: fontdue::Font,
 }
 
 impl GlyphRasterizer {
@@ -374,6 +374,10 @@ impl TextureManager {
     /// Get glyph cache stats
     pub fn cache_stats(&self) -> (usize, (u32, u32)) {
         (self.glyph_cache.len(), self.atlas.size())
+    }
+    /// Get line metrics for a given font size
+    pub fn get_line_metrics(&self, size: f32) -> Option<fontdue::LineMetrics> {
+        self.rasterizer.font.horizontal_line_metrics(size)
     }
 }
 

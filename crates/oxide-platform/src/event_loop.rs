@@ -232,9 +232,15 @@ impl EventLoop {
                         
                         // Initialize GPU DrawingSystem
                         println!("=== INITIALIZING GPU DRAWING SYSTEM ===");
-                        let drawing_system = pollster::block_on(
-                            oxide_renderer::gpu::DrawingSystem::new(window)
+                        let mut drawing_system = pollster::block_on(
+                            oxide_renderer::gpu::DrawingSystem::new(window.clone())
                         ).expect("Failed to create DrawingSystem");
+                        
+                        // Set initial scale factor
+                        let scale_factor = window.scale_factor() as f32;
+                        println!("Initial scale factor: {}", scale_factor);
+                        drawing_system.set_scale_factor(scale_factor);
+                        
                         state.drawing_system = Some(drawing_system);
                         
                         state.renderer_initialized = true;
@@ -245,6 +251,12 @@ impl EventLoop {
                 }
                 WinitEvent::WindowEvent { event, .. } => {
                     match event {
+                        WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                            println!("Scale factor changed to: {}", scale_factor);
+                            if let Some(drawing_system) = &mut state.drawing_system {
+                                drawing_system.set_scale_factor(scale_factor as f32);
+                            }
+                        }
                         WindowEvent::Resized(physical_size) => {
                             // Resize the drawing system when the window is resized
                             if let Some(drawing_system) = &mut state.drawing_system {
@@ -262,16 +274,27 @@ impl EventLoop {
                             state.needs_redraw = false;
                             
                             // Get window size before borrowing app
-                            let (width, height) = if let Some(window) = &state.winit_window {
+                            let (physical_width, physical_height) = if let Some(window) = &state.winit_window {
                                 let size = window.inner_size();
                                 (size.width as f32, size.height as f32)
                             } else {
                                 (800.0, 600.0) // Default fallback
                             };
                             
+                            // Get scale factor
+                            let scale_factor = if let Some(window) = &state.winit_window {
+                                window.scale_factor() as f32
+                            } else {
+                                1.0
+                            };
+                            
+                            // Use logical size for layout
+                            let logical_width = physical_width / scale_factor;
+                            let logical_height = physical_height / scale_factor;
+                            
                             // Call the application's render method and get the render batch
                             if let Some(app) = &mut state.app {
-                                if let Err(e) = app.render_simple(width, height) {
+                                if let Err(e) = app.render_simple(logical_width, logical_height) {
                                     eprintln!("Render error: {}", e);
                                 } else {
                                     // Get the render batch

@@ -254,7 +254,7 @@ pub struct Text {
     selection_end: Signal<Option<usize>>,
     theme: Option<Arc<Theme>>,
     measured_size: Signal<Size>,
-    line_breaks: Signal<Vec<usize>>,
+    cached_lines: Signal<Vec<String>>,
 }
 
 impl Text {
@@ -272,7 +272,7 @@ impl Text {
             selection_end: Signal::new(None),
             theme: None,
             measured_size: Signal::new(Size::new(0.0, 0.0)),
-            line_breaks: Signal::new(Vec::new()),
+            cached_lines: Signal::new(Vec::new()),
         }
     }
 
@@ -424,7 +424,7 @@ impl Text {
     /// Invalidate layout (force remeasurement)
     fn invalidate_layout(&self) {
         self.measured_size.set(Size::new(0.0, 0.0));
-        self.line_breaks.set(Vec::new());
+        self.cached_lines.set(Vec::new());
     }
 
     /// Measure text size
@@ -434,46 +434,62 @@ impl Text {
         let line_height = self.style.font_size * self.style.line_height;
         
         let mut lines = Vec::new();
+        let mut current_line = String::new();
         let mut current_line_width = 0.0;
-        let mut current_line_start = 0;
         
         let words: Vec<&str> = self.content.split_whitespace().collect();
         
         for (i, word) in words.iter().enumerate() {
             let word_width = word.len() as f32 * char_width;
             
-            if current_line_width + word_width > available_width && current_line_width > 0.0 {
-                // Start new line
-                lines.push(current_line_start..i);
-                current_line_start = i;
+            // Check if adding this word would exceed available width
+            // (Only if we already have content on this line)
+            if !current_line.is_empty() && current_line_width + char_width + word_width > available_width {
+                // Push current line and start new one
+                lines.push(current_line);
+                current_line = String::from(*word);
                 current_line_width = word_width;
             } else {
-                current_line_width += word_width;
-                if i < words.len() - 1 {
-                    current_line_width += char_width; // Space
+                if !current_line.is_empty() {
+                    current_line.push(' ');
+                    current_line_width += char_width;
                 }
+                current_line.push_str(word);
+                current_line_width += word_width;
             }
         }
         
-        if current_line_start < words.len() {
-            lines.push(current_line_start..words.len());
+        if !current_line.is_empty() {
+            lines.push(current_line);
         }
         
+        // If no content but we have text, treat as one line (e.g. single word too long or empty)
+        if lines.is_empty() && !self.content.is_empty() {
+             lines.push(self.content.clone());
+        }
+
         // Apply max_lines constraint
         if let Some(max_lines) = self.style.max_lines {
-            lines.truncate(max_lines);
+            if lines.len() > max_lines {
+                lines.truncate(max_lines);
+            }
         }
         
         let width = if lines.is_empty() {
             0.0
         } else {
-            available_width.min(self.content.len() as f32 * char_width)
+            // Calculate max width of lines
+            lines.iter()
+                .map(|line| line.len() as f32 * char_width)
+                .fold(0.0, f32::max)
+                .min(available_width)
         };
         
         let height = lines.len() as f32 * line_height;
         
         let size = Size::new(width, height);
         self.measured_size.set(size);
+        self.cached_lines.set(lines);
         
         size
     }
@@ -573,50 +589,61 @@ impl Text {
             }
         }
         
-        // Calculate text position based on alignment
-        let text_x = match self.style.text_align {
-            TextAlign::Left => bounds.x,
-            TextAlign::Center => bounds.x + bounds.width / 2.0 - (self.content.len() as f32 * self.style.font_size * 0.3),
-            TextAlign::Right => bounds.x + bounds.width - (self.content.len() as f32 * self.style.font_size * 0.6),
-            TextAlign::Justify => bounds.x, // Simplified
-        };
-        
-        let text_y = match self.style.vertical_align {
-            VerticalAlign::Top => bounds.y,
-            VerticalAlign::Middle => bounds.y + bounds.height / 2.0 - self.style.font_size / 2.0,
-            VerticalAlign::Bottom => bounds.y + bounds.height - self.style.font_size,
-            VerticalAlign::Baseline => bounds.y + self.style.font_size * 0.8,
-        };
-        
-        // Render main text
-        batch.add_text(
-            self.content.clone(),
-            (text_x, text_y),
-            self.style.color,
-            self.style.font_size,
-        );
-        
-        // Render text decoration if any
-        if self.style.text_decoration != TextDecoration::None {
-            let decoration_y = match self.style.text_decoration {
-                TextDecoration::Underline => text_y + self.style.font_size + 2.0,
-                TextDecoration::Overline => text_y - 2.0,
-                TextDecoration::LineThrough => text_y + self.style.font_size / 2.0,
-                TextDecoration::None => text_y,
+        let lines = self.cached_lines.get();
+        let line_height = self.style.font_size * self.style.line_height;
+        let char_width = self.style.font_size * 0.6; // Approximation for alignment calc
+
+        for (i, line) in lines.iter().enumerate() {
+            let line_width = line.len() as f32 * char_width;
+            
+            // Calculate text position based on alignment
+            let text_x = match self.style.text_align {
+                TextAlign::Left => bounds.x,
+                TextAlign::Center => bounds.x + (bounds.width - line_width) / 2.0,
+                TextAlign::Right => bounds.x + bounds.width - line_width,
+                TextAlign::Justify => bounds.x, // Simplified
             };
             
-            let text_width = self.content.len() as f32 * self.style.font_size * 0.6;
-            let (vertices, indices) = VertexBuilder::line(
-                text_x,
-                decoration_y,
-                text_x + text_width,
-                decoration_y,
-                1.0,
-                self.style.decoration_color.to_array(),
+            let text_y = match self.style.vertical_align {
+                VerticalAlign::Top => bounds.y + (i as f32 * line_height),
+                VerticalAlign::Middle => bounds.y + (bounds.height - (lines.len() as f32 * line_height)) / 2.0 + (i as f32 * line_height),
+                VerticalAlign::Bottom => bounds.y + bounds.height - (lines.len() as f32 * line_height) + (i as f32 * line_height),
+                VerticalAlign::Baseline => bounds.y + (i as f32 * line_height) + self.style.font_size * 0.8,
+            };
+            
+            // Render line
+            batch.add_text(
+                line.clone(),
+                (text_x, text_y),
+                self.style.color,
+                self.style.font_size,
+                self.style.letter_spacing,
             );
-            batch.add_vertices(&vertices, &indices);
+
+            // Render text decoration if any
+            if self.style.text_decoration != TextDecoration::None {
+                let decoration_y = match self.style.text_decoration {
+                    TextDecoration::Underline => text_y + self.style.font_size + 2.0,
+                    TextDecoration::Overline => text_y - 2.0,
+                    TextDecoration::LineThrough => text_y + self.style.font_size / 2.0,
+                    TextDecoration::None => text_y,
+                };
+                
+                let (vertices, indices) = VertexBuilder::line(
+                    text_x,
+                    decoration_y,
+                    text_x + line_width,
+                    decoration_y,
+                    1.0,
+                    self.style.decoration_color.to_array(),
+                );
+                batch.add_vertices(&vertices, &indices);
+            }
         }
         
+        // TODO: Re-implement TextSpan support for multi-line text
+        // This requires mapping lines back to original string indices
+        /*
         // Render spans if any (rich text)
         for span in &self.spans {
             if let Some(span_style) = &span.style {
@@ -628,9 +655,11 @@ impl Text {
                     (span_x, text_y),
                     span_style.color,
                     span_style.font_size,
+                    span_style.letter_spacing,
                 );
             }
         }
+        */
     }
 
     /// Apply theme to text
@@ -672,7 +701,25 @@ impl TextBuilder {
         self
     }
 
-    /// Set color
+    /// Set as caption
+    pub fn caption(mut self) -> Self {
+        self.text = self.text.caption();
+        self
+    }
+
+    /// Set as code
+    pub fn code(mut self) -> Self {
+        self.text = self.text.code();
+        self
+    }
+
+    /// Set as link
+    pub fn link(mut self) -> Self {
+        self.text = self.text.link();
+        self
+    }
+
+    /// Set text color
     pub fn color(mut self, color: Color) -> Self {
         self.text = self.text.color(color);
         self
@@ -684,15 +731,57 @@ impl TextBuilder {
         self
     }
 
-    /// Set alignment
+    /// Set font weight
+    pub fn font_weight(mut self, weight: FontWeight) -> Self {
+        self.text = self.text.font_weight(weight);
+        self
+    }
+
+    /// Set text alignment
     pub fn align(mut self, align: TextAlign) -> Self {
         self.text = self.text.align(align);
+        self
+    }
+
+    /// Set text overflow behavior
+    pub fn overflow(mut self, overflow: TextOverflow) -> Self {
+        self.text = self.text.overflow(overflow);
+        self
+    }
+
+    /// Set maximum lines
+    pub fn max_lines(mut self, lines: usize) -> Self {
+        self.text = self.text.max_lines(lines);
         self
     }
 
     /// Set selectable
     pub fn selectable(mut self, selectable: bool) -> Self {
         self.text = self.text.selectable(selectable);
+        self
+    }
+
+    /// Set visible state
+    pub fn visible(mut self, visible: bool) -> Self {
+        self.text = self.text.visible(visible);
+        self
+    }
+
+    /// Set theme
+    pub fn theme(mut self, theme: Arc<Theme>) -> Self {
+        self.text = self.text.theme(theme);
+        self
+    }
+
+    /// Set text size (font size)
+    pub fn size(mut self, size: f32) -> Self {
+        self.text = self.text.size(size);
+        self
+    }
+
+    /// Add a text span for rich formatting
+    pub fn add_span(mut self, span: TextSpan) -> Self {
+        self.text = self.text.add_span(span);
         self
     }
 
@@ -771,33 +860,54 @@ impl Widget for Text {
     }
 
     fn layout(&mut self, constraints: Constraints) -> Size {
-        let text_width = self.content.len() as f32 * self.style.font_size * 0.6;
-        let text_height = self.style.font_size * self.style.line_height;
-        
-        let width = text_width.min(constraints.max_width);
-        let height = text_height.min(constraints.max_height);
-        
-        Size::new(width, height)
+        self.measure_text(constraints.max_width)
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
-        if !self.is_visible() {
-            return;
-        }
-
-        let bounds = layout.bounds();
+        // Update bounds based on layout
+        self.bounds.set(Rect::new(
+            layout.position.x,
+            layout.position.y,
+            layout.size.width,
+            layout.size.height
+        ));
         
-        // Render text
-        batch.add_text(
-            self.content.clone(),
-            (bounds.0, bounds.1),
-            Color::rgba(self.style.color.r, self.style.color.g, self.style.color.b, self.style.color.a),
-            self.style.font_size,
-        );
+        // Ensure text is measured/wrapped for these bounds
+        // Note: layout() should have been called before render(), but we need to ensure
+        // cached_lines are up to date for the current width.
+        // Since render() is const, we rely on layout() having populated cached_lines.
+        // If layout wasn't called or width changed, we might render stale lines.
+        // Ideally measure_text should be called here if needed, but we can't mutate.
+        
+        self.render(batch);
     }
 
-    fn handle_event(&mut self, _event: &Event) -> EventResult {
-        // Handle text events
+    fn handle_event(&mut self, event: &Event) -> EventResult {
+        match event {
+            Event::Mouse(mouse_event) => {
+                match mouse_event {
+                    oxide_core::event::MouseEvent::Button { button, state, .. } => {
+                        if *button == oxide_core::event::MouseButton::Left {
+                            match state {
+                                oxide_core::event::ElementState::Pressed => {
+                                    if self.on_mouse_press(mouse_event.position) {
+                                        return EventResult::Handled;
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    oxide_core::event::MouseEvent::Moved { position } => {
+                        if self.on_mouse_drag(*position) {
+                            return EventResult::Handled;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
         EventResult::Ignored
     }
 
@@ -822,7 +932,8 @@ impl Widget for Text {
             selection_end: Signal::new(self.selection_end.get()),
             theme: self.theme.clone(),
             measured_size: Signal::new(self.measured_size.get()),
-            line_breaks: Signal::new(self.line_breaks.get()),
+            cached_lines: Signal::new(self.cached_lines.get()),
         })
     }
 }
+```
