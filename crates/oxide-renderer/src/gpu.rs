@@ -302,6 +302,9 @@ impl Renderer {
         let width = self.surface_config.width as f32;
         let height = self.surface_config.height as f32;
         
+        println!("=== PROJECTION MATRIX UPDATE ===");
+        println!("Window size: {}x{}", width, height);
+        
         // Orthographic projection matrix
         let projection = [
             [2.0 / width, 0.0, 0.0, 0.0],
@@ -309,6 +312,13 @@ impl Renderer {
             [0.0, 0.0, 1.0, 0.0],
             [-1.0, 1.0, 0.0, 1.0],
         ];
+        
+        println!("Projection matrix:");
+        println!("  [{:.4}, {:.4}, {:.4}, {:.4}]", projection[0][0], projection[0][1], projection[0][2], projection[0][3]);
+        println!("  [{:.4}, {:.4}, {:.4}, {:.4}]", projection[1][0], projection[1][1], projection[1][2], projection[1][3]);
+        println!("  [{:.4}, {:.4}, {:.4}, {:.4}]", projection[2][0], projection[2][1], projection[2][2], projection[2][3]);
+        println!("  [{:.4}, {:.4}, {:.4}, {:.4}]", projection[3][0], projection[3][1], projection[3][2], projection[3][3]);
+        println!("================================");
 
         self.queue.write_buffer(
             &self.uniform_buffer,

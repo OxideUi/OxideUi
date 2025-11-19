@@ -120,17 +120,23 @@ impl Application {
     }
 
     /// Render the application with a simple approach (no actual GPU rendering)
-    pub fn render_simple(&mut self) -> anyhow::Result<()> {
+    pub fn render_simple(&mut self, window_width: f32, window_height: f32) -> anyhow::Result<()> {
         if let Some(root_widget) = self.root_widget.as_mut() {
             let mut batch = oxide_renderer::RenderBatch::new();
             
-            // Compute layout constraints
+            // Compute layout constraints using actual window size
             let constraints = oxide_core::layout::Constraints {
                 min_width: 0.0,
-                max_width: 800.0,
+                max_width: window_width,
                 min_height: 0.0,
-                max_height: 600.0,
+                max_height: window_height,
             };
+            
+            println!("=== LAYOUT CONSTRAINTS ===");
+            println!("Window size: {}x{}", window_width, window_height);
+            println!("Constraints: min=({}, {}), max=({}, {})",
+                constraints.min_width, constraints.min_height,
+                constraints.max_width, constraints.max_height);
             
             // Layout and render the root widget
             let size = root_widget.layout(constraints);
@@ -140,7 +146,23 @@ impl Application {
             );
             root_widget.render(&mut batch, layout);
             
-            tracing::info!("Rendered {} draw commands", batch.vertices.len());
+            println!("=== RENDER DEBUG ===");
+            println!("Rendered {} vertices", batch.vertices.len());
+            println!("Rendered {} indices", batch.indices.len());
+            println!("Rendered {} triangles", batch.triangle_count());
+            println!("Render batch size: {:?}", size);
+            if batch.vertices.len() > 0 {
+                println!("First vertex: pos={:?}, color={:?}, flags={}", 
+                    batch.vertices[0].position,
+                    batch.vertices[0].color,
+                    batch.vertices[0].flags);
+                println!("Last vertex: pos={:?}, color={:?}, flags={}", 
+                    batch.vertices[batch.vertices.len()-1].position,
+                    batch.vertices[batch.vertices.len()-1].color,
+                    batch.vertices[batch.vertices.len()-1].flags);
+            }
+            println!("====================");            
+            tracing::info!("Rendered {} vertices in batch", batch.vertices.len());
             
             // Return the batch for actual rendering
             self.render_batch = Some(batch);

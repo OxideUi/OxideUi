@@ -19,6 +19,7 @@ struct AppState {
     window_created: bool,
     winit_window: Option<Arc<Window>>,
     renderer: Option<oxide_renderer::gpu::Renderer>,
+    software_renderer: Option<oxide_renderer::software::SoftwareRenderer>,  // For debugging
     renderer_initialized: bool,
     needs_redraw: bool,
     last_update: Instant,
@@ -31,6 +32,7 @@ impl AppState {
             window_created: false,
             winit_window: None,
             renderer: None,
+            software_renderer: None,
             renderer_initialized: false,
             needs_redraw: false,
             last_update: Instant::now(),
@@ -91,7 +93,7 @@ impl EventLoop {
     where
         F: FnMut(Event) + 'static,
     {
-        use winit::event::{Event as WinitEvent};
+        use winit::event::{Event as WinitEvent, WindowEvent as WinitWindowEvent};
         use winit::event_loop::ControlFlow;
         
         let mut last_update = Instant::now();
@@ -228,27 +230,14 @@ impl EventLoop {
                         );
                         
                         // Store the window first
-                        state.winit_window = Some(window);
+                        state.winit_window = Some(window.clone());
                         
-                        // Initialize the GPU renderer
-                        if let Some(window) = &state.winit_window {
-                            // Clone the window Arc to avoid borrowing issues
-                            let window_clone = window.clone();
-                            let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
-                            let config = oxide_renderer::RendererConfig {
-                                msaa_samples: 1,
-                                vsync: true,
-                                max_texture_size: 2048,
-                                validation: false,
-                            };
-                            
-                            let renderer = rt.block_on(async {
-                                oxide_renderer::gpu::Renderer::new(&*window_clone, config).await
-                                    .expect("Failed to create renderer")
-                            });
-                            
-                            state.renderer = Some(renderer);
-                        }
+                        // TEMPORARY: Use software renderer for debugging
+                        println!("=== USING SOFTWARE RENDERER ===");
+                        let software_renderer = oxide_renderer::software::SoftwareRenderer::new(window)
+                            .expect("Failed to create software renderer");
+                        state.software_renderer = Some(software_renderer);
+                        
                         state.renderer_initialized = true;
                         state.window_created = true;
                         state.needs_redraw = true;
@@ -258,13 +247,11 @@ impl EventLoop {
                 WinitEvent::WindowEvent { event, .. } => {
                     match event {
                         WindowEvent::Resized(physical_size) => {
-                            // Resize the renderer when the window is resized
-                            if let Some(renderer) = &mut state.renderer {
-                                let new_size = oxide_core::types::Size {
-                                    width: physical_size.width as f32,
-                                    height: physical_size.height as f32,
-                                };
-                                renderer.resize(new_size);
+                            // Resize the software renderer when the window is resized
+                            if let Some(software_renderer) = &mut state.software_renderer {
+                                if let Err(e) = software_renderer.resize(physical_size.width, physical_size.height) {
+                                    tracing::error!("Failed to resize software renderer: {}", e);
+                                }
                             }
                             
                             handler(oxide_core::event::Event::Window(oxide_core::event::WindowEvent::Resize {
@@ -274,20 +261,26 @@ impl EventLoop {
                         }
                         WindowEvent::RedrawRequested => {
                             state.needs_redraw = false;
+                            
+                            // Get window size before borrowing app
+                            let (width, height) = if let Some(window) = &state.winit_window {
+                                let size = window.inner_size();
+                                (size.width as f32, size.height as f32)
+                            } else {
+                                (800.0, 600.0) // Default fallback
+                            };
+                            
                             // Call the application's render method and get the render batch
                             if let Some(app) = &mut state.app {
-                                if let Err(e) = app.render_simple() {
+                                if let Err(e) = app.render_simple(width, height) {
                                     eprintln!("Render error: {}", e);
                                 } else {
                                     // Get the render batch
                                     if let Some(batch) = app.get_render_batch() {
-                                        if let Some(renderer) = &mut state.renderer {
-                                            // Set background color to blue for testing
-                                            use oxide_renderer::Backend;
-                                            renderer.set_background_color(oxide_core::types::Color::rgba(0.2, 0.2, 0.8, 1.0));
-                                            
-                                            if let Err(e) = renderer.render(&batch) {
-                                                tracing::error!("GPU render error: {}", e);
+                                        // TEMPORARY: Use software renderer
+                                        if let Some(software_renderer) = &mut state.software_renderer {
+                                            if let Err(e) = software_renderer.render(&batch) {
+                                                tracing::error!("Software render error: {}", e);
                                             }
                                         }
                                     }

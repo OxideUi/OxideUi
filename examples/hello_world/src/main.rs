@@ -4,7 +4,7 @@
 use oxide_ui::prelude::*;
 use oxide_ui::{InitBuilder, InitConfig};
 use oxide_ui::oxide_core::Result;
-use oxide_core::{
+use oxide_ui::oxide_core::{
     config::{OxideConfig, LoggingConfig},
     logging::{LogLevel, LogCategory},
     oxide_info, oxide_debug, oxide_error, oxide_text_debug,
@@ -59,29 +59,31 @@ fn main() -> Result<()> {
 fn setup_logging() -> Result<()> {
     // Create a logging configuration that reduces noise
     let mut category_levels = HashMap::new();
-    category_levels.insert(LogCategory::Core, LogLevel::Info);
-    category_levels.insert(LogCategory::Renderer, LogLevel::Info);
-    category_levels.insert(LogCategory::Platform, LogLevel::Info);
-    category_levels.insert(LogCategory::Event, LogLevel::Info);
-    category_levels.insert(LogCategory::Performance, LogLevel::Info);
-    category_levels.insert(LogCategory::Animation, LogLevel::Info);
+    category_levels.insert(LogCategory::Core.to_string(), LogLevel::Info.to_string());
+    category_levels.insert(LogCategory::Renderer.to_string(), LogLevel::Info.to_string());
+    category_levels.insert(LogCategory::Platform.to_string(), LogLevel::Info.to_string());
+    // category_levels.insert(LogCategory::Event.to_string(), LogLevel::Info.to_string()); // Event category missing
+    // category_levels.insert(LogCategory::Performance.to_string(), LogLevel::Info.to_string()); // Performance category missing
+    // category_levels.insert(LogCategory::Animation.to_string(), LogLevel::Info.to_string()); // Animation category missing
+    
     // Vulkan errors only at WARN level to reduce validation spam
-    category_levels.insert(LogCategory::Vulkan, LogLevel::Warn);
+    category_levels.insert(LogCategory::Vulkan.to_string(), LogLevel::Warn.to_string());
+    
     // Text and Layout debug disabled by default to prevent spam
-    category_levels.insert(LogCategory::Text, LogLevel::Error);
-    category_levels.insert(LogCategory::Layout, LogLevel::Error);
+    category_levels.insert(LogCategory::Text.to_string(), LogLevel::Error.to_string());
+    category_levels.insert("layout".to_string(), LogLevel::Error.to_string()); // Layout is a string key in config defaults
 
     let logging_config = LoggingConfig {
-        global_level: LogLevel::Info,
         category_levels,
         enable_text_debug: false,
         enable_layout_debug: false,
-        rate_limit_interval_ms: 5000, // 5 seconds
-        max_logs_per_interval: 3,     // Max 3 messages per interval
+        rate_limit_seconds: 5,
+        max_rate_limit_count: 3,
     };
 
     // Initialize logging with the configuration
-    oxide_core::logging::init_with_config(logging_config)?;
+    oxide_ui::oxide_core::logging::init(&logging_config)
+        .map_err(|e| oxide_ui::oxide_core::OxideError::other(format!("Logging init failed: {}", e)))?;
     
     oxide_info!(LogCategory::Core, "Logging system initialized with noise reduction: text_debug=false, layout_debug=false, vulkan_level=warn");
     Ok(())

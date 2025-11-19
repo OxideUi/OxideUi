@@ -32,7 +32,7 @@ impl Vertex {
             color,
             uv: [0.0, 0.0],
             params: [0.0, 0.0, 0.0, 0.0],
-            flags: 1, // Solid color flag
+            flags: 0, // FLAG_TYPE_SOLID = 0 (matches shader)
         }
     }
 
@@ -43,7 +43,7 @@ impl Vertex {
             color,
             uv,
             params: [0.0, 0.0, 0.0, 0.0],
-            flags: 2, // Textured flag
+            flags: 1, // FLAG_TYPE_TEXTURED = 1 (matches shader)
         }
     }
 

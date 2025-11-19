@@ -162,22 +162,33 @@ impl RenderBatch {
         self.vertex_count += vertices.len() as u16;
     }
 
-    /// Batch text into vertices and indices (temporary simple implementation for debugging)
+    /// Batch text into vertices and indices (placeholder implementation using rectangles per character)
     fn batch_text(&mut self, text: &str, position: (f32, f32), color: Color, font_size: f32) {
         // Use the new text debug macro instead of println! and excessive oxide_trace!
         oxide_text_debug!("Batching text: '{}' at {:?} with size {} and color {:?}", 
                          text, position, font_size, color);
 
-        // Create text command and add to current batch
-        let command = DrawCommand::Text {
-            text: text.to_string(),
-            position,
-            font_size,
-            color,
-        };
-
-        self.commands.push(command);
-        oxide_text_debug!("Added text command to batch (total commands: {})", self.commands.len());
+        // TEMPORARY PLACEHOLDER: Render each character as a colored rectangle
+        // This allows text to be visible until proper glyph rendering is implemented
+        let char_width = font_size * 0.6;  // Approximate character width
+        let char_height = font_size;
+        let spacing = char_width * 0.1;    // Small spacing between characters
+        
+        let (mut x, y) = position;
+        
+        for _ch in text.chars() {
+            // Create a small rectangle for each character as a visual placeholder
+            let rect = Rect::new(x, y, char_width, char_height);
+            
+            // Batch this character rectangle
+            self.batch_rect(rect, color, Transform::identity());
+            
+            // Move to next character position
+            x += char_width + spacing;
+        }
+        
+        oxide_text_debug!("Batched {} character placeholders (total vertices: {})", 
+                         text.len(), self.vertices.len());
     }
 
     /// Batch a rectangle into vertices and indices

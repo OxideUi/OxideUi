@@ -25,6 +25,7 @@ pub mod pipeline;
 pub mod profiler;
 pub mod resources;
 pub mod shader;
+pub mod software;  // Software renderer for debugging
 pub mod text;
 pub mod texture;
 pub mod vertex;

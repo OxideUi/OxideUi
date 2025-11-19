@@ -110,10 +110,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
 
-    // Handle pre-multiplied alpha if your blend mode requires it
-    final_color.r *= final_color.a;
-    final_color.g *= final_color.a;
-    final_color.b *= final_color.a;
-
+    // No premult multiplied alpha conversion - blend mode handles this
     return final_color;
 }

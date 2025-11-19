@@ -3,3 +3,4 @@ IMPLEMENTATION_SUMMARY.md
 *.lock
 
 WARP.md
+.DS_Store
