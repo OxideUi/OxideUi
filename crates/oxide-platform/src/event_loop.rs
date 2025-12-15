@@ -375,6 +375,8 @@ impl EventLoop {
                                             } else {
                                                 // Convert batch commands to render commands
                                                 let mut commands = Vec::new();
+                                                
+                                                // 1. Normal commands
                                                 for cmd in batch.commands {
                                                     match cmd {
                                                         oxide_renderer::batch::DrawCommand::Rect { rect, color, transform } => {
@@ -384,13 +386,39 @@ impl EventLoop {
                                                                 transform: Some(transform),
                                                             });
                                                         }
-                                                        oxide_renderer::batch::DrawCommand::Text { text, position, color, .. } => {
+                                                        oxide_renderer::batch::DrawCommand::Text { text, position, color, font_size, align, .. } => {
                                                              commands.push(oxide_renderer::RenderCommand::DrawText {
                                                                 text,
                                                                 position,
                                                                 color,
+                                                                font_size,
+                                                                align,
                                                             });
                                                         }
+                                                        // TODO: Implement other commands
+                                                        _ => {}
+                                                    }
+                                                }
+                                                
+                                                // 2. Overlay commands (drawn on top)
+                                                for cmd in batch.overlay_commands {
+                                                    match cmd {
+                                                        oxide_renderer::batch::DrawCommand::Rect { rect, color, transform } => {
+                                                            commands.push(oxide_renderer::RenderCommand::DrawRect {
+                                                                rect,
+                                                                color,
+                                                                transform: Some(transform),
+                                                            });
+                                                        }
+                                                        oxide_renderer::batch::DrawCommand::Text { text, position, color, font_size, align, .. } => {
+                                                              commands.push(oxide_renderer::RenderCommand::DrawText {
+                                                                 text,
+                                                                 position,
+                                                                 color,
+                                                                 font_size,
+                                                                 align,
+                                                             });
+                                                         }
                                                         // TODO: Implement other commands
                                                         _ => {}
                                                     }

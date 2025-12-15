@@ -285,6 +285,7 @@ impl FontManager {
 
 /// Text shaper for complex text layout
 pub struct TextShaper {
+    #[allow(dead_code)]
     font_manager: Arc<FontManager>,
 }
 
@@ -505,7 +506,19 @@ mod tests {
     #[test]
     fn test_font_descriptor_default() {
         let font = FontDescriptor::default();
-        assert_eq!(font.family, "system-ui");
+        
+        #[cfg(target_os = "windows")]
+        assert_eq!(font.family, "Segoe UI");
+        
+        #[cfg(target_os = "macos")]
+        assert_eq!(font.family, "SF Pro Display");
+        
+        #[cfg(target_os = "linux")]
+        assert_eq!(font.family, "Ubuntu");
+        
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        assert_eq!(font.family, "Arial");
+
         assert_eq!(font.size, 14.0);
         assert_eq!(font.weight, FontWeight::Normal);
     }

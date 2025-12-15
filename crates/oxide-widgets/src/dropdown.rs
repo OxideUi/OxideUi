@@ -493,7 +493,7 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
 
             // List Background
             let list_bg = self.style.dropdown_background;
-            batch.add_rect(
+            batch.add_overlay_rect(
                 list_bounds,
                 Color::rgba(list_bg[0], list_bg[1], list_bg[2], list_bg[3]),
                 Transform::identity(),
@@ -514,7 +514,7 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
                 };
 
                 let opt_rect = Rect::new(list_bounds.x, y, list_bounds.width, option_height);
-                batch.add_rect(
+                batch.add_overlay_rect(
                     opt_rect,
                     Color::rgba(opt_bg[0], opt_bg[1], opt_bg[2], opt_bg[3]),
                     Transform::identity(),
@@ -526,7 +526,7 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
                     self.style.text_color
                 };
 
-                batch.add_text_aligned(
+                batch.add_overlay_text_aligned(
                     option.label.clone(),
                     (opt_rect.x + self.style.padding, opt_rect.y + opt_rect.height / 2.0 - self.style.font_size / 2.0),
                     Color::rgba(opt_text_color[0], opt_text_color[1], opt_text_color[2], opt_text_color[3]),

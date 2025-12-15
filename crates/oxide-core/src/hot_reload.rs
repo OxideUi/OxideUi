@@ -514,8 +514,6 @@ pub mod utils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use tempfile::TempDir;
 
     #[test]
     fn test_hot_reload_config() {
@@ -548,6 +546,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "hot-reload")]
     async fn test_file_watcher_creation() {
         let config = HotReloadConfig::default();
         let watcher = FileWatcher::new(config);
@@ -555,6 +554,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "hot-reload")]
     fn test_live_preview_server_creation() {
         let config = HotReloadConfig::default();
         let server = LivePreviewServer::new(config);
@@ -562,6 +562,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "hot-reload")]
     async fn test_hot_reload_manager() {
         let mut config = HotReloadConfig::default();
         config.enabled = false; // Disable for testing

@@ -153,9 +153,13 @@ mod tests {
         );
 
         let dm = DeviceManager::new(Backends::all()).await.unwrap();
-        let surface = SurfaceManager::new(window, dm.device(), dm.adapter(), dm.instance());
+        let surface = dm.instance().create_surface(window.clone()).unwrap();
+        // Safety: for test purposes
+        let surface: Surface<'static> = unsafe { std::mem::transmute(surface) };
+        
+        let surface_mgr = SurfaceManager::new(surface, dm.device(), dm.adapter(), 800, 600);
 
-        assert!(surface.is_ok());
+        assert!(surface_mgr.is_ok());
     }
 
     #[tokio::test]
@@ -171,7 +175,11 @@ mod tests {
         );
 
         let dm = DeviceManager::new(Backends::all()).await.unwrap();
-        let surface_mgr = SurfaceManager::new(window, dm.device(), dm.adapter(), dm.instance()).unwrap();
+        let surface = dm.instance().create_surface(window.clone()).unwrap();
+        // Safety: for test purposes
+        let surface: Surface<'static> = unsafe { std::mem::transmute(surface) };
+        
+        let surface_mgr = SurfaceManager::new(surface, dm.device(), dm.adapter(), 800, 600).unwrap();
 
         let format = surface_mgr.format();
         assert!(matches!(

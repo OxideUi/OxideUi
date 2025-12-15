@@ -55,17 +55,17 @@ impl Color {
         if self.a < 1.0 {
             format!(
                 "#{:02X}{:02X}{:02X}{:02X}",
-                (self.r * 255.0) as u8,
-                (self.g * 255.0) as u8,
-                (self.b * 255.0) as u8,
-                (self.a * 255.0) as u8
+                (self.r * 255.0).round() as u8,
+                (self.g * 255.0).round() as u8,
+                (self.b * 255.0).round() as u8,
+                (self.a * 255.0).round() as u8
             )
         } else {
             format!(
                 "#{:02X}{:02X}{:02X}",
-                (self.r * 255.0) as u8,
-                (self.g * 255.0) as u8,
-                (self.b * 255.0) as u8
+                (self.r * 255.0).round() as u8,
+                (self.g * 255.0).round() as u8,
+                (self.b * 255.0).round() as u8
             )
         }
     }

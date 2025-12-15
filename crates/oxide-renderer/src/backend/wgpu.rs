@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use wgpu::{Backends, CommandEncoderDescriptor, Surface};
 use crate::backend::{Backend, commands::RenderCommand};
@@ -6,7 +6,6 @@ use crate::gpu::{
     DeviceManager, SurfaceManager, ShaderManager, BufferManager, TextureManager, PipelineManager,
     SimpleVertex
 };
-use crate::vertex::VertexBuilder;
 use async_trait::async_trait;
 
 pub struct WgpuBackend {
@@ -204,11 +203,33 @@ impl Backend for WgpuBackend {
 
                     vertex_count += 4;
                 }
-                RenderCommand::DrawText { text, position, color } => {
-                    let (mut x, y) = position;
-                    // TODO: Pass font size in command or use style
-                    let font_size = 16.0; 
+                RenderCommand::DrawText { text, position, color, font_size, align } => {
+                    let (x_orig, y) = *position;
                     let color_arr = [color.r, color.g, color.b, color.a];
+                    let font_size = *font_size;
+                    let align = *align;
+                    
+                    // Calculate width for alignment
+                    let text_width = if align != oxide_core::text::TextAlign::Left {
+                        let mut width = 0.0;
+                        for ch in text.chars() {
+                             if let Some(glyph) = texture_mgr.get_or_cache_glyph(device_mgr.queue(), ch, font_size as u32) {
+                                 width += glyph.metrics.advance;
+                             } else if ch == ' ' {
+                                 width += font_size * 0.3;
+                             }
+                        }
+                        width
+                    } else {
+                        0.0
+                    };
+
+                    let mut x = x_orig;
+                    if align == oxide_core::text::TextAlign::Center {
+                        x -= text_width / 2.0;
+                    } else if align == oxide_core::text::TextAlign::Right {
+                        x -= text_width;
+                    }
                     
                     for ch in text.chars() {
                         if let Some(glyph) = texture_mgr.get_or_cache_glyph(device_mgr.queue(), ch, font_size as u32) {

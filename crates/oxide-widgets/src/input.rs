@@ -587,7 +587,11 @@ impl TextInput {
         let padding = style.padding;
         
         let text_width = if self.multiline {
-            available_size.width - padding.1 - padding.3
+            if available_size.width.is_finite() {
+                available_size.width - padding.1 - padding.3
+            } else {
+                (self.cols as f32) * (style.font_size * 0.6)
+            }
         } else {
             (self.cols as f32) * (style.font_size * 0.6) // Approximate character width
         };
@@ -896,7 +900,14 @@ impl Widget for TextInput {
         size
     }
 
-    fn render(&self, batch: &mut RenderBatch, _layout: Layout) {
+    fn render(&self, batch: &mut RenderBatch, layout: Layout) {
+        let bounds = Rect::new(
+            layout.position.x,
+            layout.position.y,
+            layout.size.width,
+            layout.size.height,
+        );
+        self.layout(bounds);
         self.render(batch);
     }
 

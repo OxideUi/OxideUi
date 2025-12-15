@@ -16,7 +16,8 @@ pub enum RenderCommand {
         text: String,
         position: (f32, f32),
         color: Color,
-        // TODO: Add font_id, size, alignment
+        font_size: f32,
+        align: oxide_core::text::TextAlign,
     },
     /// Push a clipping rectangle
     PushClip(Rect),

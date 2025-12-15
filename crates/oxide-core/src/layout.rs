@@ -527,8 +527,7 @@ impl LayoutEngine {
                 item_main_size += (item.flex_shrink / total_flex_shrink) * free_space;
             }
 
-            // Calculate cross size
-            let item_cross_size = if container.direction.is_row() {
+            let mut item_cross_size = if container.direction.is_row() {
                 size.height
             } else {
                 size.width
@@ -550,10 +549,12 @@ impl LayoutEngine {
 
             let mut item_cross_position = cross_position;
             match align {
-                AlignItems::FlexEnd => item_cross_position += line.cross_size - item_cross_size,
-                AlignItems::Center => item_cross_position += (line.cross_size - item_cross_size) / 2.0,
+                AlignItems::FlexEnd => item_cross_position += line.cross_size - (item_cross_size + if container.direction.is_row() { item.margin.vertical() } else { item.margin.horizontal() }),
+                AlignItems::Center => item_cross_position += (line.cross_size - (item_cross_size + if container.direction.is_row() { item.margin.vertical() } else { item.margin.horizontal() })) / 2.0,
                 AlignItems::Stretch => {
                     // Stretch to fill cross axis
+                    let margin = if container.direction.is_row() { item.margin.vertical() } else { item.margin.horizontal() };
+                    item_cross_size = (line.cross_size - margin).max(0.0);
                 }
                 _ => {}
             }

@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 use oxide_core::types::{Color, Rect, Transform};
-use oxide_core::oxide_text_debug;
 use crate::vertex::Vertex;
 use crate::text::TextRenderer;
 
@@ -71,6 +70,7 @@ pub struct RenderBatch {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
     pub commands: Vec<DrawCommand>,
+    pub overlay_commands: Vec<DrawCommand>,
     vertex_count: u16,
     texture_atlas: HashMap<u32, TextureInfo>,
     text_renderer: TextRenderer,
@@ -92,6 +92,7 @@ impl RenderBatch {
             vertices: Vec::with_capacity(1024),
             indices: Vec::with_capacity(1536),
             commands: Vec::new(),
+            overlay_commands: Vec::new(),
             vertex_count: 0,
             texture_atlas: HashMap::new(),
             text_renderer: TextRenderer::new(),
@@ -103,12 +104,13 @@ impl RenderBatch {
         self.vertices.clear();
         self.indices.clear();
         self.commands.clear();
+        self.overlay_commands.clear();
         self.vertex_count = 0;
     }
 
     /// Get the number of draw commands in the batch
     pub fn command_count(&self) -> usize {
-        self.commands.len()
+        self.commands.len() + self.overlay_commands.len()
     }
 
     /// Add a rectangle to the batch
@@ -140,6 +142,26 @@ impl RenderBatch {
             align,
         };
         self.commands.push(command);
+    }
+
+    /// Add a rectangle to the overlay layer (drawn last)
+    pub fn add_overlay_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
+        let command = DrawCommand::Rect { rect, color, transform };
+        self.overlay_commands.push(command);
+        // We don't batch vertices here because we are not using them in the current backend implementation
+    }
+
+    /// Add aligned text to the overlay layer (drawn last)
+    pub fn add_overlay_text_aligned(&mut self, text: String, position: (f32, f32), color: Color, font_size: f32, letter_spacing: f32, align: TextAlign) {
+        let command = DrawCommand::Text {
+            text: text.clone(),
+            position,
+            color,
+            font_size,
+            letter_spacing,
+            align,
+        };
+        self.overlay_commands.push(command);
     }
 
     /// Add an image to the batch

@@ -15,7 +15,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, atomic::{AtomicU64, AtomicUsize, AtomicBool, Ordering}};
 use std::time::{Duration, Instant};
 use parking_lot::{RwLock, Mutex};
-use wgpu::{Device, Buffer, BufferUsages, BufferDescriptor, MapMode, Maintain};
+use wgpu::{Buffer, BufferUsages, BufferDescriptor};
 use anyhow::{Result, Context};
 use tracing::{info, warn, debug, instrument};
 use serde::{Serialize, Deserialize};
@@ -83,7 +83,7 @@ pub struct BufferAllocation {
 /// Buffer pool for efficient reuse
 pub struct BufferPool {
     device: Arc<ManagedDevice>,
-    memory_manager: Arc<Mutex<MemoryManager>>,
+    _memory_manager: Arc<Mutex<MemoryManager>>,
     
     // Pool storage by size and usage
     pools: RwLock<HashMap<(u64, BufferUsages), VecDeque<Arc<Buffer>>>>,
@@ -93,8 +93,8 @@ pub struct BufferPool {
     
     // Configuration
     max_pool_size: AtomicUsize,
-    min_buffer_size: AtomicU64,
-    max_buffer_size: AtomicU64,
+    _min_buffer_size: AtomicU64,
+    _max_buffer_size: AtomicU64,
     alignment_requirement: AtomicU64,
     
     // Statistics
@@ -122,7 +122,7 @@ pub struct BufferUsageStats {
 
 /// Dynamic buffer that can grow and shrink
 pub struct DynamicBuffer {
-    device: Arc<ManagedDevice>,
+    _device: Arc<ManagedDevice>,
     buffer_pool: Arc<BufferPool>,
     
     // Current buffer
@@ -141,6 +141,7 @@ pub struct DynamicBuffer {
 }
 
 /// Staging buffer for efficient data transfers
+#[allow(dead_code)]
 pub struct StagingBuffer {
     device: Arc<ManagedDevice>,
     buffer: Arc<Buffer>,
@@ -165,7 +166,7 @@ pub struct PendingTransfer {
 
 /// Ring buffer for streaming data
 pub struct RingBuffer {
-    device: Arc<ManagedDevice>,
+    _device: Arc<ManagedDevice>,
     buffer: Arc<Buffer>,
     size: u64,
     head: AtomicU64,
@@ -174,7 +175,7 @@ pub struct RingBuffer {
     
     // Configuration
     alignment: u64,
-    usage_pattern: BufferUsagePattern,
+    _usage_pattern: BufferUsagePattern,
     
     // Statistics
     write_count: AtomicU64,
@@ -185,7 +186,7 @@ pub struct RingBuffer {
 /// Buffer manager coordinating all buffer operations
 pub struct BufferManager {
     device: Arc<ManagedDevice>,
-    memory_manager: Arc<Mutex<MemoryManager>>,
+    _memory_manager: Arc<Mutex<MemoryManager>>,
     
     // Buffer pools
     vertex_pool: Arc<BufferPool>,
@@ -201,17 +202,17 @@ pub struct BufferManager {
     ring_buffers: RwLock<HashMap<ResourceHandle, Arc<RingBuffer>>>,
     
     // Staging buffers
-    staging_buffers: RwLock<HashMap<ResourceHandle, Arc<StagingBuffer>>>,
+    _staging_buffers: RwLock<HashMap<ResourceHandle, Arc<StagingBuffer>>>,
     
     // Global statistics
     total_buffers: AtomicU64,
     total_memory_usage: AtomicU64,
-    fragmentation_ratio: RwLock<f32>,
+    _fragmentation_ratio: RwLock<f32>,
     
     // Configuration
     auto_defragmentation: AtomicBool,
     memory_pressure_threshold: AtomicU64,
-    profiling_enabled: AtomicBool,
+    _profiling_enabled: AtomicBool,
 }
 
 impl Default for BufferConfig {
@@ -237,12 +238,12 @@ impl BufferPool {
     ) -> Self {
         Self {
             device,
-            memory_manager,
+            _memory_manager: memory_manager,
             pools: RwLock::new(HashMap::new()),
             active_allocations: RwLock::new(HashMap::new()),
             max_pool_size: AtomicUsize::new(100),
-            min_buffer_size: AtomicU64::new(256),
-            max_buffer_size: AtomicU64::new(256 * 1024 * 1024), // 256MB
+            _min_buffer_size: AtomicU64::new(256),
+            _max_buffer_size: AtomicU64::new(256 * 1024 * 1024), // 256MB
             alignment_requirement: AtomicU64::new(256),
             allocation_count: AtomicU64::new(0),
             deallocation_count: AtomicU64::new(0),
@@ -440,7 +441,7 @@ impl DynamicBuffer {
         config: BufferConfig,
     ) -> Self {
         Self {
-            device,
+            _device: device,
             buffer_pool,
             current_buffer: RwLock::new(None),
             current_size: AtomicU64::new(0),
@@ -534,14 +535,14 @@ impl RingBuffer {
         }));
         
         Ok(Self {
-            device,
+            _device: device,
             buffer,
             size,
             head: AtomicU64::new(0),
             tail: AtomicU64::new(0),
             wrapped: AtomicBool::new(false),
             alignment: 256,
-            usage_pattern,
+            _usage_pattern: usage_pattern,
             write_count: AtomicU64::new(0),
             bytes_written: AtomicU64::new(0),
             overruns: AtomicU64::new(0),
@@ -614,7 +615,7 @@ impl BufferManager {
         
         Self {
             device,
-            memory_manager,
+            _memory_manager: memory_manager,
             vertex_pool,
             index_pool,
             uniform_pool,
@@ -622,13 +623,13 @@ impl BufferManager {
             staging_pool,
             dynamic_buffers: RwLock::new(HashMap::new()),
             ring_buffers: RwLock::new(HashMap::new()),
-            staging_buffers: RwLock::new(HashMap::new()),
+            _staging_buffers: RwLock::new(HashMap::new()),
             total_buffers: AtomicU64::new(0),
             total_memory_usage: AtomicU64::new(0),
-            fragmentation_ratio: RwLock::new(0.0),
+            _fragmentation_ratio: RwLock::new(0.0),
             auto_defragmentation: AtomicBool::new(true),
             memory_pressure_threshold: AtomicU64::new(1024 * 1024 * 1024), // 1GB
-            profiling_enabled: AtomicBool::new(true),
+            _profiling_enabled: AtomicBool::new(true),
         }
     }
     

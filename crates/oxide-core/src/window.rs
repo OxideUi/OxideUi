@@ -542,7 +542,7 @@ mod tests {
 
     #[test]
     fn test_window_manager() {
-        let mut manager = WindowManager::new();
+        let manager = WindowManager::new();
         assert!(!manager.has_windows());
         assert_eq!(manager.window_ids().len(), 0);
         assert_eq!(manager.active_window(), None);

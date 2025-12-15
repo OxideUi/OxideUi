@@ -128,10 +128,10 @@ impl Color {
     /// Convert to hex string
     pub fn to_hex(&self) -> String {
         format!("#{:02x}{:02x}{:02x}{:02x}",
-            (self.r * 255.0) as u8,
-            (self.g * 255.0) as u8,
-            (self.b * 255.0) as u8,
-            (self.a * 255.0) as u8,
+            (self.r * 255.0).round() as u8,
+            (self.g * 255.0).round() as u8,
+            (self.b * 255.0).round() as u8,
+            (self.a * 255.0).round() as u8,
         )
     }
 

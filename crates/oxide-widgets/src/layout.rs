@@ -93,13 +93,26 @@ impl Widget for Row {
     fn layout(&mut self, constraints: Constraints) -> Size {
         let engine = oxide_core::layout::LayoutEngine::new();
         
+        // Relax constraints for children measurement
+        let child_constraints = Constraints {
+            min_width: 0.0,
+            max_width: constraints.max_width,
+            min_height: 0.0,
+            max_height: constraints.max_height,
+        };
+        
         // Calculate child sizes
         let mut child_data = Vec::new();
         let mut sizes = Vec::with_capacity(self.children.len());
         for child in &mut self.children {
-            let child_size = child.layout(constraints);
+            let child_size = child.layout(child_constraints);
             sizes.push(child_size);
-            child_data.push((FlexItem::default(), child_size));
+            
+            let mut flex_item = FlexItem::default();
+            if let Some(flex) = child.as_any().downcast_ref::<Flex>() {
+                flex_item = FlexItem::grow(flex.flex);
+            }
+            child_data.push((flex_item, child_size));
         }
         // Cache sizes for use during render()
         self.cached_child_sizes = sizes;
@@ -144,13 +157,18 @@ impl Widget for Row {
         
         // Calculate child layouts using cached sizes measured in layout()
         let mut child_data = Vec::new();
-        for (i, _child) in self.children.iter().enumerate() {
+        for (i, child) in self.children.iter().enumerate() {
             let child_size = self
                 .cached_child_sizes
                 .get(i)
                 .copied()
                 .unwrap_or_else(|| Size::new(100.0, 50.0));
-            child_data.push((FlexItem::default(), child_size));
+                
+            let mut flex_item = FlexItem::default();
+            if let Some(flex) = child.as_any().downcast_ref::<Flex>() {
+                flex_item = FlexItem::grow(flex.flex);
+            }
+            child_data.push((flex_item, child_size));
         }
         
         let container = FlexContainer {
@@ -288,13 +306,26 @@ impl Widget for Column {
     fn layout(&mut self, constraints: Constraints) -> Size {
         let engine = oxide_core::layout::LayoutEngine::new();
         
+        // Relax constraints for children measurement
+        let child_constraints = Constraints {
+            min_width: 0.0,
+            max_width: constraints.max_width,
+            min_height: 0.0,
+            max_height: constraints.max_height,
+        };
+        
         // Calculate child sizes
         let mut child_data = Vec::new();
         let mut sizes = Vec::with_capacity(self.children.len());
         for child in &mut self.children {
-            let child_size = child.layout(constraints);
+            let child_size = child.layout(child_constraints);
             sizes.push(child_size);
-            child_data.push((FlexItem::default(), child_size));
+            
+            let mut flex_item = FlexItem::default();
+            if let Some(flex) = child.as_any().downcast_ref::<Flex>() {
+                flex_item = FlexItem::grow(flex.flex);
+            }
+            child_data.push((flex_item, child_size));
         }
         // Cache sizes for render()
         self.cached_child_sizes = sizes;
@@ -339,13 +370,18 @@ impl Widget for Column {
         
         // Calculate child layouts using cached sizes computed during layout()
         let mut child_data = Vec::new();
-        for (i, _child) in self.children.iter().enumerate() {
+        for (i, child) in self.children.iter().enumerate() {
             let child_size = self
                 .cached_child_sizes
                 .get(i)
                 .copied()
                 .unwrap_or_else(|| Size::new(100.0, 50.0));
-            child_data.push((FlexItem::default(), child_size));
+                
+            let mut flex_item = FlexItem::default();
+            if let Some(flex) = child.as_any().downcast_ref::<Flex>() {
+                flex_item = FlexItem::grow(flex.flex);
+            }
+            child_data.push((flex_item, child_size));
         }
         
         let container = FlexContainer {

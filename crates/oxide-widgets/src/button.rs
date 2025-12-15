@@ -529,7 +529,7 @@ impl Widget for Button {
         self.id
     }
 
-    fn layout(&mut self, _constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints) -> Size {
         let text_width = crate::text::measure_text_width(&self.text, self.style.font_size, 0.0);
         let text_height = self.style.font_size;
         
@@ -538,6 +538,10 @@ impl Widget for Button {
         
         let width = content_width.max(self.style.min_width);
         let height = content_height.max(self.style.min_height);
+        
+        // Respect constraints
+        let width = width.min(constraints.max_width).max(constraints.min_width);
+        let height = height.min(constraints.max_height).max(constraints.min_height);
         
         Size::new(width, height)
     }

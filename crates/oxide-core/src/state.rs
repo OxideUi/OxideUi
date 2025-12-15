@@ -514,8 +514,11 @@ mod tests {
         let signal2 = Signal::new(0);
         
         let mut batch = Batch::new();
-        batch.add(move || signal1.set(10));
-        batch.add(move || signal2.set(20));
+        let s1 = signal1.clone();
+        let s2 = signal2.clone();
+        
+        batch.add(move || s1.set(10));
+        batch.add(move || s2.set(20));
         
         batch.execute();
         
