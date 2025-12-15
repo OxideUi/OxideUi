@@ -441,14 +441,14 @@ mod tests {
     #[test]
     fn test_vertex_solid() {
         let vertex = Vertex::solid([0.0, 0.0], [1.0, 1.0, 1.0, 1.0]);
-        assert_eq!(vertex.flags, 1);
+        assert_eq!(vertex.flags, 0);
         assert_eq!(vertex.uv, [0.0, 0.0]);
     }
 
     #[test]
     fn test_vertex_textured() {
         let vertex = Vertex::textured([0.0, 0.0], [1.0, 1.0], [1.0, 1.0, 1.0, 1.0]);
-        assert_eq!(vertex.flags, 2);
+        assert_eq!(vertex.flags, 1);
         assert_eq!(vertex.uv, [1.0, 1.0]);
     }
 

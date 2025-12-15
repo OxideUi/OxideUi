@@ -40,11 +40,16 @@ impl DrawingSystem {
         println!("✅ DeviceManager initialized");
         
         // BLOCCO 2: Surface Configuration
+        let target = unsafe { wgpu::SurfaceTargetUnsafe::from_window(&*window)? };
+        let surface = unsafe { device_mgr.instance().create_surface_unsafe(target)? };
+        let size = window.inner_size();
+        
         let surface_mgr = SurfaceManager::new(
-            window,
+            surface,
             device_mgr.device(),
             device_mgr.adapter(),
-            device_mgr.instance(),
+            size.width,
+            size.height,
         )?;
         println!("✅ SurfaceManager initialized");
         
@@ -266,6 +271,91 @@ impl DrawingSystem {
                         }
                     }
                 }
+                crate::batch::DrawCommand::Image { id, data, width, height, rect, color } => {
+                    // Upload or get cached image
+                    if let Some(image) = self.texture_mgr.get_or_upload_image(
+                        self.device_mgr.queue(),
+                        *id,
+                        data,
+                        *width,
+                        *height
+                    ) {
+                        let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
+                        let (u0, v0, u1, v1) = image.uv_rect;
+                        let color_arr = [color.r, color.g, color.b, color.a];
+
+                        // Textured quad for image
+                        // We use SimpleVertex directly
+                        vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(
+                            [x, y], 
+                            [u0, v0],
+                            color_arr
+                        )));
+                        vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(
+                            [x + w, y], 
+                            [u1, v0],
+                            color_arr
+                        )));
+                        vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(
+                            [x + w, y + h], 
+                            [u1, v1],
+                            color_arr
+                        )));
+                        vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(
+                            [x, y + h], 
+                            [u0, v1],
+                            color_arr
+                        )));
+
+                        indices.push(vertex_count);
+                        indices.push(vertex_count + 1);
+                        indices.push(vertex_count + 2);
+                        indices.push(vertex_count);
+                        indices.push(vertex_count + 2);
+                        indices.push(vertex_count + 3);
+
+                        vertex_count += 4;
+                    }
+                }
+                crate::batch::DrawCommand::TexturedQuad { rect, texture_id: _, uv_rect, color, transform } => {
+                    // We assume the texture is already in the global atlas and we just use the UVs
+                    let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
+                    let (u, v, uw, vh) = (uv_rect.x, uv_rect.y, uv_rect.width, uv_rect.height);
+                    let color_arr = [color.r, color.g, color.b, color.a];
+
+                    // Apply transform helper
+                    let apply_transform = |p: [f32; 2]| -> [f32; 2] {
+                        let point = oxide_core::types::Point::new(p[0], p[1]);
+                        let transformed = transform.transform_point(point);
+                        [transformed.x, transformed.y]
+                    };
+
+                    let p0 = apply_transform([x, y]);
+                    let p1 = apply_transform([x + w, y]);
+                    let p2 = apply_transform([x + w, y + h]);
+                    let p3 = apply_transform([x, y + h]);
+
+                    // Note: vertex::textured takes [u0, v0], but TexturedQuad command has uv_rect which is [u, v, width, height]
+                    // So we calculate corners
+                    let uv0 = [u, v];
+                    let uv1 = [u + uw, v];
+                    let uv2 = [u + uw, v + vh];
+                    let uv3 = [u, v + vh];
+
+                    vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(p0, uv0, color_arr)));
+                    vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(p1, uv1, color_arr)));
+                    vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(p2, uv2, color_arr)));
+                    vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(p3, uv3, color_arr)));
+
+                    indices.push(vertex_count);
+                    indices.push(vertex_count + 1);
+                    indices.push(vertex_count + 2);
+                    indices.push(vertex_count);
+                    indices.push(vertex_count + 2);
+                    indices.push(vertex_count + 3);
+
+                    vertex_count += 4;
+                }
                 _ => {} // Handle other commands if needed
             }
         }
@@ -344,7 +434,11 @@ impl DrawingSystem {
         self.surface_mgr.resize(width, height, self.device_mgr.device())?;
         
         // Update projection matrix
-        let projection = create_orthographic_projection(width as f32, height as f32);
+        // Use logical size for projection to match render() behavior
+        let logical_width = (width as f32) / self.scale_factor;
+        let logical_height = (height as f32) / self.scale_factor;
+        
+        let projection = create_orthographic_projection(logical_width, logical_height);
         self.buffer_mgr.upload_projection(self.device_mgr.queue(), &projection);
         
         Ok(())

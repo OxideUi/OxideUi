@@ -8,7 +8,6 @@ use wgpu::{
     Adapter, Device, PresentMode, Surface, SurfaceConfiguration, SurfaceError, SurfaceTexture,
     TextureFormat, TextureUsages,
 };
-use winit::window::Window;
 
 /// Manages wgpu surface and its configuration
 pub struct SurfaceManager {
@@ -21,23 +20,21 @@ impl SurfaceManager {
     /// Create a new surface manager
     ///
     /// # Arguments
-    /// * `window` - Window to create surface for
+    /// * `surface` - The WGPU surface
     /// * `device` - GPU device
     /// * `adapter` - GPU adapter for capability detection
-    /// * `instance` - wgpu Instance (needed for surface creation)
+    /// * `width` - Initial width
+    /// * `height` - Initial height
     ///
     /// # Errors
-    /// Returns error if surface creation or configuration fails
+    /// Returns error if surface configuration fails
     pub fn new(
-        window: Arc<Window>,
+        surface: Surface<'static>,
         device: &Device,
         adapter: &Adapter,
-        instance: &wgpu::Instance,
+        width: u32,
+        height: u32,
     ) -> anyhow::Result<Self> {
-        // Create surface from window (requires unsafe due to raw window handle)
-        let target = unsafe { wgpu::SurfaceTargetUnsafe::from_window(&*window)? };
-        let surface = unsafe { instance.create_surface_unsafe(target)? };
-
         // Get surface capabilities
         let capabilities = surface.get_capabilities(adapter);
 
@@ -55,10 +52,9 @@ impl SurfaceManager {
         println!("Alpha modes: {:?}", capabilities.alpha_modes);
         println!("============================");
 
-        // Get window size
-        let size = window.inner_size();
-        let width = size.width.max(1);
-        let height = size.height.max(1);
+        // Ensure valid dimensions
+        let width = width.max(1);
+        let height = height.max(1);
 
         // Configure surface
         let config = SurfaceConfiguration {

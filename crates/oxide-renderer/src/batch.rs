@@ -33,6 +33,15 @@ pub enum DrawCommand {
         letter_spacing: f32,
         align: TextAlign,
     },
+    /// Draw an image
+    Image {
+        id: u64,
+        data: std::sync::Arc<Vec<u8>>,
+        width: u32,
+        height: u32,
+        rect: Rect,
+        color: Color,
+    },
     /// Draw a textured quad
     TexturedQuad {
         rect: Rect,
@@ -106,12 +115,7 @@ impl RenderBatch {
     pub fn add_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
         let command = DrawCommand::Rect { rect, color, transform };
         self.commands.push(command);
-        // Self::batch_rect is not used by drawing.rs, so we don't need to call it if we use commands
-        // But for compatibility with other renderers (if any), we might keep it.
-        // However, drawing.rs ignores batch.vertices!
-        // So calling batch_rect here is wasteful if drawing.rs is the only consumer and it ignores vertices.
-        // But I will enable batch.vertices in drawing.rs soon.
-        // For now, just push command.
+        self.batch_rect(rect, color, transform);
     }
 
     /// Add a rounded rectangle to the batch
@@ -138,6 +142,27 @@ impl RenderBatch {
         self.commands.push(command);
     }
 
+    /// Add an image to the batch
+    pub fn add_image(
+        &mut self,
+        id: u64,
+        data: std::sync::Arc<Vec<u8>>,
+        width: u32,
+        height: u32,
+        rect: Rect,
+        color: Color,
+    ) {
+        let command = DrawCommand::Image {
+            id,
+            data,
+            width,
+            height,
+            rect,
+            color,
+        };
+        self.commands.push(command);
+        // We can't batch vertices yet because we don't know UVs until upload
+    }
 
     /// Add a textured quad to the batch
     pub fn add_textured_quad(
@@ -248,13 +273,6 @@ impl RenderBatch {
 
     /// Batch a rectangle into vertices and indices
     fn batch_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
-        // Store command for deferred rendering (if needed)
-        self.commands.push(DrawCommand::Rect {
-            rect,
-            color,
-            transform,
-        });
-
         let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
         
         // Apply transform to vertices

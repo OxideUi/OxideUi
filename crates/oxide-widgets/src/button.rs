@@ -348,8 +348,8 @@ impl Button {
 
     /// Calculate button size
     pub fn calculate_size(&self, available_size: Size) -> Size {
-        // Simple text measurement (in a real implementation, this would use font metrics)
-        let text_width = self.text.len() as f32 * self.style.font_size * 0.6;
+        // Use accurate text measurement
+        let text_width = crate::text::measure_text_width(&self.text, self.style.font_size, 0.0);
         let text_height = self.style.font_size;
 
         let width = (text_width + self.style.padding * 2.0).max(self.style.min_width);
@@ -366,77 +366,6 @@ impl Button {
         self.bounds.set(bounds);
     }
 
-    /// Render the button
-    pub fn render(&self, batch: &mut RenderBatch) {
-        if !self.is_visible() {
-            return;
-        }
-
-        let bounds = self.bounds.get();
-        let state = self.get_state();
-        
-        // Determine colors based on state
-        let background_color = match state {
-            ButtonState::Normal => self.style.background_color,
-            ButtonState::Hovered => self.style.hover_color,
-            ButtonState::Pressed => self.style.pressed_color,
-            ButtonState::Disabled => self.style.disabled_color,
-            ButtonState::Focused => self.style.hover_color,
-        };
-
-        // Draw background
-        if self.style.border_radius > 0.0 {
-            batch.add_rounded_rect(
-                bounds,
-                background_color.to_types_color(),
-                self.style.border_radius,
-                Transform::identity(),
-            );
-        } else {
-            batch.add_rect(
-                bounds,
-                background_color.to_types_color(),
-                Transform::identity(),
-            );
-        }
-
-        // Render border if needed
-        if self.style.border_width > 0.0 {
-            let border_bounds = Rect::new(
-                bounds.x - self.style.border_width / 2.0,
-                bounds.y - self.style.border_width / 2.0,
-                bounds.width + self.style.border_width,
-                bounds.height + self.style.border_width,
-            );
-
-            if self.style.border_radius > 0.0 {
-                // Render rounded border (simplified - would need proper border rendering)
-                let (vertices, indices) = VertexBuilder::rounded_rectangle(
-                    border_bounds.x,
-                    border_bounds.y,
-                    border_bounds.width,
-                    border_bounds.height,
-                    self.style.border_radius + self.style.border_width / 2.0,
-                    self.style.border_color.to_array(),
-                    8, // corner segments
-                );
-                batch.add_vertices(&vertices, &indices);
-            }
-        }
-
-        // Render text
-        let text_x = bounds.x + bounds.width / 2.0;
-        let text_y = bounds.y + (bounds.height - self.style.font_size) / 2.0;
-        
-        batch.add_text_aligned(
-            self.text.clone(),
-            (text_x, text_y),
-            self.style.text_color.to_types_color(),
-            self.style.font_size,
-            0.0, // Default letter spacing
-            oxide_core::text::TextAlign::Center,
-        );
-    }
 
     /// Apply theme to button
     pub fn apply_theme(&mut self, theme: &Theme) {
@@ -601,7 +530,7 @@ impl Widget for Button {
     }
 
     fn layout(&mut self, _constraints: Constraints) -> Size {
-        let text_width = self.text.len() as f32 * self.style.font_size * 0.6;
+        let text_width = crate::text::measure_text_width(&self.text, self.style.font_size, 0.0);
         let text_height = self.style.font_size;
         
         let content_width = text_width + self.style.padding * 2.0;
@@ -668,26 +597,34 @@ impl Widget for Button {
             }
         }
 
-        // Render text (simplified - would need proper text rendering)
-        let text_x = draw_bounds.x + draw_bounds.width / 2.0 - (self.text.len() as f32 * self.style.font_size * 0.3);
+        // Render text
+        let text_x = draw_bounds.x + draw_bounds.width / 2.0;
         let text_y = draw_bounds.y + draw_bounds.height / 2.0 - self.style.font_size / 2.0;
         
-        batch.add_text(
+        batch.add_text_aligned(
             self.text.clone(),
             (text_x, text_y),
             self.style.text_color.to_types_color(),
             self.style.font_size,
             0.0, // Default letter spacing
+            oxide_core::text::TextAlign::Center,
         );
     }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
+        // println!("Button '{}' handling event: {:?}", self.text, event);
         match event {
             Event::MouseMove(mouse_event) => {
                 let bounds = self.bounds.get();
                 let point = oxide_core::types::Point::new(mouse_event.position.x, mouse_event.position.y);
                 let is_hovered = bounds.contains(point);
                 
+                // Debug log for hover issues
+                if self.text == "Action" || self.text.contains("Button") { 
+                     // tracing::trace!("Button '{}' bounds: {:?}, mouse: {:?}, hovered: {}", self.text, bounds, point, is_hovered);
+                     // println!("Button '{}' bounds: {:?}, mouse: {:?}, hovered: {}", self.text, bounds, point, is_hovered);
+                }
+
                 if is_hovered {
                     if self.get_state() != ButtonState::Pressed {
                         self.state.set(ButtonState::Hovered);
@@ -732,6 +669,36 @@ impl Widget for Button {
                             self.state.set(ButtonState::Normal);
                         }
                         return EventResult::Handled;
+                    }
+                }
+            }
+            Event::KeyDown(key_event) => {
+                // Simple focus check: if state is Focused or just handle if we decide to support implicit focus
+                // For now, let's assume if we receive the event, we might want to handle it if focused.
+                // But without focus system, we can't really know. 
+                // However, users might want to trigger buttons with keys.
+                
+                if self.get_state() == ButtonState::Focused {
+                    match key_event.key_code {
+                        oxide_core::event::KeyCode::Enter | oxide_core::event::KeyCode::Space => {
+                            self.state.set(ButtonState::Pressed);
+                            return EventResult::Handled;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Event::KeyUp(key_event) => {
+                if self.get_state() == ButtonState::Pressed {
+                    match key_event.key_code {
+                        oxide_core::event::KeyCode::Enter | oxide_core::event::KeyCode::Space => {
+                            self.state.set(ButtonState::Focused);
+                            if let Some(handler) = &self.on_click {
+                                handler();
+                            }
+                            return EventResult::Handled;
+                        }
+                        _ => {}
                     }
                 }
             }

@@ -270,6 +270,7 @@ impl Default for GlyphAtlasManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cosmic_text::{Attrs, Buffer, Metrics, Shaping};
 
     #[test]
     fn test_atlas_creation() {
@@ -281,15 +282,58 @@ mod tests {
     #[test]
     fn test_glyph_addition() {
         let mut atlas = GlyphAtlas::new(256, 256);
-        let bitmap = vec![255u8; 16 * 16]; // 16x16 white square
-        
-        let info = atlas.add_glyph(1, 65, &bitmap, (16, 16), (0, 0), 16.0);
+
+        // Use cosmic-text to obtain a real glyph cache key and bitmap
+        let mut font_system = FontSystem::new();
+        let mut swash_cache = SwashCache::new();
+
+        let metrics = Metrics::new(16.0, 20.0);
+        let mut buffer = Buffer::new(&mut font_system, metrics);
+        buffer.set_text(&mut font_system, "A", Attrs::new(), Shaping::Advanced);
+        buffer.shape_until_scroll(&mut font_system, false);
+
+        let mut cache_key_opt = None;
+        for run in buffer.layout_runs() {
+            for glyph in run.glyphs.iter() {
+                let physical = glyph.physical((0.0, 0.0), 1.0);
+                cache_key_opt = Some(physical.cache_key);
+                break;
+            }
+            if cache_key_opt.is_some() {
+                break;
+            }
+        }
+
+        let cache_key = cache_key_opt.expect("Failed to obtain glyph cache key");
+
+        let image = swash_cache
+            .get_image(&mut font_system, cache_key)
+            .as_ref()
+            .cloned()
+            .expect("Failed to rasterize glyph image");
+
+        let glyph_width = image.placement.width;
+        let glyph_height = image.placement.height;
+        let bearing_x = image.placement.left;
+        let bearing_y = image.placement.top;
+        let glyph_bitmap = image.data;
+
+        let info = atlas.add_glyph(
+            cache_key,
+            &glyph_bitmap,
+            (glyph_width, glyph_height),
+            (bearing_x, bearing_y),
+            0.0,
+        );
+
         assert!(info.is_some());
         assert!(atlas.is_dirty());
-        
-        // Check UV coordinates
+
         let info = info.unwrap();
-        assert_eq!(info.uv_rect, (0.0, 0.0, 16.0/256.0, 16.0/256.0));
+        assert_eq!(
+            info.uv_rect,
+            (0.0, 0.0, glyph_width as f32 / 256.0, glyph_height as f32 / 256.0)
+        );
     }
 
     #[test]

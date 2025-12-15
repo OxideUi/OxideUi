@@ -57,7 +57,7 @@ impl UIUniforms {
         far: f32,
     ) -> [[f32; 4]; 4] {
         let width = right - left;
-        let height = top - bottom;
+        let height = bottom - top;
         let depth = far - near;
 
         [

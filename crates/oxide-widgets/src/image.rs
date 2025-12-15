@@ -5,7 +5,8 @@
 use oxide_core::{
     event::{Event, EventResult},
     layout::{Constraints, Size, Layout},
-    types::{Rect, Color},
+    types::{Rect, Color, Transform, Point},
+    state::Signal,
     vdom::VNode,
 };
 use oxide_renderer::batch::RenderBatch;
@@ -121,6 +122,7 @@ pub struct Image {
     on_click: Option<Box<dyn Fn() + Send + Sync>>,
     loading_placeholder: Option<VNode>,
     error_placeholder: Option<VNode>,
+    bounds: Signal<Rect>,
 }
 
 impl std::fmt::Debug for Image {
@@ -136,6 +138,7 @@ impl std::fmt::Debug for Image {
             .field("on_click", &self.on_click.as_ref().map(|_| "Fn()"))
             .field("loading_placeholder", &self.loading_placeholder)
             .field("error_placeholder", &self.error_placeholder)
+            .field("bounds", &self.bounds)
             .finish()
     }
 }
@@ -153,6 +156,7 @@ impl Clone for Image {
             on_click: None,
             loading_placeholder: self.loading_placeholder.clone(),
             error_placeholder: self.error_placeholder.clone(),
+            bounds: self.bounds.clone(),
         }
     }
 }
@@ -171,6 +175,7 @@ impl Image {
             on_click: None,
             loading_placeholder: None,
             error_placeholder: None,
+            bounds: Signal::new(Rect::default()),
         }
     }
 
@@ -424,17 +429,26 @@ impl Widget for Image {
     }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
+        let bounds = self.bounds.get();
         match event {
-            Event::MouseMove(_mouse_event) => {
-                // Handle mouse move for hover effects
-                EventResult::Handled
-            }
-            Event::MouseDown(_mouse_event) => {
-                // Handle mouse down for click effects
-                if let Some(ref on_click) = self.on_click {
-                    on_click();
+            Event::MouseMove(mouse_event) => {
+                let point = Point::new(mouse_event.position.x, mouse_event.position.y);
+                if bounds.contains(point) {
+                    EventResult::Handled
+                } else {
+                    EventResult::Ignored
                 }
-                EventResult::Handled
+            }
+            Event::MouseDown(mouse_event) => {
+                let point = Point::new(mouse_event.position.x, mouse_event.position.y);
+                if bounds.contains(point) {
+                    if let Some(ref on_click) = self.on_click {
+                        on_click();
+                    }
+                    EventResult::Handled
+                } else {
+                    EventResult::Ignored
+                }
             }
             _ => EventResult::Ignored,
         }
@@ -459,9 +473,85 @@ impl Widget for Image {
         }
     }
 
-    fn render(&self, _batch: &mut RenderBatch, _layout: Layout) {
-        // Rendering is handled by the platform layer
-        // TODO: Implement actual image rendering
+    fn render(&self, batch: &mut RenderBatch, layout: Layout) {
+        let bounds = Rect::new(
+            layout.position.x,
+            layout.position.y,
+            layout.size.width,
+            layout.size.height,
+        );
+        self.bounds.set(bounds);
+
+        let mut background_color = self.style.background_color.unwrap_or(Color::rgba(
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        ));
+
+        match &self.state {
+            ImageState::Loaded(data) => {
+                let image_size = Size::new(data.width as f32, data.height as f32);
+                let container_size = Size::new(bounds.width, bounds.height);
+                let (_, display_rect) = self.calculate_display_size(container_size, image_size);
+
+                let image_rect = Rect::new(
+                    bounds.x + display_rect.x,
+                    bounds.y + display_rect.y,
+                    display_rect.width,
+                    display_rect.height,
+                );
+
+                if self.style.border_radius > 0.0 {
+                    // TODO: Implement proper rounded textured quad in renderer
+                    // For now, we render the image as a standard textured quad
+                    // and apply border radius to the container background if set
+                    
+                    // Render background if set
+                    if background_color.a > 0.0 {
+                        batch.add_rounded_rect(bounds, background_color, self.style.border_radius, Transform::identity());
+                    }
+                    
+                    // Render Image
+                    batch.add_image(
+                        self.id,
+                        data.data.clone(),
+                        data.width,
+                        data.height,
+                        image_rect,
+                        Color::rgba(1.0, 1.0, 1.0, self.style.opacity)
+                    );
+                    
+                } else {
+                    // Render background if set
+                    if background_color.a > 0.0 {
+                         batch.add_rect(bounds, background_color, Transform::identity());
+                    }
+
+                    // Render Image
+                    batch.add_image(
+                        self.id,
+                        data.data.clone(),
+                        data.width,
+                        data.height,
+                        image_rect,
+                        Color::rgba(1.0, 1.0, 1.0, self.style.opacity)
+                    );
+                }
+            }
+            ImageState::Loading => {
+                if background_color.a == 0.0 {
+                    background_color = Color::rgba(0.9, 0.9, 0.9, self.style.opacity);
+                }
+                batch.add_rect(bounds, background_color, Transform::identity());
+            }
+            ImageState::Error(_) => {
+                if background_color.a == 0.0 {
+                    background_color = Color::rgba(1.0, 0.3, 0.3, self.style.opacity);
+                }
+                batch.add_rect(bounds, background_color, Transform::identity());
+            }
+        }
     }
 
     fn clone_widget(&self) -> Box<dyn Widget> {
@@ -476,6 +566,7 @@ impl Widget for Image {
             on_click: None, // Cannot clone function pointers
             loading_placeholder: self.loading_placeholder.clone(),
             error_placeholder: self.error_placeholder.clone(),
+            bounds: self.bounds.clone(),
         })
     }
 

@@ -29,9 +29,13 @@ pub mod text;
 pub mod texture;
 pub mod vertex;
 
+pub mod backend;
+
 pub mod integration;
 
 // Re-export commonly used types
+pub use backend::Backend;
+pub use backend::commands::RenderCommand;
 pub use batch::RenderBatch;
 pub use buffer::{BufferManager, DynamicBuffer, BufferPool};
 pub use device::{ManagedDevice, DeviceManager, AdapterInfo};
@@ -44,32 +48,6 @@ pub use shader::{ShaderManager, ShaderSource, CompiledShader};
 
 
 
-use oxide_core::types::{Color, Rect, Transform};
-use wgpu::Surface;
-
-/// Rendering backend trait
-pub trait Backend: Send + Sync {
-    /// Initialize the backend
-    fn init(&mut self, surface: &Surface) -> anyhow::Result<()>;
-    
-    /// Begin a new frame
-    fn begin_frame(&mut self) -> anyhow::Result<()>;
-    
-    /// End the current frame
-    fn end_frame(&mut self) -> anyhow::Result<()>;
-    
-    /// Draw a rectangle
-    fn draw_rect(&mut self, rect: Rect, color: Color, transform: Transform);
-    
-    /// Draw text
-    fn draw_text(&mut self, text: &str, position: (f32, f32), color: Color);
-    
-    /// Set the background color
-    fn set_background_color(&mut self, color: Color);
-    
-    /// Submit draw commands
-    fn submit(&mut self) -> anyhow::Result<()>;
-}
 
 /// Renderer configuration
 #[derive(Debug, Clone)]
@@ -87,7 +65,7 @@ pub struct RendererConfig {
 impl Default for RendererConfig {
     fn default() -> Self {
         Self {
-            msaa_samples: 1,
+            msaa_samples: 4,
             vsync: true,
             max_texture_size: 4096,
             validation: cfg!(debug_assertions),

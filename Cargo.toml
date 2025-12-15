@@ -6,6 +6,7 @@ members = [
     "examples/custom_init",
     "examples/complex_demo",
     "examples/advanced_renderer",
+    "examples/comprehensive_test",
     "crates/oxide-core",
     "crates/oxide-renderer", 
     "crates/oxide-widgets",

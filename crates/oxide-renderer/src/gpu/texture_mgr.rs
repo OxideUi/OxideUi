@@ -28,6 +28,13 @@ pub struct CachedGlyph {
     pub atlas_region: (u32, u32, u32, u32), // (x, y, w, h)
 }
 
+/// Cached image with atlas location and UV coordinates
+#[derive(Debug, Clone)]
+pub struct CachedImage {
+    pub uv_rect: (f32, f32, f32, f32), // (u0, v0, u1, v1)
+    pub atlas_region: (u32, u32, u32, u32), // (x, y, w, h)
+}
+
 /// Key for glyph cache lookup
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GlyphKey {
@@ -289,6 +296,7 @@ impl TextureAtlas {
 pub struct TextureManager {
     atlas: TextureAtlas,
     glyph_cache: GlyphCache,
+    image_cache: HashMap<u64, CachedImage>,
     rasterizer: GlyphRasterizer,
 }
 
@@ -298,13 +306,15 @@ impl TextureManager {
         Self {
             atlas: TextureAtlas::create_default_white(device, queue),
             glyph_cache: GlyphCache::new(),
+            image_cache: HashMap::new(),
             rasterizer: GlyphRasterizer::new().expect("Failed to create glyph rasterizer"),
         }
     }
 
     /// Create texture manager with font support (512x512 atlas)
     pub fn new_with_font(device: &Device, queue: &Queue) -> Self {
-        let mut atlas = TextureAtlas::new(device, 512, 512);
+        // Increase atlas size to 2048x2048 to support images
+        let mut atlas = TextureAtlas::new(device, 2048, 2048);
         
         // IMPORTANT: Reserve white pixel at (0,0) for solid color rendering
         // The shader samples (0,0) when rendering non-textured shapes
@@ -313,6 +323,7 @@ impl TextureManager {
         Self {
             atlas,
             glyph_cache: GlyphCache::new(),
+            image_cache: HashMap::new(),
             rasterizer: GlyphRasterizer::new().expect("Failed to create glyph rasterizer"),
         }
     }
@@ -361,6 +372,55 @@ impl TextureManager {
                     return self.glyph_cache.get(&key);
                 }
             }
+        }
+
+        None
+    }
+
+    /// Get or upload an image
+    pub fn get_or_upload_image(
+        &mut self,
+        queue: &Queue,
+        id: u64,
+        data: &[u8],
+        width: u32,
+        height: u32,
+    ) -> Option<&CachedImage> {
+        // Check cache first
+        if self.image_cache.contains_key(&id) {
+            return self.image_cache.get(&id);
+        }
+
+        // Allocate space in atlas
+        if let Some((x, y)) = self.atlas.allocate_region(width, height) {
+            // Upload to GPU
+            if self.atlas.upload_region(
+                queue,
+                data,
+                x,
+                y,
+                width,
+                height,
+            ).is_ok() {
+                // Calculate UV coordinates
+                let atlas_size = self.atlas.size();
+                let u0 = x as f32 / atlas_size.0 as f32;
+                let v0 = y as f32 / atlas_size.1 as f32;
+                let u1 = (x + width) as f32 / atlas_size.0 as f32;
+                let v1 = (y + height) as f32 / atlas_size.1 as f32;
+
+                let cached_image = CachedImage {
+                    uv_rect: (u0, v0, u1, v1),
+                    atlas_region: (x, y, width, height),
+                };
+
+                self.image_cache.insert(id, cached_image);
+                return self.image_cache.get(&id);
+            } else {
+                println!("Failed to upload image region");
+            }
+        } else {
+            println!("Failed to allocate atlas region for image: {}x{}", width, height);
         }
 
         None

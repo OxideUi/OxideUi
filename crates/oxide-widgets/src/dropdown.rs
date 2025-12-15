@@ -5,10 +5,13 @@ use oxide_core::{
     event::{Event, EventResult, KeyCode, KeyboardEvent, MouseEvent, MouseButton},
     layout::{Size, Constraints, Layout},
     state::Signal,
-    types::Rect,
+    types::{Rect, Color},
+    types::Transform,
     vdom::VNode,
 };
-use oxide_renderer::batch::RenderBatch;
+use oxide_renderer::{
+    batch::RenderBatch,
+};
 
 /// Dropdown/Select widget for choosing from a list of options
 #[derive(Debug, Clone)]
@@ -17,6 +20,7 @@ pub struct Dropdown<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> 
     options: Vec<DropdownOption<T>>,
     selected_index: Signal<Option<usize>>,
     is_open: Signal<bool>,
+    bounds: Signal<Rect>,
     width: f32,
     height: f32,
     max_height: f32,
@@ -111,6 +115,7 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Dropdown<T> {
             options: Vec::new(),
             selected_index: Signal::new(None),
             is_open: Signal::new(false),
+            bounds: Signal::new(Rect::new(0.0, 0.0, 0.0, 0.0)),
             width: 200.0,
             height: 36.0,
             max_height: 200.0,
@@ -155,7 +160,7 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Dropdown<T> {
     }
 
     /// Set the selected index
-    pub fn selected_index(mut self, index: Option<usize>) -> Self {
+    pub fn selected_index(self, index: Option<usize>) -> Self {
         if index.map_or(true, |i| i < self.options.len()) {
             self.selected_index.set(index);
         }
@@ -392,154 +397,7 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Dropdown<T> {
         }
     }
 
-    /// Render the dropdown button
-    fn render_button(&self, _layout: Layout) -> VNode {
-        let selected_text = if let Some(index) = self.selected_index.get() {
-            self.options.get(index)
-                .map(|opt| opt.label.clone())
-                .unwrap_or_else(|| self.placeholder.clone())
-        } else {
-            self.placeholder.clone()
-        };
 
-        let is_placeholder = self.selected_index.get().is_none();
-        let text_color = if is_placeholder {
-            self.style.placeholder_color
-        } else {
-            self.style.text_color
-        };
-
-        let background_color = if !self.enabled {
-            self.style.disabled_color
-        } else {
-            self.style.background_color
-        };
-
-        VNode::element("div")
-            .attr("class", "dropdown-button")
-            .attr("width", format!("{}px", self.width))
-            .attr("height", format!("{}px", self.height))
-            .attr("background-color", format!("rgba({}, {}, {}, {})",
-                background_color[0], background_color[1], background_color[2], background_color[3]))
-            .attr("border", format!("{}px solid rgba({}, {}, {}, {})",
-                self.style.border_width,
-                self.style.border_color[0], self.style.border_color[1],
-                self.style.border_color[2], self.style.border_color[3]))
-            .attr("border-radius", format!("{}px", self.style.border_radius))
-            .attr("padding", format!("{}px", self.style.padding))
-            .attr("cursor", if self.enabled { "pointer" } else { "not-allowed" })
-            .attr("display", "flex")
-            .attr("align-items", "center")
-            .attr("justify-content", "space-between")
-            .children(vec![
-                VNode::text(&selected_text)
-                    .attr("color", format!("rgba({}, {}, {}, {})",
-                        text_color[0], text_color[1], text_color[2], text_color[3]))
-                    .attr("font-size", format!("{}px", self.style.font_size)),
-                VNode::element("div")
-                    .attr("class", "dropdown-arrow")
-                    .attr("width", "0")
-                    .attr("height", "0")
-                    .attr("border-left", "4px solid transparent")
-                    .attr("border-right", "4px solid transparent")
-                    .attr("border-top", format!("4px solid rgba({}, {}, {}, {})",
-                        text_color[0], text_color[1], text_color[2], text_color[3]))
-                    .attr("transform", if self.is_open() { "rotate(180deg)" } else { "rotate(0deg)" })
-            ])
-    }
-
-    /// Render the dropdown list
-    fn render_dropdown(&self, _layout: Layout) -> Option<VNode> {
-        if !self.is_open() {
-            return None;
-        }
-
-        let filtered_options = self.filtered_options();
-        let option_height: f32 = self.height;
-        let _dropdown_height = (filtered_options.len() as f32 * option_height).min(self.max_height);
-
-        let mut children = Vec::new();
-
-        // Search input if searchable
-        if self.searchable {
-            let search_input = VNode::element("input")
-                .attr("class", "dropdown-search")
-                .attr("type", "text")
-                .attr("placeholder", "Search...")
-                .attr("value", &self.search_text.get())
-                .attr("width", "100%")
-                .attr("height", format!("{}px", option_height))
-                .attr("padding", format!("{}px", self.style.padding))
-                .attr("border", "none")
-                .attr("border-bottom", format!("1px solid rgba({}, {}, {}, {})",
-                    self.style.border_color[0], self.style.border_color[1],
-                    self.style.border_color[2], self.style.border_color[3]))
-                .attr("font-size", format!("{}px", self.style.font_size))
-                .attr("outline", "none");
-            children.push(search_input);
-        }
-
-        // Options
-        for (original_index, option) in filtered_options {
-            let is_selected = self.selected_index.get() == Some(original_index);
-            let background_color = if is_selected {
-                self.style.selected_color
-            } else {
-                self.style.dropdown_background
-            };
-
-            let text_color = if option.enabled {
-                if is_selected {
-                    [1.0, 1.0, 1.0, 1.0] // White for selected
-                } else {
-                    self.style.text_color
-                }
-            } else {
-                self.style.disabled_color
-            };
-
-            let option_node = VNode::element("div")
-                .attr("class", "dropdown-option")
-                .attr("width", "100%")
-                .attr("height", format!("{}px", option_height))
-                .attr("padding", format!("{}px", self.style.padding))
-                .attr("background-color", format!("rgba({}, {}, {}, {})",
-                    background_color[0], background_color[1], background_color[2], background_color[3]))
-                .attr("cursor", if option.enabled { "pointer" } else { "not-allowed" })
-                .attr("display", "flex")
-                .attr("align-items", "center")
-                .children(vec![
-                    VNode::text(&option.label)
-                        .attr("color", format!("rgba({}, {}, {}, {})",
-                            text_color[0], text_color[1], text_color[2], text_color[3]))
-                        .attr("font-size", format!("{}px", self.style.font_size))
-                ]);
-
-            children.push(option_node);
-        }
-
-        Some(VNode::element("div")
-            .attr("class", "dropdown-list")
-            .attr("position", "absolute")
-            .attr("top", format!("{}px", self.height))
-            .attr("left", "0")
-            .attr("width", format!("{}px", self.width))
-            .attr("max-height", format!("{}px", self.max_height))
-            .attr("background-color", format!("rgba({}, {}, {}, {})",
-                self.style.dropdown_background[0], self.style.dropdown_background[1],
-                self.style.dropdown_background[2], self.style.dropdown_background[3]))
-            .attr("border", format!("{}px solid rgba({}, {}, {}, {})",
-                self.style.border_width,
-                self.style.dropdown_border_color[0], self.style.dropdown_border_color[1],
-                self.style.dropdown_border_color[2], self.style.dropdown_border_color[3]))
-            .attr("border-radius", format!("{}px", self.style.border_radius))
-            .attr("box-shadow", format!("0 4px 8px rgba({}, {}, {}, {})",
-                self.style.dropdown_shadow[0], self.style.dropdown_shadow[1],
-                self.style.dropdown_shadow[2], self.style.dropdown_shadow[3]))
-            .attr("overflow-y", "auto")
-            .attr("z-index", "1000")
-            .children(children))
-    }
 }
 
 impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Default for Dropdown<T> {
@@ -558,15 +416,160 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
         constraints.constrain(size)
     }
 
-    fn render(&self, _batch: &mut RenderBatch, _layout: Layout) {
-        // TODO: Implement proper rendering with RenderBatch
+    fn render(&self, batch: &mut RenderBatch, layout: Layout) {
+        let bounds = Rect::new(layout.position.x, layout.position.y, layout.size.width, layout.size.height);
+        self.bounds.set(bounds);
+
+        // Background
+        let bg_color = if !self.enabled {
+            self.style.disabled_color
+        } else {
+            self.style.background_color
+        };
+        
+        batch.add_rounded_rect(
+            bounds,
+            Color::rgba(bg_color[0], bg_color[1], bg_color[2], bg_color[3]),
+            self.style.border_radius,
+            Transform::identity(),
+        );
+
+        // Border (simple)
+        if self.style.border_width > 0.0 {
+            // TODO: Proper border rendering
+        }
+
+        // Text
+        let selected_text = if let Some(index) = self.selected_index.get() {
+            self.options.get(index)
+                .map(|opt| opt.label.clone())
+                .unwrap_or_else(|| self.placeholder.clone())
+        } else {
+            self.placeholder.clone()
+        };
+        
+        let text_color = if self.selected_index.get().is_none() {
+            self.style.placeholder_color
+        } else {
+            self.style.text_color
+        };
+
+        batch.add_text_aligned(
+            selected_text,
+            (bounds.x + self.style.padding, bounds.y + bounds.height / 2.0 - self.style.font_size / 2.0),
+            Color::rgba(text_color[0], text_color[1], text_color[2], text_color[3]),
+            self.style.font_size,
+            0.0,
+            oxide_core::text::TextAlign::Left,
+        );
+
+        // Arrow (Simple triangle)
+        let arrow_color = self.style.text_color;
+        let arrow_x = bounds.x + bounds.width - self.style.padding - 10.0;
+        let arrow_y = bounds.y + bounds.height / 2.0;
+        let _arrow_size = 5.0;
+        
+        // Vertices for arrow
+        // This requires manual vertex adding or a shape primitive
+        // For now, let's skip drawing arrow or use a small rect
+        batch.add_rect(
+            Rect::new(arrow_x, arrow_y - 2.0, 10.0, 4.0),
+            Color::rgba(arrow_color[0], arrow_color[1], arrow_color[2], arrow_color[3]),
+            Transform::identity()
+        );
+
+        // Dropdown List
+        if self.is_open.get() {
+            let filtered_options = self.filtered_options();
+            let option_height = self.height;
+            let list_height = (filtered_options.len() as f32 * option_height).min(self.max_height);
+            
+            let list_bounds = Rect::new(
+                bounds.x,
+                bounds.y + bounds.height,
+                bounds.width,
+                list_height
+            );
+
+            // List Background
+            let list_bg = self.style.dropdown_background;
+            batch.add_rect(
+                list_bounds,
+                Color::rgba(list_bg[0], list_bg[1], list_bg[2], list_bg[3]),
+                Transform::identity(),
+            );
+
+            // Options
+            let mut y = list_bounds.y;
+            for (original_index, option) in filtered_options {
+                if y + option_height > list_bounds.y + list_bounds.height {
+                    break; // Clip
+                }
+
+                let is_selected = self.selected_index.get() == Some(original_index);
+                let opt_bg = if is_selected {
+                    self.style.selected_color
+                } else {
+                    self.style.dropdown_background
+                };
+
+                let opt_rect = Rect::new(list_bounds.x, y, list_bounds.width, option_height);
+                batch.add_rect(
+                    opt_rect,
+                    Color::rgba(opt_bg[0], opt_bg[1], opt_bg[2], opt_bg[3]),
+                    Transform::identity(),
+                );
+
+                let opt_text_color = if is_selected {
+                    [1.0, 1.0, 1.0, 1.0]
+                } else {
+                    self.style.text_color
+                };
+
+                batch.add_text_aligned(
+                    option.label.clone(),
+                    (opt_rect.x + self.style.padding, opt_rect.y + opt_rect.height / 2.0 - self.style.font_size / 2.0),
+                    Color::rgba(opt_text_color[0], opt_text_color[1], opt_text_color[2], opt_text_color[3]),
+                    self.style.font_size,
+                    0.0,
+                    oxide_core::text::TextAlign::Left,
+                );
+
+                y += option_height;
+            }
+        }
     }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
+        let bounds = self.bounds.get();
         match event {
-            Event::MouseDown(_mouse_event) | Event::MouseUp(_mouse_event) | Event::MouseMove(_mouse_event) => {
-                // TODO: Fix bounds access - need to get bounds from layout
-                // self.handle_mouse_event(mouse_event, bounds)
+            Event::MouseDown(mouse_event) => {
+                // Check if click is outside
+                let point = oxide_core::types::Point::new(mouse_event.position.x, mouse_event.position.y);
+                
+                // If open, check if we clicked inside the list
+                if self.is_open.get() {
+                    let list_height = (self.filtered_options().len() as f32 * self.height).min(self.max_height);
+                    let list_bounds = Rect::new(
+                        bounds.x,
+                        bounds.y + bounds.height,
+                        bounds.width,
+                        list_height
+                    );
+                    
+                    if list_bounds.contains(point) {
+                        return self.handle_mouse_event(mouse_event, bounds);
+                    }
+                }
+
+                if bounds.contains(point) {
+                    return self.handle_mouse_event(mouse_event, bounds);
+                } else if self.is_open.get() {
+                    // Click outside closes
+                    self.close();
+                    return EventResult::Handled;
+                }
+                
                 EventResult::Ignored
             },
             Event::KeyDown(keyboard_event) | Event::KeyUp(keyboard_event) => {

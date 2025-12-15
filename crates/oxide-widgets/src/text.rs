@@ -12,9 +12,45 @@ use oxide_core::{
 use oxide_renderer::{
     vertex::VertexBuilder,
     batch::RenderBatch,
+    gpu::texture_mgr::GlyphRasterizer,
 };
 use crate::widget::{Widget, WidgetId, generate_id};
-use std::{sync::Arc, any::Any};
+use std::{sync::Arc, any::Any, sync::OnceLock};
+
+// Helper for text measurement
+fn get_rasterizer() -> &'static GlyphRasterizer {
+    static RASTERIZER: OnceLock<GlyphRasterizer> = OnceLock::new();
+    RASTERIZER.get_or_init(|| {
+        GlyphRasterizer::new().expect("Failed to create GlyphRasterizer for text measurement")
+    })
+}
+
+fn measure_char_width(c: char, font_size: f32) -> f32 {
+    let rasterizer = get_rasterizer();
+    if c == ' ' {
+        // Match drawing.rs logic for space width: 0.3 * font_size
+        font_size * 0.3
+    } else {
+        rasterizer.font.metrics(c, font_size).advance_width
+    }
+}
+
+/// Measure the width of a single line of text
+pub fn measure_text_width(text: &str, font_size: f32, letter_spacing: f32) -> f32 {
+    measure_line_width(text, font_size, letter_spacing)
+}
+
+fn measure_line_width(line: &str, font_size: f32, letter_spacing: f32) -> f32 {
+    let mut width = 0.0;
+    for c in line.chars() {
+        width += measure_char_width(c, font_size);
+    }
+    if !line.is_empty() {
+        width += letter_spacing * (line.len() as f32);
+    }
+    width
+}
+
 
 /// Text alignment options
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -429,8 +465,7 @@ impl Text {
 
     /// Measure text size
     pub fn measure_text(&self, available_width: f32) -> Size {
-        // Simple text measurement (in a real implementation, this would use font metrics)
-        let char_width = self.style.font_size * 0.6;
+        // Accurate text measurement
         let line_height = self.style.font_size * self.style.line_height;
         
         let mut lines = Vec::new();
@@ -438,13 +473,14 @@ impl Text {
         let mut current_line_width = 0.0;
         
         let words: Vec<&str> = self.content.split_whitespace().collect();
+        let space_width = measure_char_width(' ', self.style.font_size) + self.style.letter_spacing;
         
         for (i, word) in words.iter().enumerate() {
-            let word_width = word.len() as f32 * char_width;
+            let word_width = measure_line_width(word, self.style.font_size, self.style.letter_spacing);
             
             // Check if adding this word would exceed available width
             // (Only if we already have content on this line)
-            if !current_line.is_empty() && current_line_width + char_width + word_width > available_width {
+            if !current_line.is_empty() && current_line_width + space_width + word_width > available_width {
                 // Push current line and start new one
                 lines.push(current_line);
                 current_line = String::from(*word);
@@ -452,7 +488,7 @@ impl Text {
             } else {
                 if !current_line.is_empty() {
                     current_line.push(' ');
-                    current_line_width += char_width;
+                    current_line_width += space_width;
                 }
                 current_line.push_str(word);
                 current_line_width += word_width;
@@ -480,7 +516,7 @@ impl Text {
         } else {
             // Calculate max width of lines
             lines.iter()
-                .map(|line| line.len() as f32 * char_width)
+                .map(|line| measure_line_width(line, self.style.font_size, self.style.letter_spacing))
                 .fold(0.0, f32::max)
                 .min(available_width)
         };
@@ -591,10 +627,9 @@ impl Text {
         
         let lines = self.cached_lines.get();
         let line_height = self.style.font_size * self.style.line_height;
-        let char_width = self.style.font_size * 0.6; // Approximation for alignment calc
 
         for (i, line) in lines.iter().enumerate() {
-            let line_width = line.len() as f32 * char_width;
+            let line_width = measure_line_width(line, self.style.font_size, self.style.letter_spacing);
             
             // Calculate text position based on alignment
             let text_x = match self.style.text_align {

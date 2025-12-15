@@ -6,7 +6,7 @@ use oxide_core::{
     event::{Event, EventResult, MouseButton},
     layout::{Size, Constraints, Layout},
     state::Signal,
-    types::Point,
+    types::{Point, Rect, Color, Transform},
 };
 use oxide_renderer::batch::RenderBatch;
 
@@ -23,6 +23,7 @@ pub struct Slider {
     enabled: bool,
     style: SliderStyle,
     dragging: Signal<bool>,
+    bounds: Signal<Rect>,
 }
 
 /// Styling options for slider
@@ -69,6 +70,7 @@ impl Slider {
             enabled: true,
             style: SliderStyle::default(),
             dragging: Signal::new(false),
+            bounds: Signal::new(Rect::new(0.0, 0.0, 0.0, 0.0)),
         }
     }
 
@@ -147,25 +149,25 @@ impl Slider {
         ratio * track_width
     }
 
-    /// Handle mouse events
-    fn handle_mouse_event(&self, event: &Event, layout: Layout) -> EventResult {
+    /// Handle mouse events using stored bounds
+    fn handle_mouse_event(&self, event: &Event) -> EventResult {
         if !self.enabled {
             return EventResult::Ignored;
         }
 
-        let bounds = layout.bounds();
-        let bounds_rect = oxide_core::types::Rect::new(bounds.0, bounds.1, bounds.2, bounds.3);
-        let track_width = self.width - self.style.thumb_size;
-        let track_start_x = self.style.thumb_size / 2.0;
+        let bounds = self.bounds.get();
+        let track_width = (bounds.width - self.style.thumb_size).max(0.0);
+        let track_start_x = bounds.x + self.style.thumb_size * 0.5;
 
         match event {
             Event::MouseDown(mouse_event) => {
-                if !bounds_rect.contains(mouse_event.position.into()) {
+                let point = Point::new(mouse_event.position.x, mouse_event.position.y);
+                if !bounds.contains(point) {
                     return EventResult::Ignored;
                 }
                 
                 if let Some(MouseButton::Left) = mouse_event.button {
-                    let local_x = mouse_event.position.x - layout.position.x - track_start_x;
+                    let local_x = mouse_event.position.x - track_start_x;
                     let new_value = self.value_from_position(local_x, track_width);
                     self.set_value(new_value);
                     self.dragging.set(true);
@@ -175,14 +177,10 @@ impl Slider {
                 }
             }
             Event::MouseMove(mouse_event) if self.dragging.get() => {
-                if bounds_rect.contains(mouse_event.position.into()) {
-                    let local_x = mouse_event.position.x - layout.position.x - track_start_x;
-                    let new_value = self.value_from_position(local_x, track_width);
-                    self.set_value(new_value);
-                    EventResult::Handled
-                } else {
-                    EventResult::Ignored
-                }
+                let local_x = mouse_event.position.x - track_start_x;
+                let new_value = self.value_from_position(local_x, track_width);
+                self.set_value(new_value);
+                EventResult::Handled
             }
             Event::MouseUp(mouse_event) => {
                 if let Some(MouseButton::Left) = mouse_event.button {
@@ -213,16 +211,86 @@ impl Widget for Slider {
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
-        // TODO: Implement proper rendering with RenderBatch
-        // This is a placeholder implementation
+        let bounds = Rect::new(
+            layout.position.x,
+            layout.position.y,
+            layout.size.width,
+            layout.size.height,
+        );
+        self.bounds.set(bounds);
+
+        if !self.enabled {
+            let disabled_color = Color::rgba(
+                self.style.disabled_color[0],
+                self.style.disabled_color[1],
+                self.style.disabled_color[2],
+                self.style.disabled_color[3],
+            );
+            batch.add_rect(bounds, disabled_color, Transform::identity());
+            return;
+        }
+
+        let track_width = (bounds.width - self.style.thumb_size).max(0.0);
+        let track_x = bounds.x + self.style.thumb_size * 0.5;
+        let track_y = bounds.y + (bounds.height - self.style.track_height) * 0.5;
+
+        let track_rect = Rect::new(
+            track_x,
+            track_y,
+            track_width,
+            self.style.track_height,
+        );
+
+        let track_color = Color::rgba(
+            self.style.track_color[0],
+            self.style.track_color[1],
+            self.style.track_color[2],
+            self.style.track_color[3],
+        );
+
+        batch.add_rect(track_rect, track_color, Transform::identity());
+
+        let thumb_offset = self.thumb_position(track_width);
+        let fill_rect = Rect::new(
+            track_x,
+            track_y,
+            thumb_offset.clamp(0.0, track_width),
+            self.style.track_height,
+        );
+
+        let fill_color = Color::rgba(
+            self.style.track_fill_color[0],
+            self.style.track_fill_color[1],
+            self.style.track_fill_color[2],
+            self.style.track_fill_color[3],
+        );
+
+        batch.add_rect(fill_rect, fill_color, Transform::identity());
+
+        let thumb_center_x = track_x + thumb_offset;
+        let thumb_center_y = bounds.y + bounds.height * 0.5;
+        let thumb_radius = self.style.thumb_size * 0.5;
+
+        let thumb_color = Color::rgba(
+            self.style.thumb_color[0],
+            self.style.thumb_color[1],
+            self.style.thumb_color[2],
+            self.style.thumb_color[3],
+        );
+
+        batch.add_circle(
+            (thumb_center_x, thumb_center_y),
+            thumb_radius,
+            thumb_color,
+            24,
+        );
     }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
             Event::MouseDown(_) | Event::MouseUp(_) | Event::MouseMove(_) => {
-                // TODO: Implement proper mouse event handling
-                EventResult::Ignored
-            },
+                self.handle_mouse_event(event)
+            }
             _ => EventResult::Ignored,
         }
     }
@@ -358,8 +426,36 @@ impl Widget for ProgressBar {
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
-        // TODO: Implement proper rendering with RenderBatch
-        // This is a placeholder implementation
+        let bounds = Rect::new(
+            layout.position.x,
+            layout.position.y,
+            layout.size.width,
+            layout.size.height,
+        );
+
+        let bg_color = Color::rgba(
+            self.style.background_color[0],
+            self.style.background_color[1],
+            self.style.background_color[2],
+            self.style.background_color[3],
+        );
+
+        batch.add_rect(bounds, bg_color, Transform::identity());
+
+        let progress = self.progress();
+        if progress > 0.0 {
+            let fill_width = bounds.width * progress;
+            let fill_rect = Rect::new(bounds.x, bounds.y, fill_width, bounds.height);
+
+            let fill_color = Color::rgba(
+                self.style.fill_color[0],
+                self.style.fill_color[1],
+                self.style.fill_color[2],
+                self.style.fill_color[3],
+            );
+
+            batch.add_rect(fill_rect, fill_color, Transform::identity());
+        }
     }
 
     fn handle_event(&mut self, _event: &Event) -> EventResult {

@@ -96,8 +96,8 @@ impl PartialOrd for FreeRegion {
 
 impl Ord for FreeRegion {
     fn cmp(&self, other: &Self) -> CmpOrdering {
-        // For best-fit allocation, sort by size first, then offset
-        self.size.cmp(&other.size).then(self.offset.cmp(&other.offset))
+        // For best-fit allocation with BinaryHeap (max-heap), invert size comparison
+        other.size.cmp(&self.size).then(self.offset.cmp(&other.offset))
     }
 }
 

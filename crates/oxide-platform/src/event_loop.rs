@@ -7,6 +7,8 @@ use std::sync::Arc;
 use std::rc::Rc;
 use winit::window::Window;
 use crate::Application;
+use oxide_renderer::Backend;
+use oxide_renderer::backend::WgpuBackend;
 
 /// Custom event for the event loop
 #[derive(Debug)]
@@ -18,7 +20,7 @@ pub struct CustomEvent {
 struct AppState {
     window_created: bool,
     winit_window: Option<Arc<Window>>,
-    drawing_system: Option<oxide_renderer::gpu::DrawingSystem>,  // New GPU renderer
+    backend: Option<Box<dyn Backend>>,
     renderer_initialized: bool,
     needs_redraw: bool,
     last_update: Instant,
@@ -32,7 +34,7 @@ impl AppState {
         Self {
             window_created: false,
             winit_window: None,
-            drawing_system: None,
+            backend: None,
             renderer_initialized: false,
             needs_redraw: false,
             last_update: Instant::now(),
@@ -280,18 +282,17 @@ impl EventLoop {
                         // Store the window first
                         state.winit_window = Some(window.clone());
                         
-                        // Initialize GPU DrawingSystem
-                        println!("=== INITIALIZING GPU DRAWING SYSTEM ===");
-                        let mut drawing_system = pollster::block_on(
-                            oxide_renderer::gpu::DrawingSystem::new(window.clone())
-                        ).expect("Failed to create DrawingSystem");
+                        // Initialize Backend
+                        println!("=== INITIALIZING BACKEND ===");
+                        let mut backend = Box::new(WgpuBackend::new());
+                        pollster::block_on(backend.init(&*window)).expect("Failed to init backend");
                         
                         // Set initial scale factor
-                        let scale_factor = window.scale_factor() as f32;
-                        println!("Initial scale factor: {}", scale_factor);
-                        drawing_system.set_scale_factor(scale_factor);
+                        let scale_factor = window.scale_factor();
+                        backend.set_scale_factor(scale_factor);
+                        state.scale_factor = scale_factor;
                         
-                        state.drawing_system = Some(drawing_system);
+                        state.backend = Some(backend);
                         
                         state.renderer_initialized = true;
                         state.window_created = true;
@@ -304,8 +305,8 @@ impl EventLoop {
                         WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                             println!("Scale factor changed to: {}", scale_factor);
                             state.scale_factor = scale_factor;
-                            if let Some(drawing_system) = &mut state.drawing_system {
-                                drawing_system.set_scale_factor(scale_factor as f32);
+                            if let Some(backend) = &mut state.backend {
+                                backend.set_scale_factor(scale_factor);
                             }
                         }
                         WindowEvent::CursorMoved { position, device_id, .. } => {
@@ -315,21 +316,28 @@ impl EventLoop {
                                 state.cursor_position,
                                 state.scale_factor
                             ) {
+                                // println!("EventLoop: CursorMoved to {:?} (Logical), Scale: {}", oxide_event, state.scale_factor);
+                                if let Some(app) = &mut state.app {
+                                    app.handle_event(oxide_event.clone());
+                                }
                                 handler(oxide_event);
                             }
                         }
                         WindowEvent::Resized(physical_size) => {
-                            // Resize the drawing system when the window is resized
-                            if let Some(drawing_system) = &mut state.drawing_system {
-                                if let Err(e) = drawing_system.resize(physical_size.width, physical_size.height) {
-                                    tracing::error!("Failed to resize drawing system: {}", e);
-                                }
+                            // Resize the backend when the window is resized
+                            if let Some(backend) = &mut state.backend {
+                                backend.resize(physical_size.width, physical_size.height);
                             }
                             
-                            handler(oxide_core::event::Event::Window(oxide_core::event::WindowEvent::Resize {
+                            let event = oxide_core::event::Event::Window(oxide_core::event::WindowEvent::Resize {
                                 width: physical_size.width,
                                 height: physical_size.height,
-                            }));
+                            });
+                            
+                            if let Some(app) = &mut state.app {
+                                app.handle_event(event.clone());
+                            }
+                            handler(event);
                         }
                         WindowEvent::RedrawRequested => {
                             state.needs_redraw = false;
@@ -360,10 +368,41 @@ impl EventLoop {
                                 } else {
                                     // Get the render batch
                                     if let Some(batch) = app.get_render_batch() {
-                                        // Use GPU DrawingSystem
-                                        if let Some(drawing_system) = &mut state.drawing_system {
-                                            if let Err(e) = drawing_system.render(&batch) {
-                                                tracing::error!("GPU render error: {}", e);
+                                        // Use Backend
+                                        if let Some(backend) = &mut state.backend {
+                                            if let Err(e) = backend.begin_frame() {
+                                                tracing::error!("Backend begin_frame error: {}", e);
+                                            } else {
+                                                // Convert batch commands to render commands
+                                                let mut commands = Vec::new();
+                                                for cmd in batch.commands {
+                                                    match cmd {
+                                                        oxide_renderer::batch::DrawCommand::Rect { rect, color, transform } => {
+                                                            commands.push(oxide_renderer::RenderCommand::DrawRect {
+                                                                rect,
+                                                                color,
+                                                                transform: Some(transform),
+                                                            });
+                                                        }
+                                                        oxide_renderer::batch::DrawCommand::Text { text, position, color, .. } => {
+                                                             commands.push(oxide_renderer::RenderCommand::DrawText {
+                                                                text,
+                                                                position,
+                                                                color,
+                                                            });
+                                                        }
+                                                        // TODO: Implement other commands
+                                                        _ => {}
+                                                    }
+                                                }
+                                                
+                                                if let Err(e) = backend.submit(&commands) {
+                                                    tracing::error!("Backend submit error: {}", e);
+                                                }
+                                                
+                                                if let Err(e) = backend.end_frame() {
+                                                    tracing::error!("Backend end_frame error: {}", e);
+                                                }
                                             }
                                         }
                                     }
@@ -371,11 +410,19 @@ impl EventLoop {
                             }
                         }
                         WindowEvent::CloseRequested => {
-                            handler(oxide_core::event::Event::Window(oxide_core::event::WindowEvent::Close));
+                            let event = oxide_core::event::Event::Window(oxide_core::event::WindowEvent::Close);
+                            if let Some(app) = &mut state.app {
+                                app.handle_event(event.clone());
+                            }
+                            handler(event);
                             event_loop_window_target.exit();
                         }
                         _ => {
                             if let Some(oxide_event) = convert_window_event(event, state.cursor_position, state.scale_factor) {
+                                // println!("EventLoop: Event {:?}", oxide_event);
+                                if let Some(app) = &mut state.app {
+                                    app.handle_event(oxide_event.clone());
+                                }
                                 handler(oxide_event);
                             }
                         }
@@ -391,6 +438,9 @@ impl EventLoop {
                     }
                 }
                 WinitEvent::UserEvent(custom_event) => {
+                    if let Some(app) = &mut state.app {
+                        app.handle_event(custom_event.event.clone());
+                    }
                     handler(custom_event.event);
                 }
                 _ => {}
