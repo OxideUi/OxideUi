@@ -732,6 +732,38 @@ impl BufferManager {
         stats
     }
     
+    /// Get buffer by handle
+    pub fn get_buffer(&self, handle: ResourceHandle) -> Option<Arc<Buffer>> {
+        // Check all pools
+        if let Some(buffer) = self.vertex_pool.get_allocation(handle) {
+            return Some(buffer);
+        }
+        if let Some(buffer) = self.index_pool.get_allocation(handle) {
+            return Some(buffer);
+        }
+        if let Some(buffer) = self.uniform_pool.get_allocation(handle) {
+            return Some(buffer);
+        }
+        if let Some(buffer) = self.storage_pool.get_allocation(handle) {
+            return Some(buffer);
+        }
+        if let Some(buffer) = self.staging_pool.get_allocation(handle) {
+            return Some(buffer);
+        }
+        
+        // Check dynamic buffers
+        if let Some(dynamic) = self.dynamic_buffers.read().get(&handle) {
+            return dynamic.get_buffer();
+        }
+        
+        // Check ring buffers
+        if let Some(ring) = self.ring_buffers.read().get(&handle) {
+            return Some(ring.get_buffer().clone());
+        }
+        
+        None
+    }
+
     /// Perform defragmentation if needed
     pub fn defragment(&self) -> Result<()> {
         if !self.auto_defragmentation.load(Ordering::Relaxed) {

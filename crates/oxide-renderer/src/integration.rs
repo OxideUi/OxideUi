@@ -116,16 +116,50 @@ pub struct RenderStats {
 impl IntegratedRenderer {
     /// Create a new integrated renderer with default configuration
     pub async fn new() -> Result<Self> {
-        Self::with_config(RendererConfig::default()).await
+        Self::with_config(RendererConfig::default(), None, None).await
     }
     
     /// Create a new integrated renderer with custom configuration
-    pub async fn with_config(config: RendererConfig) -> Result<Self> {
+    pub async fn with_config(config: RendererConfig, instance: Option<Instance>, surface: Option<&Surface<'_>>) -> Result<Self> {
         info!("Initializing integrated renderer system");
         
         // Initialize device manager
-        let device_manager = Arc::new(DeviceManager::new().await?);
+        let device_manager = Arc::new(DeviceManager::new(instance, surface).await?);
         
+        // Configure device selection based on renderer config
+        let mut criteria = crate::device::DeviceSelectionCriteria::default();
+        
+        // Check feature support
+        let has_timestamp = device_manager.adapters().iter().any(|(_, caps)| 
+            caps.supported_features.contains(Features::TIMESTAMP_QUERY)
+        );
+        let has_pipeline_stats = device_manager.adapters().iter().any(|(_, caps)| 
+            caps.supported_features.contains(Features::PIPELINE_STATISTICS_QUERY)
+        );
+
+        if config.enable_profiling {
+            if has_timestamp {
+                criteria.require_timestamp_queries = true;
+            } else {
+                warn!("Timestamp queries not supported. GPU profiling will be disabled.");
+            }
+        }
+
+        if config.detailed_profiling {
+            if has_pipeline_stats {
+                criteria.require_pipeline_statistics = true;
+            } else {
+                warn!("Pipeline statistics not supported. Detailed profiling will be disabled.");
+            }
+        }
+        
+        // Use preferred adapter config if possible (DeviceSelectionCriteria doesn't directly map PowerPreference yet)
+        
+        device_manager.update_selection_criteria(criteria);
+
+        // Initialize the device before getting it
+        device_manager.initialize_device().await?;
+
         // Get the best available device
         let device = device_manager
             .get_best_device()
@@ -308,6 +342,11 @@ impl IntegratedRenderer {
         self.buffer_manager.create_buffer(&config)
     }
     
+    /// Get a buffer by handle
+    pub fn get_buffer(&self, handle: ResourceHandle) -> Option<Arc<Buffer>> {
+        self.buffer_manager.get_buffer(handle)
+    }
+
     /// Create a texture with automatic management
     pub fn create_texture(&self, descriptor: &TextureDescriptor) -> DefaultKey {
         self.resource_manager.create_texture(descriptor)
@@ -323,11 +362,26 @@ impl IntegratedRenderer {
         self.pipeline_manager.create_render_pipeline()
     }
     
+    /// Get the device manager
+    pub fn device_manager(&self) -> &Arc<DeviceManager> {
+        &self.device_manager
+    }
+
+    /// Get the active adapter used by the renderer
+    pub fn get_active_adapter(&self) -> Option<&wgpu::Adapter> {
+        self.device_manager.get_active_adapter()
+    }
+
     /// Get device information
-    pub fn get_device_info(&self) -> &str {
-        &self.device.capabilities.device_name
+    pub fn get_device_info(&self) -> &crate::device::GpuCapabilities {
+        &self.device.capabilities
     }
     
+    /// Get the managed device
+    pub fn device(&self) -> &ManagedDevice {
+        &self.device
+    }
+
     /// Check if a feature is supported
     pub fn supports_feature(&self, feature: Features) -> bool {
         self.device.capabilities.supported_features.contains(feature)
@@ -430,16 +484,32 @@ impl RenderContext {
 }
 
 /// Builder for creating an integrated renderer with custom configuration
-pub struct RendererBuilder {
+pub struct RendererBuilder<'a> {
     config: RendererConfig,
+    instance: Option<Instance>,
+    surface: Option<&'a Surface<'a>>,
 }
 
-impl RendererBuilder {
+impl<'a> RendererBuilder<'a> {
     /// Create a new renderer builder
     pub fn new() -> Self {
         Self {
             config: RendererConfig::default(),
+            instance: None,
+            surface: None,
         }
+    }
+    
+    /// Set the surface for compatibility checking
+    pub fn with_surface(mut self, surface: &'a Surface<'a>) -> Self {
+        self.surface = Some(surface);
+        self
+    }
+    
+    /// Set the wgpu Instance to use
+    pub fn with_instance(mut self, instance: Instance) -> Self {
+        self.instance = Some(instance);
+        self
     }
     
     /// Enable or disable profiling
@@ -480,11 +550,11 @@ impl RendererBuilder {
     
     /// Build the integrated renderer
     pub async fn build(self) -> Result<IntegratedRenderer> {
-        IntegratedRenderer::with_config(self.config).await
+        IntegratedRenderer::with_config(self.config, self.instance, self.surface).await
     }
 }
 
-impl Default for RendererBuilder {
+impl Default for RendererBuilder<'_> {
     fn default() -> Self {
         Self::new()
     }

@@ -53,15 +53,42 @@ impl Platform for DesktopPlatform {
         let event_loop = self.event_loop.take()
             .ok_or_else(|| PlatformError::EventLoop("Event loop already taken".to_string()))?;
 
-        use winit::event::{Event as WinitEvent};
+        use winit::event::{Event as WinitEvent, WindowEvent as WinitWindowEvent};
+        
+        let mut cursor_position = winit::dpi::PhysicalPosition::new(0.0, 0.0);
+        let mut scale_factor = 1.0;
 
         let _ = event_loop.run(move |event, elwt| {
             elwt.set_control_flow(winit::event_loop::ControlFlow::Wait);
 
             match event {
                 WinitEvent::WindowEvent { event, .. } => {
-                    if let Some(oxide_event) = crate::event_loop::convert_window_event(event) {
-                        callback(oxide_event);
+                    match event {
+                        WinitWindowEvent::CursorMoved { position, device_id, .. } => {
+                            cursor_position = position;
+                            if let Some(oxide_event) = crate::event_loop::convert_window_event(
+                                WinitWindowEvent::CursorMoved { position, device_id },
+                                cursor_position,
+                                scale_factor
+                            ) {
+                                callback(oxide_event);
+                            }
+                        }
+                        WinitWindowEvent::ScaleFactorChanged { scale_factor: sf, inner_size_writer } => {
+                            scale_factor = sf;
+                            if let Some(oxide_event) = crate::event_loop::convert_window_event(
+                                WinitWindowEvent::ScaleFactorChanged { scale_factor: sf, inner_size_writer },
+                                cursor_position,
+                                scale_factor
+                            ) {
+                                callback(oxide_event);
+                            }
+                        }
+                        _ => {
+                            if let Some(oxide_event) = crate::event_loop::convert_window_event(event, cursor_position, scale_factor) {
+                                callback(oxide_event);
+                            }
+                        }
                     }
                 }
                 WinitEvent::AboutToWait => {

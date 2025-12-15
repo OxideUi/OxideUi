@@ -6,6 +6,8 @@ use oxide_core::oxide_text_debug;
 use crate::vertex::Vertex;
 use crate::text::TextRenderer;
 
+use oxide_core::text::TextAlign;
+
 /// Draw command types
 #[derive(Debug, Clone)]
 pub enum DrawCommand {
@@ -15,6 +17,13 @@ pub enum DrawCommand {
         color: Color,
         transform: Transform,
     },
+    /// Draw a rectangle with rounded corners
+    RoundedRect {
+        rect: Rect,
+        color: Color,
+        radius: f32,
+        transform: Transform,
+    },
     /// Draw text
     Text {
         text: String,
@@ -22,6 +31,7 @@ pub enum DrawCommand {
         color: Color,
         font_size: f32,
         letter_spacing: f32,
+        align: TextAlign,
     },
     /// Draw a textured quad
     TexturedQuad {
@@ -96,17 +106,34 @@ impl RenderBatch {
     pub fn add_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
         let command = DrawCommand::Rect { rect, color, transform };
         self.commands.push(command);
-        self.batch_rect(rect, color, transform);
+        // Self::batch_rect is not used by drawing.rs, so we don't need to call it if we use commands
+        // But for compatibility with other renderers (if any), we might keep it.
+        // However, drawing.rs ignores batch.vertices!
+        // So calling batch_rect here is wasteful if drawing.rs is the only consumer and it ignores vertices.
+        // But I will enable batch.vertices in drawing.rs soon.
+        // For now, just push command.
+    }
+
+    /// Add a rounded rectangle to the batch
+    pub fn add_rounded_rect(&mut self, rect: Rect, color: Color, radius: f32, transform: Transform) {
+        let command = DrawCommand::RoundedRect { rect, color, radius, transform };
+        self.commands.push(command);
     }
 
     /// Add text to the batch
     pub fn add_text(&mut self, text: String, position: (f32, f32), color: Color, font_size: f32, letter_spacing: f32) {
+        self.add_text_aligned(text, position, color, font_size, letter_spacing, TextAlign::Left);
+    }
+
+    /// Add aligned text to the batch
+    pub fn add_text_aligned(&mut self, text: String, position: (f32, f32), color: Color, font_size: f32, letter_spacing: f32, align: TextAlign) {
         let command = DrawCommand::Text {
             text: text.clone(),
             position,
             color,
             font_size,
             letter_spacing,
+            align,
         };
         self.commands.push(command);
     }

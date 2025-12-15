@@ -219,7 +219,7 @@ impl VertexBuilder {
         (vertices, indices)
     }
 
-    /// Create vertices for a rounded rectangle
+    /// Create vertices for a rounded rectangle using SDF
     pub fn rounded_rectangle(
         x: f32,
         y: f32,
@@ -227,42 +227,46 @@ impl VertexBuilder {
         height: f32,
         radius: f32,
         color: [f32; 4],
-        corner_segments: u32,
+        _corner_segments: u32, // Unused for SDF
     ) -> (Vec<Vertex>, Vec<u16>) {
-        let mut vertices = Vec::new();
-        let mut indices = Vec::new();
+        let mut vertices = Vec::with_capacity(4);
+        let indices = vec![0, 1, 2, 2, 3, 0];
 
-        // Create the main rectangle (without corners)
-        let inner_x = x + radius;
-        let inner_y = y + radius;
-        let inner_width = width - 2.0 * radius;
-        let inner_height = height - 2.0 * radius;
+        // Params: width, height, radius, unused
+        let params = [width, height, radius, 0.0];
+        // Flag: 3 = FLAG_TYPE_ROUNDED_RECT
+        let flags = 3;
 
-        // Center rectangle
-        if inner_width > 0.0 && inner_height > 0.0 {
-            let (rect_verts, rect_indices) = Self::rectangle(inner_x, inner_y, inner_width, inner_height, color);
-            let offset = vertices.len() as u16;
-            vertices.extend(rect_verts);
-            indices.extend(rect_indices.iter().map(|&i| i + offset));
-        }
-
-        // Add rounded corners
-        let corners = [
-            (inner_x, inner_y),                           // Top-left
-            (inner_x + inner_width, inner_y),             // Top-right
-            (inner_x + inner_width, inner_y + inner_height), // Bottom-right
-            (inner_x, inner_y + inner_height),            // Bottom-left
-        ];
-
-        for (i, &(cx, cy)) in corners.iter().enumerate() {
-            let start_angle = (i as f32) * std::f32::consts::PI / 2.0;
-            let (corner_verts, corner_indices) = Self::circle_sector(
-                cx, cy, radius, color, corner_segments, start_angle, std::f32::consts::PI / 2.0
-            );
-            let offset = vertices.len() as u16;
-            vertices.extend(corner_verts);
-            indices.extend(corner_indices.iter().map(|&i| i + offset));
-        }
+   
+        
+        vertices.push(Vertex {
+            position: [x, y],
+            color,
+            uv: [0.0, 0.0],
+            params,
+            flags,
+        });
+        vertices.push(Vertex {
+            position: [x + width, y],
+            color,
+            uv: [1.0, 0.0],
+            params,
+            flags,
+        });
+        vertices.push(Vertex {
+            position: [x + width, y + height],
+            color,
+            uv: [1.0, 1.0],
+            params,
+            flags,
+        });
+        vertices.push(Vertex {
+            position: [x, y + height],
+            color,
+            uv: [0.0, 1.0],
+            params,
+            flags,
+        });
 
         (vertices, indices)
     }

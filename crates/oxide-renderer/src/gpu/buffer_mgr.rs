@@ -16,7 +16,9 @@ use std::mem;
 pub struct SimpleVertex {
     pub position: [f32; 2],
     pub color: [f32; 4],
-    pub uv: [f32; 2],  // Texture coordinates
+    pub uv: [f32; 2],
+    pub params: [f32; 4],
+    pub flags: u32,
 }
 
 impl SimpleVertex {
@@ -43,6 +45,18 @@ impl SimpleVertex {
                     offset: (mem::size_of::<[f32; 2]>() + mem::size_of::<[f32; 4]>()) as BufferAddress,
                     shader_location: 2,
                     format: VertexFormat::Float32x2,
+                },
+                // Params (Location 3)
+                VertexAttribute {
+                    offset: (mem::size_of::<[f32; 2]>() * 2 + mem::size_of::<[f32; 4]>()) as BufferAddress,
+                    shader_location: 3,
+                    format: VertexFormat::Float32x4,
+                },
+                // Flags (Location 4)
+                VertexAttribute {
+                    offset: (mem::size_of::<[f32; 2]>() * 2 + mem::size_of::<[f32; 4]>() * 2) as BufferAddress,
+                    shader_location: 4,
+                    format: VertexFormat::Uint32,
                 },
             ],
         }
@@ -174,7 +188,7 @@ mod tests {
         let layout = SimpleVertex::desc();
         assert_eq!(layout.array_stride, mem::size_of::<SimpleVertex>() as u64);
         assert_eq!(layout.step_mode, VertexStepMode::Vertex);
-        assert_eq!(layout.attributes.len(), 3);
+        assert_eq!(layout.attributes.len(), 5);
         // Position
         assert_eq!(layout.attributes[0].format, VertexFormat::Float32x2);
         assert_eq!(layout.attributes[0].offset, 0);
@@ -184,6 +198,12 @@ mod tests {
         // UV
         assert_eq!(layout.attributes[2].format, VertexFormat::Float32x2);
         assert_eq!(layout.attributes[2].offset, 24);
+        // Params
+        assert_eq!(layout.attributes[3].format, VertexFormat::Float32x4);
+        assert_eq!(layout.attributes[3].offset, 32);
+        // Flags
+        assert_eq!(layout.attributes[4].format, VertexFormat::Uint32);
+        assert_eq!(layout.attributes[4].offset, 48);
     }
 
     #[tokio::test]
@@ -204,8 +224,8 @@ mod tests {
         let mut buffer_mgr = BufferManager::new(dm.device());
 
         let vertices = vec![
-            SimpleVertex { position: [0.0, 0.0], color: [1.0, 0.0, 0.0, 1.0], uv: [0.0, 0.0] },
-            SimpleVertex { position: [1.0, 1.0], color: [0.0, 1.0, 0.0, 1.0], uv: [1.0, 1.0] },
+            SimpleVertex { position: [0.0, 0.0], color: [1.0, 0.0, 0.0, 1.0], uv: [0.0, 0.0], params: [0.0; 4], flags: 0 },
+            SimpleVertex { position: [1.0, 1.0], color: [0.0, 1.0, 0.0, 1.0], uv: [1.0, 1.0], params: [0.0; 4], flags: 0 },
         ];
         let indices: Vec<u32> = vec![0, 1, 2];
         let projection = [[1.0; 4]; 4];

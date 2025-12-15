@@ -22,7 +22,7 @@ struct AdvancedRendererExample {
     // Example resources
     vertex_buffer: Option<oxide_renderer::ResourceHandle>,
     index_buffer: Option<oxide_renderer::ResourceHandle>,
-    render_pipeline: Option<oxide_renderer::ResourceHandle>,
+    render_pipeline: Option<RenderPipeline>,
     
     // State
     frame_count: u64,
@@ -42,9 +42,11 @@ impl AdvancedRendererExample {
         
         // Create renderer with performance configuration
         let mut renderer = RendererBuilder::new()
+            .with_instance(instance)
+            .with_surface(&surface)
             .with_profiling(true)
             .with_detailed_profiling(true)
-            .with_memory_strategy(AllocationStrategy::Performance)
+            .with_memory_strategy(AllocationStrategy::Balanced)
             .with_max_memory_pool_size(256 * 1024 * 1024) // 256MB
             .with_preferred_adapter(PowerPreference::HighPerformance)
             .with_validation(cfg!(debug_assertions))
@@ -52,10 +54,13 @@ impl AdvancedRendererExample {
             .await?;
         
         // Configure surface
+        let adapter = renderer.get_active_adapter()
+            .expect("Current adapter not found");
+
         let size = window.inner_size();
         let surface_config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_capabilities(renderer.get_device_info().adapter).formats[0],
+            format: surface.get_capabilities(adapter).formats[0],
             width: size.width,
             height: size.height,
             present_mode: PresentMode::Fifo,
@@ -64,14 +69,14 @@ impl AdvancedRendererExample {
             desired_maximum_frame_latency: 2,
         };
         
-        surface.configure(&renderer.device.device, &surface_config);
+        surface.configure(&renderer.device().device, &surface_config);
         
         // Initialize renderer
         renderer.initialize().await?;
         
         info!("Renderer initialized successfully");
-        info!("GPU: {}", renderer.get_device_info().name);
-        info!("Backend: {:?}", renderer.get_device_info().backend);
+        info!("GPU: {}", renderer.get_device_info().device_name);
+        // info!("Backend: {:?}", renderer.get_device_info().backend);
         
         let mut example = Self {
             window,
@@ -114,19 +119,22 @@ impl AdvancedRendererExample {
         )?;
         
         // Load shader
-        let shader_source = oxide_renderer::ShaderSource::Wgsl {
-            source: include_str!("../shaders/triangle.wgsl").to_string(),
-            path: Some("triangle.wgsl".into()),
+        let path = std::path::PathBuf::from("examples/advanced_renderer/shaders/triangle.wgsl");
+        let stage = oxide_renderer::shader::ShaderStage::Vertex;
+        let variant = oxide_renderer::shader::ShaderVariant {
+            macros: vec![],
+            features: vec![],
+            optimization_level: 0,
         };
         
-        let shader = self.renderer.load_shader(shader_source).await?;
+        let shader = self.renderer.load_shader(&path, stage, variant)?;
         
         // Create render pipeline
         let render_pipeline_desc = RenderPipelineDescriptor {
             label: Some("Triangle Pipeline"),
             layout: None,
             vertex: VertexState {
-                module: &shader, // This would need proper resource resolution
+                module: &shader.module,
                 entry_point: "vs_main",
                 buffers: &[VertexBufferLayout {
                     array_stride: 5 * std::mem::size_of::<f32>() as BufferAddress,
@@ -147,7 +155,7 @@ impl AdvancedRendererExample {
                 compilation_options: Default::default(),
             },
             fragment: Some(FragmentState {
-                module: &shader, // This would need proper resource resolution
+                module: &shader.module,
                 entry_point: "fs_main",
                 targets: &[Some(ColorTargetState {
                     format: self.surface_config.format,
@@ -172,11 +180,10 @@ impl AdvancedRendererExample {
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
-            cache: None,
         };
         
-        // Note: This is a simplified example - actual implementation would need
-        // proper resource resolution from handles
+        let render_pipeline = self.renderer.device().device.create_render_pipeline(&render_pipeline_desc);
+        self.render_pipeline = Some(render_pipeline);
         
         self.vertex_buffer = Some(vertex_buffer);
         self.index_buffer = Some(index_buffer);
@@ -186,6 +193,19 @@ impl AdvancedRendererExample {
     }
     
     fn render(&mut self) -> Result<()> {
+        // Resolve resources first to ensure they live long enough for the render pass
+        let vertex_buffer_res = if let Some(handle) = self.vertex_buffer {
+            self.renderer.get_buffer(handle)
+        } else {
+            None
+        };
+        
+        let index_buffer_res = if let Some(handle) = self.index_buffer {
+            self.renderer.get_buffer(handle)
+        } else {
+            None
+        };
+
         // Begin frame
         let mut render_context = self.renderer.begin_frame()?;
         
@@ -214,11 +234,17 @@ impl AdvancedRendererExample {
             timestamp_writes: None,
         });
         
-        // Draw triangle (simplified - would need proper resource binding)
-        // render_pass.set_pipeline(&render_pipeline);
-        // render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        // render_pass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint16);
-        // render_pass.draw_indexed(0..3, 0, 0..1);
+        // Draw triangle
+        if let (Some(pipeline), Some(vb), Some(ib)) = (
+            &self.render_pipeline,
+            &vertex_buffer_res,
+            &index_buffer_res,
+        ) {
+            render_pass.set_pipeline(pipeline);
+            render_pass.set_vertex_buffer(0, vb.slice(..));
+            render_pass.set_index_buffer(ib.slice(..), IndexFormat::Uint16);
+            render_pass.draw_indexed(0..3, 0, 0..1);
+        }
         
         drop(render_pass);
         render_context.end_render_pass();
@@ -253,7 +279,7 @@ impl AdvancedRendererExample {
         if new_size.width > 0 && new_size.height > 0 {
             self.surface_config.width = new_size.width;
             self.surface_config.height = new_size.height;
-            self.surface.configure(&self.renderer.device.device, &self.surface_config);
+            self.surface.configure(&self.renderer.device().device, &self.surface_config);
             self.renderer.resize((new_size.width, new_size.height))?;
         }
         Ok(())

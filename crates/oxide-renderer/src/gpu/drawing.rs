@@ -4,6 +4,7 @@
 //! Final integration: converts RenderBatch to GPU draw calls
 
 use crate::batch::RenderBatch;
+use crate::vertex::VertexBuilder;
 use super::{
     buffer_mgr::{BufferManager, SimpleVertex},
     device::DeviceManager,
@@ -104,8 +105,38 @@ impl DrawingSystem {
         let mut indices: Vec<u32> = Vec::new();
         let mut vertex_count = 0;
 
+        // Process direct vertices from batch
+        for v in &batch.vertices {
+            vertices.push(SimpleVertex::from(v));
+        }
+        for i in &batch.indices {
+            indices.push((*i as u32) + vertex_count);
+        }
+        vertex_count += batch.vertices.len() as u32;
+
         for command in &batch.commands {
             match command {
+                crate::batch::DrawCommand::RoundedRect { rect, color, radius, transform } => {
+                    let color_arr = [color.r, color.g, color.b, color.a];
+                    let (v_list, i_list) = VertexBuilder::rounded_rectangle(
+                        rect.x, rect.y, rect.width, rect.height, *radius, color_arr, 8
+                    );
+                    
+                    let added_count = v_list.len() as u32;
+                    for v in v_list {
+                         let mut sv = SimpleVertex::from(&v);
+                         // Apply transform
+                         let p = oxide_core::types::Point::new(sv.position[0], sv.position[1]);
+                         let transformed = transform.transform_point(p);
+                         sv.position = [transformed.x, transformed.y];
+                         vertices.push(sv);
+                    }
+                    
+                    for i in i_list {
+                        indices.push((i as u32) + vertex_count);
+                    }
+                    vertex_count += added_count;
+                }
                 crate::batch::DrawCommand::Rect { rect, color, transform } => {
                     // Re-implement rect batching logic here or reuse helper
                     // For simplicity, we duplicate the logic for now to ensure correct ordering
@@ -140,12 +171,30 @@ impl DrawingSystem {
 
                     vertex_count += 4;
                 }
-                crate::batch::DrawCommand::Text { text, position, color, font_size, letter_spacing } => {
+                crate::batch::DrawCommand::Text { text, position, color, font_size, letter_spacing, align } => {
                     let (mut x, y) = *position;
                     let color_arr = [color.r, color.g, color.b, color.a];
                     // font_size is &f32, dereference it for use as f32
                     let font_size_val = *font_size; 
                     let spacing_val = *letter_spacing;
+                    
+                    // Handle alignment
+                    if *align != oxide_core::text::TextAlign::Left {
+                        let mut width = 0.0;
+                        for ch in text.chars() {
+                             if let Some(glyph) = self.texture_mgr.get_or_cache_glyph(self.device_mgr.queue(), ch, font_size_val as u32) {
+                                 width += glyph.metrics.advance + spacing_val;
+                             } else if ch == ' ' {
+                                 width += font_size_val * 0.3 + spacing_val;
+                             }
+                        }
+                        
+                        match align {
+                            oxide_core::text::TextAlign::Center => x -= width / 2.0,
+                            oxide_core::text::TextAlign::Right => x -= width,
+                            _ => {} // Justify not implemented yet
+                        }
+                    }
                     
                     // Calculate baseline from top-left y
                     // The layout engine passes top-left coordinates, but font rendering works relative to baseline.
@@ -331,6 +380,8 @@ impl From<&crate::vertex::Vertex> for SimpleVertex {
             position: v.position,
             color: v.color,
             uv: v.uv,  // Use UV from existing Vertex struct
+            params: v.params,
+            flags: v.flags,
         }
     }
 }

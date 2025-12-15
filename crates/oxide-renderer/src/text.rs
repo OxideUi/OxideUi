@@ -2,7 +2,7 @@
 
 use cosmic_text::{
     Attrs, Buffer, Family, FontSystem, Metrics, Shaping,
-    Weight, Wrap, SwashCache,
+    Weight, Wrap, SwashCache, CacheKey,
 };
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
@@ -136,36 +136,56 @@ impl TextRenderer {
         font: &Font,
         position: Point,
         color: Color,
-        _max_width: Option<f32>,
+        max_width: Option<f32>,
     ) -> Vec<TextVertex> {
         let mut vertices = Vec::new();
+        let mut font_system = self.font_system.write();
+        let mut glyph_cache = self.glyph_cache.write();
         let mut glyph_atlas = self.glyph_atlas_manager.write();
         
-        let mut current_x = position.x;
-        let current_y = position.y;
+        // Create buffer for layout
+        let metrics = Metrics::new(font.size, font.size * 1.2);
+        let mut buffer = Buffer::new(&mut font_system, metrics);
+        buffer.set_text(&mut font_system, text, font.to_attrs(), Shaping::Advanced);
         
-        // Generate vertices for each character
-        for character in text.chars() {
-            if let Some((_atlas_index, glyph_info)) = glyph_atlas.get_or_create_glyph(font, character) {
-                let glyph_x = current_x + glyph_info.bearing.0 as f32;
-                let glyph_y = current_y + glyph_info.bearing.1 as f32;
-                let glyph_w = glyph_info.size.0 as f32;
-                let glyph_h = glyph_info.size.1 as f32;
+        if let Some(width) = max_width {
+            buffer.set_wrap(&mut font_system, Wrap::Word);
+            buffer.set_size(&mut font_system, Some(width), Some(f32::MAX));
+        } else {
+            buffer.set_size(&mut font_system, None, Some(f32::MAX));
+        }
+        
+        buffer.shape_until_scroll(&mut font_system, false);
+        
+        let start_x = position.x;
+        let start_y = position.y;
+        
+        // Iterate over layout runs
+        for run in buffer.layout_runs() {
+            for glyph in run.glyphs.iter() {
+                let physical_glyph = glyph.physical((start_x, start_y + run.line_y), 1.0);
                 
-                let (u0, v0, u1, v1) = glyph_info.uv_rect;
-                
-                // Create quad vertices for this glyph
-                vertices.extend_from_slice(&[
-                    TextVertex::new([glyph_x, glyph_y, 0.0], [u0, v0], [color.r, color.g, color.b, color.a], 0),
-                    TextVertex::new([glyph_x + glyph_w, glyph_y, 0.0], [u1, v0], [color.r, color.g, color.b, color.a], 0),
-                    TextVertex::new([glyph_x + glyph_w, glyph_y + glyph_h, 0.0], [u1, v1], [color.r, color.g, color.b, color.a], 0),
-                    TextVertex::new([glyph_x, glyph_y + glyph_h, 0.0], [u0, v1], [color.r, color.g, color.b, color.a], 0),
-                ]);
-                
-                current_x += glyph_info.advance;
-            } else {
-                // Character not available, skip or use fallback
-                current_x += font.size * 0.5; // Fallback advance
+                // Get texture coordinates from atlas
+                if let Some((_atlas_index, glyph_info)) = glyph_atlas.get_or_create_glyph(
+                    &mut font_system,
+                    &mut glyph_cache.cache,
+                    physical_glyph.cache_key
+                ) {
+                    let glyph_x = physical_glyph.x as f32;
+                    let glyph_y = physical_glyph.y as f32;
+                    let glyph_w = glyph_info.size.0 as f32;
+                    let glyph_h = glyph_info.size.1 as f32;
+                    
+                    let (u0, v0, u1, v1) = glyph_info.uv_rect;
+                    
+                    // Create quad vertices for this glyph
+                    vertices.extend_from_slice(&[
+                        TextVertex::new([glyph_x, glyph_y, 0.0], [u0, v0], [color.r, color.g, color.b, color.a], 0),
+                        TextVertex::new([glyph_x + glyph_w, glyph_y, 0.0], [u1, v0], [color.r, color.g, color.b, color.a], 0),
+                        TextVertex::new([glyph_x + glyph_w, glyph_y + glyph_h, 0.0], [u1, v1], [color.r, color.g, color.b, color.a], 0),
+                        TextVertex::new([glyph_x, glyph_y + glyph_h, 0.0], [u0, v1], [color.r, color.g, color.b, color.a], 0),
+                    ]);
+                }
             }
         }
         

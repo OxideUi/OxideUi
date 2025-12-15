@@ -1,6 +1,6 @@
 //! Advanced GPU device management system
 //!
-//! This module provides enterprise-grade GPU device management including:
+//! This module provides GPU device management including:
 //! - Multi-adapter support with intelligent selection
 //! - Hardware capability detection and optimization
 //! - Automatic fallback mechanisms for compatibility
@@ -322,6 +322,7 @@ pub struct DeviceManager {
     instance: Instance,
     adapters: Vec<(Adapter, GpuCapabilities)>,
     active_device: RwLock<Option<Arc<ManagedDevice>>>,
+    active_adapter_index: RwLock<Option<usize>>,
     device_health: Arc<DeviceHealth>,
     selection_criteria: RwLock<DeviceSelectionCriteria>,
     fallback_chain: RwLock<Vec<usize>>, // Indices into adapters
@@ -340,18 +341,23 @@ pub struct ManagedDevice {
 }
 
 impl DeviceManager {
+    /// Get all available adapters
+    pub fn adapters(&self) -> &[(Adapter, GpuCapabilities)] {
+        &self.adapters
+    }
+
     /// Create a new device manager
-    #[instrument]
-    pub async fn new() -> Result<Self> {
-        let instance = Instance::new(InstanceDescriptor {
+    #[instrument(skip(instance, surface))]
+    pub async fn new(instance: Option<Instance>, surface: Option<&Surface<'_>>) -> Result<Self> {
+        let instance = instance.unwrap_or_else(|| Instance::new(InstanceDescriptor {
             backends: Backends::all(),
             flags: InstanceFlags::default(),
             dx12_shader_compiler: Dx12Compiler::Fxc,
             gles_minor_version: Gles3MinorVersion::Automatic,
-        });
+        }));
         
         info!("Enumerating GPU adapters...");
-        let adapters = Self::enumerate_adapters(&instance).await?;
+        let adapters = Self::enumerate_adapters(&instance, surface).await?;
         
         if adapters.is_empty() {
             bail!("No compatible GPU adapters found");
@@ -368,6 +374,7 @@ impl DeviceManager {
             instance,
             adapters,
             active_device: RwLock::new(None),
+            active_adapter_index: RwLock::new(None),
             device_health: Arc::new(DeviceHealth::default()),
             selection_criteria: RwLock::new(DeviceSelectionCriteria::default()),
             fallback_chain: RwLock::new(fallback_chain),
@@ -376,14 +383,14 @@ impl DeviceManager {
     }
     
     /// Enumerate and analyze all available adapters
-    async fn enumerate_adapters(instance: &Instance) -> Result<Vec<(Adapter, GpuCapabilities)>> {
+    async fn enumerate_adapters(instance: &Instance, surface: Option<&Surface<'_>>) -> Result<Vec<(Adapter, GpuCapabilities)>> {
         let mut adapters = Vec::new();
         
         // Try all power preferences to find all adapters
         for power_pref in [PowerPreference::HighPerformance, PowerPreference::LowPower] {
             if let Some(adapter) = instance.request_adapter(&RequestAdapterOptions {
                 power_preference: power_pref,
-                compatible_surface: None,
+                compatible_surface: surface,
                 force_fallback_adapter: false,
             }).await {
                 let capabilities = GpuCapabilities::from_adapter(&adapter);
@@ -401,7 +408,7 @@ impl DeviceManager {
         // Also try fallback adapter
         if let Some(adapter) = instance.request_adapter(&RequestAdapterOptions {
             power_preference: PowerPreference::default(),
-            compatible_surface: None,
+            compatible_surface: surface,
             force_fallback_adapter: true,
         }).await {
             let capabilities = GpuCapabilities::from_adapter(&adapter);
@@ -453,11 +460,12 @@ impl DeviceManager {
                 continue;
             }
             
-            match self.create_device(adapter, capabilities).await {
+            match self.create_device(adapter, capabilities, &criteria).await {
                 Ok(device) => {
                     info!("Successfully initialized device: {}", capabilities.device_name);
                     let managed_device = Arc::new(device);
                     *self.active_device.write() = Some(managed_device.clone());
+                    *self.active_adapter_index.write() = Some(adapter_idx);
                     return Ok(managed_device);
                 }
                 Err(e) => {
@@ -502,10 +510,21 @@ impl DeviceManager {
     }
     
     /// Create managed device from adapter
-    async fn create_device(&self, adapter: &Adapter, capabilities: &GpuCapabilities) -> Result<ManagedDevice> {
+    async fn create_device(&self, adapter: &Adapter, capabilities: &GpuCapabilities, criteria: &DeviceSelectionCriteria) -> Result<ManagedDevice> {
         info!("Creating device for adapter: {}", capabilities.device_name);
         
-        let required_features = Features::empty();
+        let mut required_features = criteria.required_features;
+        
+        // Enable timestamp queries if requested
+        if criteria.require_timestamp_queries {
+            required_features |= Features::TIMESTAMP_QUERY;
+        }
+        
+        // Enable pipeline statistics if requested
+        if criteria.require_pipeline_statistics {
+            required_features |= Features::PIPELINE_STATISTICS_QUERY;
+        }
+        
         let required_limits = Limits::default();
         
         // Set up error callback for Vulkan validation errors
@@ -577,6 +596,11 @@ impl DeviceManager {
     pub fn get_device(&self) -> Option<Arc<ManagedDevice>> {
         self.active_device.read().clone()
     }
+
+    /// Get current active adapter
+    pub fn get_active_adapter(&self) -> Option<&Adapter> {
+        self.active_adapter_index.read().map(|idx| &self.adapters[idx].0)
+    }
     
     /// Check device health and attempt recovery if needed
     #[instrument]
@@ -596,6 +620,7 @@ impl DeviceManager {
         
         // Clear current device
         *self.active_device.write() = None;
+        *self.active_adapter_index.write() = None;
         
         // Try to reinitialize with same criteria
         let criteria = self.selection_criteria.read().clone();
@@ -656,7 +681,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_device_manager_creation() {
-        let manager = DeviceManager::new().await;
+        let manager = DeviceManager::new(None, None).await;
         assert!(manager.is_ok());
     }
     

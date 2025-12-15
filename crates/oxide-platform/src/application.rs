@@ -104,9 +104,9 @@ impl Application {
             
             // Compute layout constraints using actual window size
             let constraints = oxide_core::layout::Constraints {
-                min_width: 0.0,
+                min_width: window_width,
                 max_width: window_width,
-                min_height: 0.0,
+                min_height: window_height,
                 max_height: window_height,
             };
             

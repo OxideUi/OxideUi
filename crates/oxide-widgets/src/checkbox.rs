@@ -7,7 +7,7 @@ use oxide_core::{
     layout::{Size, Constraints, Layout},
     state::Signal,
     theme::Theme,
-    types::Point,
+    types::{Point, Rect, Color, Transform},
     vdom::VNode,
 };
 use oxide_renderer::batch::RenderBatch;
@@ -21,6 +21,7 @@ pub struct Checkbox {
     enabled: bool,
     size: f32,
     style: CheckboxStyle,
+    bounds: Signal<Rect>,
 }
 
 /// Styling options for checkbox
@@ -61,6 +62,7 @@ impl Checkbox {
             enabled: true,
             size: 20.0,
             style: CheckboxStyle::default(),
+            bounds: Signal::new(Rect::new(0.0, 0.0, 0.0, 0.0)),
         }
     }
 
@@ -190,15 +192,42 @@ impl Widget for Checkbox {
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
-        // TODO: Implement proper rendering with RenderBatch
-        // This is a placeholder implementation
+        let bounds = Rect::new(layout.position.x, layout.position.y, layout.size.width, layout.size.height);
+        self.bounds.set(bounds);
+        
+        // Draw checkbox background
+        // Center vertically
+        let box_y = bounds.y + (bounds.height - self.style.size) / 2.0;
+        let box_rect = Rect::new(bounds.x, box_y, self.style.size, self.style.size);
+        
+        let bg_color = if self.is_checked() {
+            Color::rgba(self.style.background_color[0], self.style.background_color[1], self.style.background_color[2], self.style.background_color[3])
+        } else {
+            Color::WHITE
+        };
+        
+        batch.add_rect(box_rect, bg_color, Transform::identity());
+        
+        // Draw label
+        if let Some(label) = &self.label {
+            let text_x = bounds.x + self.style.size + 8.0;
+            let text_y = bounds.y + bounds.height / 2.0 - 7.0; // approx center
+            batch.add_text(label.clone(), (text_x, text_y), Color::BLACK, 14.0, 0.0);
+        }
     }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
             Event::MouseDown(mouse_event) => {
                 if let Some(MouseButton::Left) = mouse_event.button {
-                    self.handle_click()
+                    let bounds = self.bounds.get();
+                    let point = Point::new(mouse_event.position.x, mouse_event.position.y);
+                    if bounds.contains(point) {
+                        self.handle_click();
+                        EventResult::Handled
+                    } else {
+                        EventResult::Ignored
+                    }
                 } else {
                     EventResult::Ignored
                 }
@@ -232,6 +261,7 @@ pub struct RadioButton {
     label: Option<String>,
     enabled: bool,
     style: RadioStyle,
+    bounds: Signal<Rect>,
 }
 
 /// Styling options for radio button
@@ -271,6 +301,7 @@ impl RadioButton {
             label: None,
             enabled: true,
             style: RadioStyle::default(),
+            bounds: Signal::new(Rect::new(0.0, 0.0, 0.0, 0.0)),
         }
     }
 
@@ -349,17 +380,43 @@ impl Widget for RadioButton {
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
-        // TODO: Implement proper rendering with RenderBatch
-        // This is a placeholder implementation
+        let bounds = Rect::new(layout.position.x, layout.position.y, layout.size.width, layout.size.height);
+        self.bounds.set(bounds);
+        
+        // Draw radio background (circle)
+        let radio_y = bounds.y + (bounds.height - self.style.size) / 2.0;
+        let center = (bounds.x + self.style.size / 2.0, radio_y + self.style.size / 2.0);
+        let radius = self.style.size / 2.0;
+        
+        let bg_color = if self.is_selected() {
+            Color::rgba(self.style.background_color[0], self.style.background_color[1], self.style.background_color[2], self.style.background_color[3])
+        } else {
+            Color::WHITE
+        };
+        
+        batch.add_circle(center, radius, bg_color, 16);
+        
+        // Draw label
+        if let Some(label) = &self.label {
+            let text_x = bounds.x + self.style.size + 8.0;
+            let text_y = bounds.y + bounds.height / 2.0 - 7.0; // approx center
+            batch.add_text(label.clone(), (text_x, text_y), Color::BLACK, 14.0, 0.0);
+        }
     }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
             Event::MouseDown(mouse_event) => {
                 if let Some(MouseButton::Left) = mouse_event.button {
-                    if self.enabled {
-                        self.select();
-                        EventResult::Handled
+                    let bounds = self.bounds.get();
+                    let point = Point::new(mouse_event.position.x, mouse_event.position.y);
+                    if bounds.contains(point) {
+                        if self.enabled {
+                            self.select();
+                            EventResult::Handled
+                        } else {
+                            EventResult::Ignored
+                        }
                     } else {
                         EventResult::Ignored
                     }

@@ -385,11 +385,20 @@ impl Button {
         };
 
         // Draw background
-        batch.add_rect(
-            bounds,
-            background_color.to_types_color(),
-            Transform::identity(),
-        );
+        if self.style.border_radius > 0.0 {
+            batch.add_rounded_rect(
+                bounds,
+                background_color.to_types_color(),
+                self.style.border_radius,
+                Transform::identity(),
+            );
+        } else {
+            batch.add_rect(
+                bounds,
+                background_color.to_types_color(),
+                Transform::identity(),
+            );
+        }
 
         // Render border if needed
         if self.style.border_width > 0.0 {
@@ -415,18 +424,17 @@ impl Button {
             }
         }
 
-        // Render text (simplified - would need proper text rendering)
-        let text_x = bounds.x + bounds.width / 2.0 - (self.text.len() as f32 * self.style.font_size * 0.3);
-        let text_y = bounds.y + bounds.height / 2.0 - self.style.font_size / 2.0;
+        // Render text
+        let text_x = bounds.x + bounds.width / 2.0;
+        let text_y = bounds.y + (bounds.height - self.style.font_size) / 2.0;
         
-        // For now, just add a placeholder for text rendering
-   
-        batch.add_text(
+        batch.add_text_aligned(
             self.text.clone(),
             (text_x, text_y),
             self.style.text_color.to_types_color(),
             self.style.font_size,
             0.0, // Default letter spacing
+            oxide_core::text::TextAlign::Center,
         );
     }
 
@@ -613,7 +621,8 @@ impl Widget for Button {
             return;
         }
 
-        let background_color = match self.get_state() {
+        let state = self.get_state();
+        let background_color = match state {
             ButtonState::Normal => self.style.background_color,
             ButtonState::Hovered => self.style.hover_color,
             ButtonState::Pressed => self.style.pressed_color,
@@ -621,16 +630,47 @@ impl Widget for Button {
             ButtonState::Focused => self.style.hover_color,
         };
 
+        // Apply a subtle offset when pressed to give physical feedback
+        let mut draw_bounds = bounds;
+        if state == ButtonState::Pressed {
+            draw_bounds.x += 1.0;
+            draw_bounds.y += 1.0;
+        }
+
         // Draw background
         batch.add_rect(
-            bounds,
+            draw_bounds,
             background_color.to_types_color(),
             Transform::identity(),
         );
 
-        // Render text
-        let text_x = bounds.x + bounds.width / 2.0 - (self.text.len() as f32 * self.style.font_size * 0.3);
-        let text_y = bounds.y + bounds.height / 2.0 - self.style.font_size / 2.0;
+        // Render border if needed
+        if self.style.border_width > 0.0 {
+            let border_bounds = Rect::new(
+                draw_bounds.x - self.style.border_width / 2.0,
+                draw_bounds.y - self.style.border_width / 2.0,
+                draw_bounds.width + self.style.border_width,
+                draw_bounds.height + self.style.border_width,
+            );
+
+            if self.style.border_radius > 0.0 {
+                // Render rounded border (simplified - would need proper border rendering)
+                let (vertices, indices) = VertexBuilder::rounded_rectangle(
+                    border_bounds.x,
+                    border_bounds.y,
+                    border_bounds.width,
+                    border_bounds.height,
+                    self.style.border_radius + self.style.border_width / 2.0,
+                    self.style.border_color.to_array(),
+                    8, // corner segments
+                );
+                batch.add_vertices(&vertices, &indices);
+            }
+        }
+
+        // Render text (simplified - would need proper text rendering)
+        let text_x = draw_bounds.x + draw_bounds.width / 2.0 - (self.text.len() as f32 * self.style.font_size * 0.3);
+        let text_y = draw_bounds.y + draw_bounds.height / 2.0 - self.style.font_size / 2.0;
         
         batch.add_text(
             self.text.clone(),
@@ -667,7 +707,9 @@ impl Widget for Button {
             }
             Event::MouseDown(mouse_event) => {
                 if mouse_event.button == Some(oxide_core::event::MouseButton::Left) {
-                    if self.get_state() == ButtonState::Hovered {
+                    let bounds = self.bounds.get();
+                    let point = oxide_core::types::Point::new(mouse_event.position.x, mouse_event.position.y);
+                    if bounds.contains(point) {
                         self.state.set(ButtonState::Pressed);
                         return EventResult::Handled;
                     }

@@ -216,11 +216,11 @@ impl UIPipeline {
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&default_texture_view),
+                    resource: wgpu::BindingResource::Sampler(&sampler),
                 },
                 BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
+                    resource: wgpu::BindingResource::TextureView(&default_texture_view),
                 },
             ],
         });
@@ -299,17 +299,17 @@ impl TextPipeline {
                 BindGroupLayoutEntry {
                     binding: 1,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
-                    },
+                    ty: BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
                 BindGroupLayoutEntry {
                     binding: 2,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
                     count: None,
                 },
             ],
@@ -414,7 +414,8 @@ impl RenderGraph {
 /// Pipeline manager for handling multiple render pipelines
 pub struct PipelineManager {
     pub ui_pipeline: UIPipeline,
-    pub text_pipeline: TextPipeline,
+    // Text rendering is now handled via UI pipeline or generic sprite batching
+    // pub text_pipeline: TextPipeline, 
     render_graph: RenderGraph,
 }
 
@@ -422,12 +423,11 @@ impl PipelineManager {
     /// Create a new pipeline manager
     pub fn new(device: &Device, surface_format: wgpu::TextureFormat) -> Self {
         let ui_pipeline = UIPipeline::new(device, surface_format);
-        let text_pipeline = TextPipeline::new(device, surface_format);
+        // Text pipeline removed in favor of unified system
         let render_graph = RenderGraph::new();
 
         Self {
             ui_pipeline,
-            text_pipeline,
             render_graph,
         }
     }

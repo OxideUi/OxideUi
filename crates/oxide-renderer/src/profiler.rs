@@ -17,7 +17,7 @@ use parking_lot::RwLock;
 use anyhow::Result;
 use tracing::{info, warn, debug, instrument};
 use serde::{Serialize, Deserialize};
-use wgpu::{QuerySetDescriptor, QueryType, QuerySet, Buffer, CommandEncoder, BufferDescriptor, BufferUsages, MapMode, Maintain};
+use wgpu::{QuerySetDescriptor, QueryType, QuerySet, Buffer, CommandEncoder, BufferDescriptor, BufferUsages, MapMode, Maintain, Features};
 use thread_local::ThreadLocal;
 
 use crate::device::ManagedDevice;
@@ -275,7 +275,7 @@ pub struct Profiler {
     device: Arc<ManagedDevice>,
     
     // Sub-profilers
-    pub gpu_timer: Arc<GpuTimer>,
+    pub gpu_timer: Option<Arc<GpuTimer>>,
     pub cpu_profiler: Arc<CpuProfiler>,
     pub memory_profiler: Arc<MemoryProfiler>,
     performance_analyzer: Arc<PerformanceAnalyzer>,
@@ -752,7 +752,13 @@ impl RegressionDetector {
 impl Profiler {
     /// Create a new profiler
     pub fn new(device: Arc<ManagedDevice>) -> Result<Self> {
-        let gpu_timer = Arc::new(GpuTimer::new(device.clone(), 1000)?);
+        let gpu_timer = if device.device.features().contains(Features::TIMESTAMP_QUERY) {
+            Some(Arc::new(GpuTimer::new(device.clone(), 1000)?))
+        } else {
+            warn!("Timestamp queries not enabled on device. GPU profiling disabled.");
+            None
+        };
+        
         let cpu_profiler = Arc::new(CpuProfiler::new(10000));
         let memory_profiler = Arc::new(MemoryProfiler::new());
         let performance_analyzer = Arc::new(PerformanceAnalyzer::new());
@@ -828,7 +834,11 @@ impl Profiler {
     /// Begin GPU timing
     pub fn begin_gpu_timing(&self, encoder: &mut CommandEncoder, label: &str) -> Option<u32> {
         if self.enabled.load(Ordering::Relaxed) {
-            self.gpu_timer.begin_timing(encoder, label)
+            if let Some(timer) = &self.gpu_timer {
+                timer.begin_timing(encoder, label)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -837,7 +847,9 @@ impl Profiler {
     /// End GPU timing
     pub fn end_gpu_timing(&self, encoder: &mut CommandEncoder, query_id: u32) {
         if self.enabled.load(Ordering::Relaxed) {
-            self.gpu_timer.end_timing(encoder, query_id);
+            if let Some(timer) = &self.gpu_timer {
+                timer.end_timing(encoder, query_id);
+            }
         }
     }
     

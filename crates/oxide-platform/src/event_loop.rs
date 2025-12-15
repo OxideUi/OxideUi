@@ -23,6 +23,8 @@ struct AppState {
     needs_redraw: bool,
     last_update: Instant,
     app: Option<Application>,
+    cursor_position: winit::dpi::PhysicalPosition<f64>,
+    scale_factor: f64,
 }
 
 impl AppState {
@@ -35,6 +37,8 @@ impl AppState {
             needs_redraw: false,
             last_update: Instant::now(),
             app: None,
+            cursor_position: winit::dpi::PhysicalPosition::new(0.0, 0.0),
+            scale_factor: 1.0,
         }
     }
 }
@@ -95,6 +99,8 @@ impl EventLoop {
         use winit::event_loop::ControlFlow;
         
         let mut last_update = Instant::now();
+        let mut cursor_position = winit::dpi::PhysicalPosition::new(0.0, 0.0);
+        let mut scale_factor = 1.0;
         
         self.inner.run(move |event, elwt| {
             match event {
@@ -107,8 +113,28 @@ impl EventLoop {
                             // Handle redraw - emit a custom redraw event
                             handler(Event::Window(WindowEvent::Resize { width: 0, height: 0 }));
                         }
+                        WinitWindowEvent::CursorMoved { position, device_id, .. } => {
+                            cursor_position = position;
+                            if let Some(oxide_event) = convert_window_event(
+                                WinitWindowEvent::CursorMoved { position, device_id },
+                                cursor_position,
+                                scale_factor
+                            ) {
+                                handler(oxide_event);
+                            }
+                        }
+                        WinitWindowEvent::ScaleFactorChanged { scale_factor: sf, inner_size_writer } => {
+                            scale_factor = sf;
+                            if let Some(oxide_event) = convert_window_event(
+                                WinitWindowEvent::ScaleFactorChanged { scale_factor: sf, inner_size_writer },
+                                cursor_position,
+                                scale_factor
+                            ) {
+                                handler(oxide_event);
+                            }
+                        }
                         _ => {
-                            if let Some(oxide_event) = convert_window_event(event) {
+                            if let Some(oxide_event) = convert_window_event(event, cursor_position, scale_factor) {
                                 handler(oxide_event);
                             }
                         }
@@ -173,8 +199,32 @@ impl EventLoop {
                     }
                 }
                 WinitEvent::WindowEvent { event, .. } => {
-                    if let Some(oxide_event) = convert_window_event(event) {
-                        handler(oxide_event);
+                    match event {
+                        WinitWindowEvent::CursorMoved { position, device_id, .. } => {
+                            state.cursor_position = position;
+                            if let Some(oxide_event) = convert_window_event(
+                                WinitWindowEvent::CursorMoved { position, device_id },
+                                state.cursor_position,
+                                state.scale_factor
+                            ) {
+                                handler(oxide_event);
+                            }
+                        }
+                        WinitWindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer } => {
+                            state.scale_factor = scale_factor;
+                            if let Some(oxide_event) = convert_window_event(
+                                WinitWindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer },
+                                state.cursor_position,
+                                state.scale_factor
+                            ) {
+                                handler(oxide_event);
+                            }
+                        }
+                        _ => {
+                            if let Some(oxide_event) = convert_window_event(event, state.cursor_position, state.scale_factor) {
+                                handler(oxide_event);
+                            }
+                        }
                     }
                 }
                 WinitEvent::AboutToWait => {
@@ -253,8 +303,19 @@ impl EventLoop {
                     match event {
                         WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                             println!("Scale factor changed to: {}", scale_factor);
+                            state.scale_factor = scale_factor;
                             if let Some(drawing_system) = &mut state.drawing_system {
                                 drawing_system.set_scale_factor(scale_factor as f32);
+                            }
+                        }
+                        WindowEvent::CursorMoved { position, device_id, .. } => {
+                            state.cursor_position = position;
+                            if let Some(oxide_event) = convert_window_event(
+                                WindowEvent::CursorMoved { position, device_id },
+                                state.cursor_position,
+                                state.scale_factor
+                            ) {
+                                handler(oxide_event);
                             }
                         }
                         WindowEvent::Resized(physical_size) => {
@@ -314,7 +375,7 @@ impl EventLoop {
                             event_loop_window_target.exit();
                         }
                         _ => {
-                            if let Some(oxide_event) = convert_window_event(event) {
+                            if let Some(oxide_event) = convert_window_event(event, state.cursor_position, state.scale_factor) {
                                 handler(oxide_event);
                             }
                         }
@@ -451,7 +512,11 @@ pub enum EventLoopError {
 
 /// Convert winit event to OxideUI event
 #[cfg(not(target_arch = "wasm32"))]
-pub fn convert_window_event(event: winit::event::WindowEvent) -> Option<Event> {
+pub fn convert_window_event(
+    event: winit::event::WindowEvent,
+    cursor_position: winit::dpi::PhysicalPosition<f64>,
+    scale_factor: f64,
+) -> Option<Event> {
     use winit::event::{WindowEvent as WE, MouseButton as MB, ElementState};
     use glam::Vec2;
     
@@ -470,12 +535,16 @@ pub fn convert_window_event(event: winit::event::WindowEvent) -> Option<Event> {
         
         WE::Focused(focused) => Some(Event::Window(WindowEvent::Focus(focused))),
         
-        WE::CursorMoved { position, .. } => Some(Event::MouseMove(MouseEvent {
-            position: Vec2::new(position.x as f32, position.y as f32),
-            button: None,
-            modifiers: Modifiers::default(),
-            delta: Vec2::ZERO,
-        })),
+        WE::CursorMoved { position, .. } => {
+            let logical_x = position.x / scale_factor;
+            let logical_y = position.y / scale_factor;
+            Some(Event::MouseMove(MouseEvent {
+                position: Vec2::new(logical_x as f32, logical_y as f32),
+                button: None,
+                modifiers: Modifiers::default(),
+                delta: Vec2::ZERO,
+            }))
+        },
         
         WE::MouseInput { state, button, .. } => {
             let button = match button {
@@ -487,21 +556,24 @@ pub fn convert_window_event(event: winit::event::WindowEvent) -> Option<Event> {
                 MB::Other(n) => MouseButton::Other(n),
             };
             
+            let logical_x = cursor_position.x / scale_factor;
+            let logical_y = cursor_position.y / scale_factor;
+            
             match state {
                 ElementState::Pressed => Some(Event::MouseDown(MouseEvent {
-                    position: Vec2::ZERO, // Position should be tracked separately
+                    position: Vec2::new(logical_x as f32, logical_y as f32),
                     button: Some(button),
                     modifiers: Modifiers::default(),
                     delta: Vec2::ZERO,
                 })),
                 ElementState::Released => Some(Event::MouseUp(MouseEvent {
-                    position: Vec2::ZERO,
+                    position: Vec2::new(logical_x as f32, logical_y as f32),
                     button: Some(button),
                     modifiers: Modifiers::default(),
                     delta: Vec2::ZERO,
                 })),
             }
-        }
+        },
         
         WE::MouseWheel { delta, .. } => {
             let delta_vec = match delta {
