@@ -213,7 +213,7 @@ impl DrawingSystem {
                     vertex_count += added_count;
                     current_index_count += index_count;
                 }
-                crate::batch::DrawCommand::Rect { rect, color, transform } => {
+                crate::batch::DrawCommand::Rect { rect, color, transform, .. } => {
                     let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
                     
                     // Apply transform using strato_core::Transform method
@@ -385,7 +385,7 @@ impl DrawingSystem {
                         current_index_count += 6;
                     }
                 }
-                crate::batch::DrawCommand::TexturedQuad { rect, texture_id: _, uv_rect, color, transform } => {
+                crate::batch::DrawCommand::TexturedQuad { rect, texture_id: _, uv_rect, color, transform, .. } => {
                     let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
                     let (u, v, uw, vh) = (uv_rect.x, uv_rect.y, uv_rect.width, uv_rect.height);
                     let color_arr = [color.r, color.g, color.b, color.a];
@@ -421,7 +421,7 @@ impl DrawingSystem {
                     vertex_count += 4;
                     current_index_count += 6;
                 }
-                crate::batch::DrawCommand::Circle { center, radius, color, segments } => {
+                crate::batch::DrawCommand::Circle { center, radius, color, segments, .. } => {
                     let (cx, cy) = *center;
                     let radius = *radius;
                     let color_arr = [color.r, color.g, color.b, color.a];
@@ -462,7 +462,7 @@ impl DrawingSystem {
                         vertex_count += 1;
                     }
                 }
-                crate::batch::DrawCommand::Line { start, end, color, thickness } => {
+                crate::batch::DrawCommand::Line { start, end, color, thickness, .. } => {
                     let (x1, y1) = *start;
                     let (x2, y2) = *end;
                     let thickness = *thickness;

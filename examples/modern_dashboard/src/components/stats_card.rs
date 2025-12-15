@@ -24,12 +24,12 @@ impl StatsCard {
         }
     }
 
-    pub fn build(self) -> Box<dyn Widget> {
+    pub fn build(self) -> impl Widget {
         let theme = self.theme;
         let trend_color = if self.is_positive { theme.success } else { theme.error };
 
         // Wrap in Flex(1.0) so it expands in a Row
-        Box::new(Flex::new(
+        Flex::new(
             Box::new(Container::new()
                 .background(theme.bg_secondary)
                 .border_radius(BORDER_RADIUS_MD)
@@ -53,6 +53,6 @@ impl StatsCard {
                         ])
                 )
             )
-        ).flex(1.0))
+        ).flex(1.0)
     }
 }

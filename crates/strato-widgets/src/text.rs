@@ -280,7 +280,7 @@ impl TextSpan {
 #[derive(Debug)]
 pub struct Text {
     id: WidgetId,
-    content: String,
+    content: Signal<String>,
     spans: Vec<TextSpan>,
     style: TextStyle,
     bounds: Signal<Rect>,
@@ -298,7 +298,7 @@ impl Text {
     pub fn new(content: impl Into<String>) -> Self {
         Self {
             id: generate_id(),
-            content: content.into(),
+            content: Signal::new(content.into()),
             spans: Vec::new(),
             style: TextStyle::default(),
             bounds: Signal::new(Rect::new(0.0, 0.0, 0.0, 0.0)),
@@ -310,6 +310,12 @@ impl Text {
             measured_size: Signal::new(Size::new(0.0, 0.0)),
             cached_lines: Signal::new(Vec::new()),
         }
+    }
+
+    /// Bind text content to a signal
+    pub fn bind(mut self, signal: Signal<String>) -> Self {
+        self.content = signal;
+        self
     }
 
     /// Set text style
@@ -414,16 +420,14 @@ impl Text {
         self
     }
 
-
-
     /// Get text content
-    pub fn content(&self) -> &str {
-        &self.content
+    pub fn content(&self) -> String {
+        self.content.get()
     }
 
     /// Set text content
     pub fn set_content(&mut self, content: impl Into<String>) {
-        self.content = content.into();
+        self.content.set(content.into());
         self.invalidate_layout();
     }
 
@@ -472,7 +476,8 @@ impl Text {
         let mut current_line = String::new();
         let mut current_line_width = 0.0;
         
-        let words: Vec<&str> = self.content.split_whitespace().collect();
+        let content = self.content.get();
+        let words: Vec<&str> = content.split_whitespace().collect();
         let space_width = measure_char_width(' ', self.style.font_size) + self.style.letter_spacing;
         
         for (i, word) in words.iter().enumerate() {
@@ -500,8 +505,8 @@ impl Text {
         }
         
         // If no content but we have text, treat as one line (e.g. single word too long or empty)
-        if lines.is_empty() && !self.content.is_empty() {
-             lines.push(self.content.clone());
+        if lines.is_empty() && !content.is_empty() {
+             lines.push(content.clone());
         }
 
         // Apply max_lines constraint
@@ -568,7 +573,7 @@ impl Text {
             let char_in_line = (relative_x / char_width) as usize;
             
             // Simple character position calculation
-            let position = char_in_line.min(self.content.len());
+            let position = char_in_line.min(self.content.get().len());
             
             self.set_selection(Some(position), Some(position));
             return true;
@@ -589,7 +594,7 @@ impl Text {
                 let char_width = self.style.font_size * 0.6;
                 let position = (relative_x / char_width) as usize;
                 
-                self.selection_end.set(Some(position.min(self.content.len())));
+                self.selection_end.set(Some(position.min(self.content.get().len())));
                 return true;
             }
         }

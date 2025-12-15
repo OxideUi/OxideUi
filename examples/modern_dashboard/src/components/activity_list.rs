@@ -16,10 +16,10 @@ impl ActivityList {
         }
     }
 
-    pub fn build(self) -> Box<dyn Widget> {
+    pub fn build(self) -> impl Widget {
         let theme = self.theme;
 
-        Box::new(Container::new()
+        Container::new()
             .background(theme.bg_secondary)
             .border_radius(BORDER_RADIUS_MD)
             .padding(SPACING_MD)
@@ -39,7 +39,6 @@ impl ActivityList {
                         self.activity_item("Payment failed", "2 hours ago", theme.error),
                     ])
             )
-        )
     }
 
     fn activity_item(&self, title: &str, time: &str, dot_color: strato_core::types::Color) -> Box<dyn Widget> {

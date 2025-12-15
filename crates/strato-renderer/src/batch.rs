@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use strato_core::types::{Color, Rect, Transform};
 use crate::vertex::Vertex;
 use crate::text::TextRenderer;
+use std::ops::Range;
 
 use strato_core::text::TextAlign;
 
@@ -15,6 +16,7 @@ pub enum DrawCommand {
         rect: Rect,
         color: Color,
         transform: Transform,
+        index_range: Range<u32>,
     },
     /// Draw a rectangle with rounded corners
     RoundedRect {
@@ -48,6 +50,7 @@ pub enum DrawCommand {
         uv_rect: Rect,
         color: Color,
         transform: Transform,
+        index_range: Range<u32>,
     },
     /// Draw a circle
     Circle {
@@ -55,6 +58,8 @@ pub enum DrawCommand {
         radius: f32,
         color: Color,
         segments: u32,
+        transform: Transform,
+        index_range: Range<u32>,
     },
     /// Draw a line
     Line {
@@ -62,6 +67,7 @@ pub enum DrawCommand {
         end: (f32, f32),
         color: Color,
         thickness: f32,
+        index_range: Range<u32>,
     },
     /// Push a clipping rectangle
     PushClip(Rect),
@@ -119,9 +125,17 @@ impl RenderBatch {
 
     /// Add a rectangle to the batch
     pub fn add_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
-        let command = DrawCommand::Rect { rect, color, transform };
-        self.commands.push(command);
+        let start_index = self.indices.len() as u32;
         self.batch_rect(rect, color, transform);
+        let end_index = self.indices.len() as u32;
+        
+        let command = DrawCommand::Rect { 
+            rect, 
+            color, 
+            transform,
+            index_range: start_index..end_index,
+        };
+        self.commands.push(command);
     }
 
     /// Push a clipping rectangle
@@ -160,9 +174,15 @@ impl RenderBatch {
 
     /// Add a rectangle to the overlay layer (drawn last)
     pub fn add_overlay_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
-        let command = DrawCommand::Rect { rect, color, transform };
+
+        let command = DrawCommand::Rect { 
+            rect, 
+            color, 
+            transform,
+            index_range: 0..0 
+        };
         self.overlay_commands.push(command);
-        // We don't batch vertices here because we are not using them in the current backend implementation
+        
     }
 
     /// Add aligned text to the overlay layer (drawn last)
@@ -209,29 +229,39 @@ impl RenderBatch {
         color: Color,
         transform: Transform,
     ) {
+        let start_index = self.indices.len() as u32;
+        self.batch_textured_quad(rect, uv_rect, color, transform);
+        let end_index = self.indices.len() as u32;
+
         let command = DrawCommand::TexturedQuad {
             rect,
             texture_id,
             uv_rect,
             color,
             transform,
+            index_range: start_index..end_index,
         };
         self.commands.push(command);
-        self.batch_textured_quad(rect, uv_rect, color, transform);
     }
 
     /// Add a circle to the batch
-    pub fn add_circle(&mut self, center: (f32, f32), radius: f32, color: Color, segments: u32) {
-        let command = DrawCommand::Circle { center, radius, color, segments };
+    pub fn add_circle(&mut self, center: (f32, f32), radius: f32, color: Color, segments: u32, transform: Transform) {
+        let start_index = self.indices.len() as u32;
+        self.batch_circle(center, radius, color, segments, transform);
+        let end_index = self.indices.len() as u32;
+
+        let command = DrawCommand::Circle { center, radius, color, segments, transform, index_range: start_index..end_index };
         self.commands.push(command);
-        self.batch_circle(center, radius, color, segments);
     }
 
     /// Add a line to the batch
     pub fn add_line(&mut self, start: (f32, f32), end: (f32, f32), color: Color, thickness: f32) {
-        let command = DrawCommand::Line { start, end, color, thickness };
-        self.commands.push(command);
+        let start_index = self.indices.len() as u32;
         self.batch_line(start, end, color, thickness);
+        let end_index = self.indices.len() as u32;
+        
+        let command = DrawCommand::Line { start, end, color, thickness, index_range: start_index..end_index };
+        self.commands.push(command);
     }
 
     /// Add raw vertices and indices to the batch
@@ -421,12 +451,12 @@ impl RenderBatch {
     }
 
     /// Batch a circle
-    fn batch_circle(&mut self, center: (f32, f32), radius: f32, color: Color, segments: u32) {
+    fn batch_circle(&mut self, center: (f32, f32), radius: f32, color: Color, segments: u32, transform: Transform) {
         let (cx, cy) = center;
         
         // Center vertex
         self.vertices.push(Vertex {
-            position: [cx, cy],
+            position: self.apply_transform([cx, cy], transform),
             uv: [0.5, 0.5],
             color: [color.r, color.g, color.b, color.a],
             params: [0.0, 0.0, 0.0, 0.0],
@@ -443,7 +473,7 @@ impl RenderBatch {
             let y = cy + radius * angle.sin();
             
             self.vertices.push(Vertex {
-                position: [x, y],
+                position: self.apply_transform([x, y], transform),
                 uv: [0.5 + 0.5 * angle.cos(), 0.5 + 0.5 * angle.sin()],
                 color: [color.r, color.g, color.b, color.a],
                 params: [0.0, 0.0, 0.0, 0.0],
@@ -590,7 +620,10 @@ mod tests {
         let color = Color::rgba(0.0, 1.0, 0.0, 1.0);
         let segments = 16;
 
-        batch.add_circle(center, radius, color, segments);
+        let segments = 16;
+        let transform = Transform::default();
+
+        batch.add_circle(center, radius, color, segments, transform);
 
         assert_eq!(batch.vertex_count(), segments as usize + 2); // center + perimeter + closing
         assert_eq!(batch.draw_call_count(), 1);

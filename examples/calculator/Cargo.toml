@@ -13,3 +13,4 @@ strato-sdk = { path = "../.." }
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }
 anyhow = "1.0"
 parking_lot = "0.12"
+strato-renderer = { version = "0.1.0", path = "../../crates/strato-renderer" }

@@ -394,7 +394,7 @@ impl Widget for RadioButton {
             Color::WHITE
         };
         
-        batch.add_circle(center, radius, bg_color, 16);
+        batch.add_circle(center, radius, bg_color, 16, strato_core::types::Transform::default());
         
         // Draw label
         if let Some(label) = &self.label {

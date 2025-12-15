@@ -373,59 +373,9 @@ impl EventLoop {
                                             if let Err(e) = backend.begin_frame() {
                                                 tracing::error!("Backend begin_frame error: {}", e);
                                             } else {
-                                                // Convert batch commands to render commands
-                                                let mut commands = Vec::new();
-                                                
-                                                // 1. Normal commands
-                                                for cmd in batch.commands {
-                                                    match cmd {
-                                                        strato_renderer::batch::DrawCommand::Rect { rect, color, transform } => {
-                                                            commands.push(strato_renderer::RenderCommand::DrawRect {
-                                                                rect,
-                                                                color,
-                                                                transform: Some(transform),
-                                                            });
-                                                        }
-                                                        strato_renderer::batch::DrawCommand::Text { text, position, color, font_size, align, .. } => {
-                                                             commands.push(strato_renderer::RenderCommand::DrawText {
-                                                                text,
-                                                                position,
-                                                                color,
-                                                                font_size,
-                                                                align,
-                                                            });
-                                                        }
-                                                        // TODO: Implement other commands
-                                                        _ => {}
-                                                    }
-                                                }
-                                                
-                                                // 2. Overlay commands (drawn on top)
-                                                for cmd in batch.overlay_commands {
-                                                    match cmd {
-                                                        strato_renderer::batch::DrawCommand::Rect { rect, color, transform } => {
-                                                            commands.push(strato_renderer::RenderCommand::DrawRect {
-                                                                rect,
-                                                                color,
-                                                                transform: Some(transform),
-                                                            });
-                                                        }
-                                                        strato_renderer::batch::DrawCommand::Text { text, position, color, font_size, align, .. } => {
-                                                              commands.push(strato_renderer::RenderCommand::DrawText {
-                                                                 text,
-                                                                 position,
-                                                                 color,
-                                                                 font_size,
-                                                                 align,
-                                                             });
-                                                         }
-                                                        // TODO: Implement other commands
-                                                        _ => {}
-                                                    }
-                                                }
-                                                
-                                                if let Err(e) = backend.submit(&commands) {
-                                                    tracing::error!("Backend submit error: {}", e);
+                                                // Submit the batch directly using the optimized path
+                                                if let Err(e) = backend.submit_batch(&batch) {
+                                                    tracing::error!("Backend submit_batch error: {}", e);
                                                 }
                                                 
                                                 if let Err(e) = backend.end_frame() {

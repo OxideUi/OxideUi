@@ -281,8 +281,9 @@ impl Widget for Slider {
         batch.add_circle(
             (thumb_center_x, thumb_center_y),
             thumb_radius,
-            thumb_color,
-            24,
+            thumb_color, // Use state-aware color
+            16,
+            strato_core::types::Transform::default(),
         );
     }
 

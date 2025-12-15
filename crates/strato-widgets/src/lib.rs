@@ -10,6 +10,9 @@ pub mod container;
 pub mod input;
 pub mod layout;
 pub mod theme;
+pub mod wrap;
+pub mod grid;
+pub mod animation;
 pub mod builder;
 pub mod checkbox;
 pub mod slider;
@@ -34,6 +37,8 @@ pub use slider::{Slider, ProgressBar, SliderStyle};
 pub use dropdown::{Dropdown, DropdownOption, DropdownStyle};
 pub use image::{Image, ImageBuilder, ImageFit, ImageSource, ImageData, ImageFormat, ImageFilter, ImageStyle};
 pub use scroll_view::ScrollView;
+pub use grid::{Grid, GridUnit};
+
 
 /// Initialize the widgets module
 pub fn init() -> strato_core::Result<()> {

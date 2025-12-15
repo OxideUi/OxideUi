@@ -27,4 +27,13 @@ pub trait Backend: Send + Sync {
 
     /// Submit a list of render commands to be executed
     fn submit(&mut self, commands: &[RenderCommand]) -> Result<()>;
+
+    /// Submit a render batch for execution (optimized path)
+    fn submit_batch(&mut self, _batch: &crate::batch::RenderBatch) -> Result<()> {
+         // Default implementation falls back to submit if possible, or errors?
+         // Since RenderBatch contains DrawCommands which are not exactly RenderCommands (DrawCommand vs RenderCommand),
+         // we can't easily fallback without conversion logic.
+         // Let's make it mandatory or return logic error.
+         Err(anyhow::anyhow!("submit_batch not implemented for this backend"))
+    }
 }
