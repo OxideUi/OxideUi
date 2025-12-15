@@ -15,6 +15,7 @@ pub mod checkbox;
 pub mod slider;
 pub mod dropdown;
 pub mod image;
+pub mod scroll_view;
 
 pub mod prelude;
 use crate::prelude::*;
@@ -32,6 +33,7 @@ pub use checkbox::{Checkbox, RadioButton, CheckboxStyle};
 pub use slider::{Slider, ProgressBar, SliderStyle};
 pub use dropdown::{Dropdown, DropdownOption, DropdownStyle};
 pub use image::{Image, ImageBuilder, ImageFit, ImageSource, ImageData, ImageFormat, ImageFilter, ImageStyle};
+pub use scroll_view::ScrollView;
 
 /// Initialize the widgets module
 pub fn init() -> oxide_core::Result<()> {

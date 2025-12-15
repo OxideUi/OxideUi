@@ -604,6 +604,12 @@ impl Text {
 
         let bounds = self.bounds.get();
         
+        // Apply clipping if needed
+        let should_clip = matches!(self.style.text_overflow, TextOverflow::Clip | TextOverflow::Scroll);
+        if should_clip {
+            batch.push_clip(bounds);
+        }
+        
         // Render selection background if any
         if let Some((start, end)) = self.get_selection() {
             if start != end {
@@ -674,6 +680,10 @@ impl Text {
                 );
                 batch.add_vertices(&vertices, &indices);
             }
+        }
+        
+        if should_clip {
+            batch.pop_clip();
         }
         
         // TODO: Re-implement TextSpan support for multi-line text

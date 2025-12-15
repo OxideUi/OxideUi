@@ -167,9 +167,84 @@ impl Backend for WgpuBackend {
         self.indices.clear();
         let mut vertex_count = 0;
 
+        struct DrawBatch {
+            index_start: u32,
+            index_count: u32,
+            scissor: Option<[u32; 4]>,
+        }
+
+        let mut batches: Vec<DrawBatch> = Vec::new();
+        let mut current_index_start = 0;
+        let mut current_index_count = 0;
+        let mut scissor_stack: Vec<[u32; 4]> = Vec::new();
+
+        let get_current_scissor = |stack: &[ [u32; 4] ]| -> Option<[u32; 4]> {
+            stack.last().cloned()
+        };
+
         // 2. Process commands
         for cmd in commands {
             match cmd {
+                RenderCommand::PushClip(rect) => {
+                     // Finish current batch if needed
+                    if current_index_count > 0 {
+                        batches.push(DrawBatch {
+                            index_start: current_index_start,
+                            index_count: current_index_count,
+                            scissor: get_current_scissor(&scissor_stack),
+                        });
+                        current_index_start += current_index_count;
+                        current_index_count = 0;
+                    }
+
+                    // Calculate new scissor rect
+                    let scale = self.scale_factor;
+                    let x = (rect.x as f64 * scale).round() as i32;
+                    let y = (rect.y as f64 * scale).round() as i32;
+                    let w = (rect.width as f64 * scale).round() as i32;
+                    let h = (rect.height as f64 * scale).round() as i32;
+
+                    let surface_w = surface_mgr.width() as i32;
+                    let surface_h = surface_mgr.height() as i32;
+
+                    // Intersect with surface bounds
+                    let min_x = x.max(0);
+                    let min_y = y.max(0);
+                    let max_x = (x + w).min(surface_w).max(min_x);
+                    let max_y = (y + h).min(surface_h).max(min_y);
+                    
+                    let mut new_rect = [min_x as u32, min_y as u32, (max_x - min_x) as u32, (max_y - min_y) as u32];
+
+                    // Intersect with current scissor
+                    if let Some(parent) = scissor_stack.last() {
+                        let px = parent[0];
+                        let py = parent[1];
+                        let pw = parent[2];
+                        let ph = parent[3];
+
+                        let ix = new_rect[0].max(px);
+                        let iy = new_rect[1].max(py);
+                        let iw = (new_rect[0] + new_rect[2]).min(px + pw).saturating_sub(ix);
+                        let ih = (new_rect[1] + new_rect[3]).min(py + ph).saturating_sub(iy);
+                        
+                        new_rect = [ix, iy, iw, ih];
+                    }
+
+                    scissor_stack.push(new_rect);
+                }
+                RenderCommand::PopClip => {
+                    // Finish current batch if needed
+                    if current_index_count > 0 {
+                        batches.push(DrawBatch {
+                            index_start: current_index_start,
+                            index_count: current_index_count,
+                            scissor: get_current_scissor(&scissor_stack),
+                        });
+                        current_index_start += current_index_count;
+                        current_index_count = 0;
+                    }
+                    scissor_stack.pop();
+                }
                 RenderCommand::DrawRect { rect, color, transform } => {
                      let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
                     
@@ -202,6 +277,7 @@ impl Backend for WgpuBackend {
                     self.indices.push(vertex_count + 3);
 
                     vertex_count += 4;
+                    current_index_count += 6;
                 }
                 RenderCommand::DrawText { text, position, color, font_size, align } => {
                     let (x_orig, y) = *position;
@@ -267,6 +343,7 @@ impl Backend for WgpuBackend {
                             self.indices.push(vertex_count + 3);
                             
                             vertex_count += 4;
+                            current_index_count += 6;
                             
                             x += glyph.metrics.advance;
                         } else if ch == ' ' {
@@ -277,10 +354,14 @@ impl Backend for WgpuBackend {
                 _ => {}
             }
         }
-
-        if self.indices.is_empty() {
-            // Nothing to draw
-             // Still need to clear screen?
+        
+        // Push final batch
+        if current_index_count > 0 {
+            batches.push(DrawBatch {
+                index_start: current_index_start,
+                index_count: current_index_count,
+                scissor: get_current_scissor(&scissor_stack),
+            });
         }
 
         // 3. Update buffers
@@ -322,7 +403,23 @@ impl Backend for WgpuBackend {
                 render_pass.set_bind_group(0, pipeline_mgr.bind_group(), &[]);
                 render_pass.set_vertex_buffer(0, buffer_mgr.vertex_buffer().slice(..));
                 render_pass.set_index_buffer(buffer_mgr.index_buffer().slice(..), wgpu::IndexFormat::Uint32);
-                render_pass.draw_indexed(0..self.indices.len() as u32, 0, 0..1);
+                
+                for batch in batches {
+                     if batch.index_count == 0 { continue; }
+                     
+                     // Apply scissor
+                     if let Some(scissor) = batch.scissor {
+                         if scissor[2] == 0 || scissor[3] == 0 {
+                             continue; // Empty scissor, skip draw
+                         }
+                         render_pass.set_scissor_rect(scissor[0], scissor[1], scissor[2], scissor[3]);
+                     } else {
+                         // Reset to full screen if no scissor
+                         render_pass.set_scissor_rect(0, 0, surface_mgr.width(), surface_mgr.height());
+                     }
+
+                     render_pass.draw_indexed(batch.index_start .. batch.index_start + batch.index_count, 0, 0..1);
+                 }
             }
         }
 

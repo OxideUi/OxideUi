@@ -1,0 +1,15 @@
+[package]
+name = "modern_dashboard"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+oxide-core = { path = "../../crates/oxide-core" }
+oxide-widgets = { path = "../../crates/oxide-widgets" }
+oxide-renderer = { path = "../../crates/oxide-renderer" }
+oxide-platform = { path = "../../crates/oxide-platform" }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tracing-appender = "0.2"
+anyhow = "1.0"
+chrono = "0.4"

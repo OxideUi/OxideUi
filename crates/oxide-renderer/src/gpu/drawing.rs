@@ -105,22 +105,90 @@ impl DrawingSystem {
     /// Render a batch
     pub fn render(&mut self, batch: &RenderBatch) -> anyhow::Result<()> {
         // 1. Process batch commands to generate vertices (including text)
-        // We rebuild the vertex buffer here to handle text rendering which needs TextureManager
         let mut vertices: Vec<SimpleVertex> = Vec::new();
         let mut indices: Vec<u32> = Vec::new();
         let mut vertex_count = 0;
 
-        // Process direct vertices from batch
-        for v in &batch.vertices {
-            vertices.push(SimpleVertex::from(v));
+        // Clipping state
+        struct GPUDrawBatch {
+            index_start: u32,
+            index_count: u32,
+            scissor: Option<[u32; 4]>,
         }
-        for i in &batch.indices {
-            indices.push((*i as u32) + vertex_count);
-        }
-        vertex_count += batch.vertices.len() as u32;
+        let mut batches: Vec<GPUDrawBatch> = Vec::new();
+        let mut current_index_start = 0;
+        let mut current_index_count = 0;
+        let mut scissor_stack: Vec<[u32; 4]> = Vec::new();
+        
+        let get_current_scissor = |stack: &[ [u32; 4] ]| -> Option<[u32; 4]> {
+            stack.last().cloned()
+        };
+
+        // Note: We ignore batch.vertices here because we regenerate everything from commands
+        // to ensure correct Z-ordering and support interleaved clipping.
 
         for command in &batch.commands {
             match command {
+                crate::batch::DrawCommand::PushClip(rect) => {
+                     // Finish current batch if needed
+                    if current_index_count > 0 {
+                        batches.push(GPUDrawBatch {
+                            index_start: current_index_start,
+                            index_count: current_index_count,
+                            scissor: get_current_scissor(&scissor_stack),
+                        });
+                        current_index_start += current_index_count;
+                        current_index_count = 0;
+                    }
+
+                    // Calculate new scissor rect
+                    let scale = self.scale_factor;
+                    let x = (rect.x as f32 * scale).round() as i32;
+                    let y = (rect.y as f32 * scale).round() as i32;
+                    let w = (rect.width as f32 * scale).round() as i32;
+                    let h = (rect.height as f32 * scale).round() as i32;
+
+                    let surface_w = self.surface_mgr.width() as i32;
+                    let surface_h = self.surface_mgr.height() as i32;
+
+                    // Intersect with surface bounds
+                    let min_x = x.max(0);
+                    let min_y = y.max(0);
+                    let max_x = (x + w).min(surface_w).max(min_x);
+                    let max_y = (y + h).min(surface_h).max(min_y);
+                    
+                    let mut new_rect = [min_x as u32, min_y as u32, (max_x - min_x) as u32, (max_y - min_y) as u32];
+
+                    // Intersect with current scissor
+                    if let Some(parent) = scissor_stack.last() {
+                        let px = parent[0];
+                        let py = parent[1];
+                        let pw = parent[2];
+                        let ph = parent[3];
+
+                        let ix = new_rect[0].max(px);
+                        let iy = new_rect[1].max(py);
+                        let iw = (new_rect[0] + new_rect[2]).min(px + pw).saturating_sub(ix);
+                        let ih = (new_rect[1] + new_rect[3]).min(py + ph).saturating_sub(iy);
+                        
+                        new_rect = [ix, iy, iw, ih];
+                    }
+
+                    scissor_stack.push(new_rect);
+                }
+                crate::batch::DrawCommand::PopClip => {
+                    // Finish current batch if needed
+                    if current_index_count > 0 {
+                        batches.push(GPUDrawBatch {
+                            index_start: current_index_start,
+                            index_count: current_index_count,
+                            scissor: get_current_scissor(&scissor_stack),
+                        });
+                        current_index_start += current_index_count;
+                        current_index_count = 0;
+                    }
+                    scissor_stack.pop();
+                }
                 crate::batch::DrawCommand::RoundedRect { rect, color, radius, transform } => {
                     let color_arr = [color.r, color.g, color.b, color.a];
                     let (v_list, i_list) = VertexBuilder::rounded_rectangle(
@@ -128,6 +196,8 @@ impl DrawingSystem {
                     );
                     
                     let added_count = v_list.len() as u32;
+                    let index_count = i_list.len() as u32;
+                    
                     for v in v_list {
                          let mut sv = SimpleVertex::from(&v);
                          // Apply transform
@@ -141,10 +211,9 @@ impl DrawingSystem {
                         indices.push((i as u32) + vertex_count);
                     }
                     vertex_count += added_count;
+                    current_index_count += index_count;
                 }
                 crate::batch::DrawCommand::Rect { rect, color, transform } => {
-                    // Re-implement rect batching logic here or reuse helper
-                    // For simplicity, we duplicate the logic for now to ensure correct ordering
                     let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
                     
                     // Apply transform using oxide_core::Transform method
@@ -175,20 +244,26 @@ impl DrawingSystem {
                     indices.push(vertex_count + 3);
 
                     vertex_count += 4;
+                    current_index_count += 6;
                 }
                 crate::batch::DrawCommand::Text { text, position, color, font_size, letter_spacing, align } => {
                     let (mut x, y) = *position;
                     let color_arr = [color.r, color.g, color.b, color.a];
-                    // font_size is &f32, dereference it for use as f32
                     let font_size_val = *font_size; 
                     let spacing_val = *letter_spacing;
+                    
+                    // Use scale factor for high-resolution text rasterization
+                    let scale = self.scale_factor;
+                    let physical_font_size = (font_size_val * scale).round() as u32;
                     
                     // Handle alignment
                     if *align != oxide_core::text::TextAlign::Left {
                         let mut width = 0.0;
                         for ch in text.chars() {
-                             if let Some(glyph) = self.texture_mgr.get_or_cache_glyph(self.device_mgr.queue(), ch, font_size_val as u32) {
-                                 width += glyph.metrics.advance + spacing_val;
+                             if let Some(glyph) = self.texture_mgr.get_or_cache_glyph(self.device_mgr.queue(), ch, physical_font_size) {
+                                 // Scale metrics back to logical coordinates for layout
+                                 let advance = glyph.metrics.advance / scale;
+                                 width += advance + spacing_val;
                              } else if ch == ' ' {
                                  width += font_size_val * 0.3 + spacing_val;
                              }
@@ -201,12 +276,8 @@ impl DrawingSystem {
                         }
                     }
                     
-                    // Calculate baseline from top-left y
-                    // The layout engine passes top-left coordinates, but font rendering works relative to baseline.
-                    // We need to add the ascent to get the baseline Y.
-                    // Calculate this ONCE before the loop to avoid borrow checker issues and improve performance.
-                    let ascent = if let Some(metrics) = self.texture_mgr.get_line_metrics(font_size_val) {
-                        metrics.ascent
+                    let ascent = if let Some(metrics) = self.texture_mgr.get_line_metrics(physical_font_size as f32) {
+                        metrics.ascent / scale
                     } else {
                         font_size_val * 0.8 // Fallback approximation
                     };
@@ -217,20 +288,20 @@ impl DrawingSystem {
                         if let Some(glyph) = self.texture_mgr.get_or_cache_glyph(
                             self.device_mgr.queue(),
                             ch, 
-                            font_size_val as u32
+                            physical_font_size
                         ) {
-                            let glyph_x = (x + glyph.metrics.bearing_x as f32).round();
+                            // Scale metrics back to logical coordinates for rendering
+                            let bearing_x = glyph.metrics.bearing_x as f32 / scale;
+                            let bearing_y = glyph.metrics.bearing_y as f32 / scale;
+                            let w = glyph.metrics.width as f32 / scale;
+                            let h = glyph.metrics.height as f32 / scale;
+                            let advance = glyph.metrics.advance / scale;
                             
-                            // Calculate glyph position relative to baseline
-                            // In screen coordinates (Y down), to go "up" to the top of the glyph from baseline,
-                            // we subtract the bearing_y (which is distance from baseline to top).
-                            let glyph_y = (baseline - glyph.metrics.bearing_y as f32).round();
+                            let glyph_x = (x + bearing_x).round();
+                            let glyph_y = (baseline - bearing_y).round();
                             
-                            let w = glyph.metrics.width as f32;
-                            let h = glyph.metrics.height as f32;
                             let (u0, v0, u1, v1) = glyph.uv_rect;
 
-                            // Textured quad for glyph
                             vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(
                                 [glyph_x, glyph_y], 
                                 [u0, v0],
@@ -260,11 +331,10 @@ impl DrawingSystem {
                             indices.push(vertex_count + 3);
 
                             vertex_count += 4;
+                            current_index_count += 6;
                             
-                            // Advance cursor
-                            x += glyph.metrics.advance + spacing_val;
+                            x += advance + spacing_val;
                         } else {
-                            // Space or unknown char
                             if ch == ' ' {
                                 x += font_size_val * 0.3 + spacing_val;
                             }
@@ -272,7 +342,6 @@ impl DrawingSystem {
                     }
                 }
                 crate::batch::DrawCommand::Image { id, data, width, height, rect, color } => {
-                    // Upload or get cached image
                     if let Some(image) = self.texture_mgr.get_or_upload_image(
                         self.device_mgr.queue(),
                         *id,
@@ -284,8 +353,6 @@ impl DrawingSystem {
                         let (u0, v0, u1, v1) = image.uv_rect;
                         let color_arr = [color.r, color.g, color.b, color.a];
 
-                        // Textured quad for image
-                        // We use SimpleVertex directly
                         vertices.push(SimpleVertex::from(&crate::vertex::Vertex::textured(
                             [x, y], 
                             [u0, v0],
@@ -315,15 +382,14 @@ impl DrawingSystem {
                         indices.push(vertex_count + 3);
 
                         vertex_count += 4;
+                        current_index_count += 6;
                     }
                 }
                 crate::batch::DrawCommand::TexturedQuad { rect, texture_id: _, uv_rect, color, transform } => {
-                    // We assume the texture is already in the global atlas and we just use the UVs
                     let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
                     let (u, v, uw, vh) = (uv_rect.x, uv_rect.y, uv_rect.width, uv_rect.height);
                     let color_arr = [color.r, color.g, color.b, color.a];
 
-                    // Apply transform helper
                     let apply_transform = |p: [f32; 2]| -> [f32; 2] {
                         let point = oxide_core::types::Point::new(p[0], p[1]);
                         let transformed = transform.transform_point(point);
@@ -335,8 +401,6 @@ impl DrawingSystem {
                     let p2 = apply_transform([x + w, y + h]);
                     let p3 = apply_transform([x, y + h]);
 
-                    // Note: vertex::textured takes [u0, v0], but TexturedQuad command has uv_rect which is [u, v, width, height]
-                    // So we calculate corners
                     let uv0 = [u, v];
                     let uv1 = [u + uw, v];
                     let uv2 = [u + uw, v + vh];
@@ -355,9 +419,94 @@ impl DrawingSystem {
                     indices.push(vertex_count + 3);
 
                     vertex_count += 4;
+                    current_index_count += 6;
                 }
-                _ => {} // Handle other commands if needed
+                crate::batch::DrawCommand::Circle { center, radius, color, segments } => {
+                    let (cx, cy) = *center;
+                    let radius = *radius;
+                    let color_arr = [color.r, color.g, color.b, color.a];
+                    let segments = *segments;
+                    
+                    // Center vertex
+                    vertices.push(SimpleVertex::from(&crate::vertex::Vertex {
+                        position: [cx, cy],
+                        uv: [0.5, 0.5],
+                        color: color_arr,
+                        params: [0.0, 0.0, 0.0, 0.0],
+                        flags: 0,
+                    }));
+                    
+                    let center_index = vertex_count;
+                    vertex_count += 1;
+                    
+                    for i in 0..=segments {
+                        let angle = (i as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
+                        let x = cx + radius * angle.cos();
+                        let y = cy + radius * angle.sin();
+                        
+                        vertices.push(SimpleVertex::from(&crate::vertex::Vertex {
+                            position: [x, y],
+                            uv: [0.5 + 0.5 * angle.cos(), 0.5 + 0.5 * angle.sin()],
+                            color: color_arr,
+                            params: [0.0, 0.0, 0.0, 0.0],
+                            flags: 0,
+                        }));
+                        
+                        if i > 0 {
+                            indices.push(center_index);
+                            indices.push(vertex_count - 1);
+                            indices.push(vertex_count);
+                            current_index_count += 3;
+                        }
+                        
+                        vertex_count += 1;
+                    }
+                }
+                crate::batch::DrawCommand::Line { start, end, color, thickness } => {
+                    let (x1, y1) = *start;
+                    let (x2, y2) = *end;
+                    let thickness = *thickness;
+                    let color_arr = [color.r, color.g, color.b, color.a];
+                    
+                    let dx = x2 - x1;
+                    let dy = y2 - y1;
+                    let length = (dx * dx + dy * dy).sqrt();
+                    
+                    if length > 0.0 {
+                        let nx = -dy / length * thickness * 0.5;
+                        let ny = dx / length * thickness * 0.5;
+                        
+                        let p0 = [x1 + nx, y1 + ny];
+                        let p1 = [x2 + nx, y2 + ny];
+                        let p2 = [x2 - nx, y2 - ny];
+                        let p3 = [x1 - nx, y1 - ny];
+                        
+                        vertices.push(SimpleVertex::from(&crate::vertex::Vertex::solid(p0, color_arr)));
+                        vertices.push(SimpleVertex::from(&crate::vertex::Vertex::solid(p1, color_arr)));
+                        vertices.push(SimpleVertex::from(&crate::vertex::Vertex::solid(p2, color_arr)));
+                        vertices.push(SimpleVertex::from(&crate::vertex::Vertex::solid(p3, color_arr)));
+                        
+                        indices.push(vertex_count);
+                        indices.push(vertex_count + 1);
+                        indices.push(vertex_count + 2);
+                        indices.push(vertex_count);
+                        indices.push(vertex_count + 2);
+                        indices.push(vertex_count + 3);
+                        
+                        vertex_count += 4;
+                        current_index_count += 6;
+                    }
+                }
             }
+        }
+        
+        // Push final batch
+        if current_index_count > 0 {
+            batches.push(GPUDrawBatch {
+                index_start: current_index_start,
+                index_count: current_index_count,
+                scissor: get_current_scissor(&scissor_stack),
+            });
         }
         
         // 3. Upload vertices and indices to GPU
@@ -417,7 +566,21 @@ impl DrawingSystem {
             );
             
             // 10. Draw indexed
-            render_pass.draw_indexed(0..indices.len() as u32, 0, 0..1);
+            for batch in batches {
+                 if batch.index_count == 0 { continue; }
+                 
+                 // Apply scissor
+                 if let Some(scissor) = batch.scissor {
+                     if scissor[2] == 0 || scissor[3] == 0 {
+                         continue; 
+                     }
+                     render_pass.set_scissor_rect(scissor[0], scissor[1], scissor[2], scissor[3]);
+                 } else {
+                     render_pass.set_scissor_rect(0, 0, self.surface_mgr.width(), self.surface_mgr.height());
+                 }
+
+                 render_pass.draw_indexed(batch.index_start .. batch.index_start + batch.index_count, 0, 0..1);
+            }
         }
         
         // 11. Submit command buffer

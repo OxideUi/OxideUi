@@ -273,6 +273,12 @@ Check out our [examples](examples/) directory for more complete applications:
 
 - [Hello World](examples/hello_world/) - Basic application structure
 - [Counter](examples/counter/) - State management example
+- [Modern Dashboard](examples/modern_dashboard/) - **New!** Comprehensive example featuring:
+  - Modular architecture (Views, Components)
+  - Multi-page navigation (Dashboard, Analytics, Users, Settings)
+  - Modern UI with responsive layout (Flexbox)
+  - Theming system
+  - Simulated backend integration
 - [Todo App](examples/todo_app/) - Full CRUD application (coming soon)
 - [Calculator](examples/calculator/) - Complex layout example (coming soon)
 

@@ -110,7 +110,7 @@ impl GlyphRasterizer {
             width: metrics.width as u32,
             height: metrics.height as u32,
             bearing_x: metrics.xmin,
-            bearing_y: metrics.ymin,
+            bearing_y: metrics.ymin + metrics.height as i32,
             advance: metrics.advance_width,
         };
 

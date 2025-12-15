@@ -161,9 +161,9 @@ fn create_interactive_section() -> Box<dyn Widget> {
                                     Box::new(Row::new()
                                         .spacing(10.0)
                                         .children(vec![
-                                            Box::new(Button::new("Primary").primary()) as Box<dyn Widget>,
-                                            Box::new(Button::new("Secondary").secondary()) as Box<dyn Widget>,
-                                            Box::new(Button::new("Danger").danger()) as Box<dyn Widget>,
+                                            Box::new(Flex::new(Box::new(Button::new("Primary").primary())).flex(1.0)) as Box<dyn Widget>,
+                                            Box::new(Flex::new(Box::new(Button::new("Secondary").secondary())).flex(1.0)) as Box<dyn Widget>,
+                                            Box::new(Flex::new(Box::new(Button::new("Danger").danger())).flex(1.0)) as Box<dyn Widget>,
                                         ])
                                     ) as Box<dyn Widget>,
                                 ])

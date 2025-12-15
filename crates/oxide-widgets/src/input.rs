@@ -664,6 +664,8 @@ impl TextInput {
         }
         
         // Handle text input from KeyboardEvent
+        // NOTE: In many systems, character input comes via Event::TextInput, not KeyboardEvent::text
+        // We keep this for compatibility if the platform sends text here.
         if let Some(ref text) = event.text {
             for ch in text.chars() {
                 if ch.is_control() {
@@ -917,11 +919,30 @@ impl Widget for TextInput {
                 if self.handle_mouse_event(mouse_event) {
                     EventResult::Handled
                 } else {
-                    EventResult::Ignored
+                    // If we click outside and we were focused, we should blur
+                    if self.is_focused() {
+                        self.blur();
+                        EventResult::Handled // We handled the blur
+                    } else {
+                        EventResult::Ignored
+                    }
                 }
             }
             Event::KeyDown(key_event) => {
                 if self.handle_key_event(key_event) {
+                    EventResult::Handled
+                } else {
+                    EventResult::Ignored
+                }
+            }
+            // Add handling for TextInput events from IME/system
+            Event::TextInput(text) => {
+                if self.is_focused() && !self.is_disabled() && !self.is_readonly() {
+                    for ch in text.chars() {
+                        if !ch.is_control() {
+                            self.insert_char(ch);
+                        }
+                    }
                     EventResult::Handled
                 } else {
                     EventResult::Ignored

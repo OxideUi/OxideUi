@@ -63,6 +63,10 @@ pub enum DrawCommand {
         color: Color,
         thickness: f32,
     },
+    /// Push a clipping rectangle
+    PushClip(Rect),
+    /// Pop the last clipping rectangle
+    PopClip,
 }
 
 /// Render batch for collecting draw commands
@@ -118,6 +122,16 @@ impl RenderBatch {
         let command = DrawCommand::Rect { rect, color, transform };
         self.commands.push(command);
         self.batch_rect(rect, color, transform);
+    }
+
+    /// Push a clipping rectangle
+    pub fn push_clip(&mut self, rect: Rect) {
+        self.commands.push(DrawCommand::PushClip(rect));
+    }
+
+    /// Pop the last clipping rectangle
+    pub fn pop_clip(&mut self) {
+        self.commands.push(DrawCommand::PopClip);
     }
 
     /// Add a rounded rectangle to the batch

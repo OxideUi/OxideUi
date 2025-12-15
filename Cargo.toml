@@ -7,6 +7,7 @@ members = [
     "examples/complex_demo",
     "examples/advanced_renderer",
     "examples/comprehensive_test",
+    "examples/modern_dashboard",
     "crates/oxide-core",
     "crates/oxide-renderer", 
     "crates/oxide-widgets",

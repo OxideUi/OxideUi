@@ -134,11 +134,12 @@ The roadmap is intentionally staged:
   - [x] Refactor platform layer to use new Backend API
   - [x] Implement `submit` command processing in WGPU backend
   - [x] Integrate with main UI loop
-- [x] 3. **Enhance UI Widgets and Interaction**
+- [ ] 3. **Enhance UI Widgets and Interaction**
   - [x] Fix UI resizing and scale factor handling
   - [x] Improve Button text alignment and encapsulation
   - [x] Fix Dropdown menu rendering (Z-ordering/Overlay)
-  - [ ] Implement text clipping and scrolling
+  - [x] Fix TextInput functionality (focus, typing, rendering)
+  - [x] Implement text clipping and scrolling
 - [ ] 4. **Expand into animation, batching, and advanced layout**
 - [ ] 5. **Introduce world‑space rendering (2.5D, then 3D)**
 - [ ] 6. **Layer physics, scripting, and plugins only when justified**

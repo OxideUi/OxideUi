@@ -12,6 +12,7 @@ pub use crate::widget::{Widget, WidgetId, WidgetState};
 // Layout widgets
 pub use crate::container::Container;
 pub use crate::layout::{Column, Row, MainAxisAlignment, CrossAxisAlignment};
+pub use crate::scroll_view::ScrollView;
 
 // Basic widgets
 pub use crate::text::Text;

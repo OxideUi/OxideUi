@@ -106,6 +106,11 @@ impl BaseWidget {
         }
     }
 
+    /// Get the widget ID
+    pub fn id(&self) -> WidgetId {
+        self.id
+    }
+
     /// Set minimum size
     pub fn with_min_size(mut self, width: f32, height: f32) -> Self {
         self.min_size = Size::new(width, height);
