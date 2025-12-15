@@ -1,21 +1,14 @@
-# OxideUI 🦀
+# StratoSDK 🦀
 
 [![License: MIT/Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-orange.svg)](https://www.rust-lang.org)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-green.svg)](https://github.com/oxideui/oxide-ui)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-green.svg)](https://github.com/StratoSDK/oxide-ui)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/seregonwar?label=GitHub%20Sponsors&style=flat&logo=GitHub)](https://github.com/sponsors/seregonwar)
 
 
-**OxideUI** is a next-generation, lightweight, secure, and reactive UI framework written in pure Rust. It combines the declarative programming model of Flutter/React with Rust's performance and safety guarantees, offering GPU-accelerated rendering for desktop applications and WebAssembly support for web deployment.
-> ⚠️ **Important Notice**
->
-> We are currently considering a name change for this framework.  
-> The current name (`OxideUI`) is temporary and may change in future releases.  
-> If you have creative ideas or suggestions for a new name, feel free to share them by opening an **issue** or 
-> contacting us directly.
-> OxiedUI is a standalone project unrelated to other entities in the Rust world. This project is managed by the community and was created and is currently maintained by [SeregonWar](https://github.com/seregonwar).
+**StratoSDK** is a next-generation, lightweight, secure, and reactive UI framework written in pure Rust. It combines the declarative programming model of Flutter/React with Rust's performance and safety guarantees, offering GPU-accelerated rendering for desktop applications and WebAssembly support for web deployment.
 
-![Logo OxideUi](https://github.com/OxideUi/OxideUi/raw/main/logos/OxideUi-org.jpg)
+![Logo StratoSDK](https://github.com/StratoSDK/StratoSDK/raw/main/logos/StratoSDK-org.jpg)
 
 ## Features
 
@@ -30,7 +23,7 @@
 
 ## Architecture
 
-OxideUI follows a modular architecture with clear separation of concerns:
+StratoSDK follows a modular architecture with clear separation of concerns:
 
 ```
 oxide-ui/
@@ -53,7 +46,7 @@ oxide-ui/
 
 ### Installation
 
-Add OxideUI to your `Cargo.toml`:
+Add StratoSDK to your `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -70,7 +63,7 @@ use oxide_platform::ApplicationBuilder;
 
 fn main() {
     ApplicationBuilder::new()
-        .title("Hello OxideUI")
+        .title("Hello StratoSDK")
         .run(build_ui())
 }
 
@@ -81,7 +74,7 @@ fn build_ui() -> impl Widget {
             Column::new()
                 .spacing(10.0)
                 .children(vec![
-                    Box::new(Text::new("Hello, OxideUI!")),
+                    Box::new(Text::new("Hello, StratoSDK!")),
                     Box::new(Button::new("Click Me")
                         .on_click(|| println!("Clicked!"))),
                 ])
@@ -94,7 +87,7 @@ fn build_ui() -> impl Widget {
 ### Core Concepts
 
 #### Widgets
-Widgets are the building blocks of OxideUI applications. Every UI element is a widget with properties, state, and rendering logic.
+Widgets are the building blocks of StratoSDK applications. Every UI element is a widget with properties, state, and rendering logic.
 
 ```rust
 // Creating widgets
@@ -108,7 +101,7 @@ let input = TextInput::new()
 ```
 
 #### Layout System
-OxideUI uses a Flexbox-based layout system for arranging widgets:
+StratoSDK uses a Flexbox-based layout system for arranging widgets:
 
 ```rust
 Row::new()
@@ -153,7 +146,7 @@ ThemeProvider::new(theme)
 
 ```bash
 # Clone the repository
-git clone https://github.com/oxideui/oxide-ui.git
+git clone https://github.com/StratoSDK/oxide-ui.git
 cd oxide-ui
 
 # Build all crates
@@ -245,7 +238,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## License
 
-OxideUI is dual-licensed under either:
+StratoSDK is dual-licensed under either:
 
 - AGPL v3 License ([LICENSE-AGPLv3](LICENSE.md))
 - Commercial license ([LICENSE-COMMERCIAL](COMMERCIAL.md))
@@ -262,10 +255,10 @@ at your option.
 
 ## Contact - (not yet available)
 
-- **Website**: [oxideui.dev](https://oxideui.dev)
-- **GitHub**: [github.com/oxideui/oxide-ui](https://github.com/oxideui/oxide-ui)
-- **Discord**: [Join our community](https://discord.gg/oxideui)
-- **Twitter**: [@oxideui](https://twitter.com/oxideui)
+- **Website**: [StratoSDK.dev](https://StratoSDK.dev)
+- **GitHub**: [github.com/StratoSDK/oxide-ui](https://github.com/StratoSDK/oxide-ui)
+- **Discord**: [Join our community](https://discord.gg/StratoSDK)
+- **Twitter**: [@StratoHQ](https://twitter.com/StratoSDK)
 
 ## Examples
 
@@ -278,4 +271,4 @@ Check out our [examples](examples/) directory for more complete applications:
 
 ---
 
-Built with ❤️ in Rust by the OxideUI Team
+Built with ❤️ in Rust by the StratoSDK Team
