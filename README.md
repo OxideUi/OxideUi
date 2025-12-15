@@ -265,15 +265,23 @@ at your option.
 Check out our [examples](examples/) directory for more complete applications:
 
 - [Hello World](examples/hello_world/) - Basic application structure
+<img width="373" height="516" alt="Screenshot 2025-12-15 alle 22 55 19" src="https://github.com/user-attachments/assets/800d2741-f65b-4023-b3eb-917a117f4d23" />
+
 - [Counter](examples/counter/) - State management example
+<img width="462" height="394" alt="Screenshot 2025-12-15 alle 22 48 41" src="https://github.com/user-attachments/assets/c9803155-a17e-4f42-8876-e65b8a87a2bd" />
+
 - [Modern Dashboard](examples/modern_dashboard/) - **New!** Comprehensive example featuring:
   - Modular architecture (Views, Components)
   - Multi-page navigation (Dashboard, Analytics, Users, Settings)
   - Modern UI with responsive layout (Flexbox)
   - Theming system
   - Simulated backend integration
+  <img width="1552" height="987" alt="Screenshot 2025-12-15 alle 22 47 22" src="https://github.com/user-attachments/assets/3b8f3b3b-6191-4ad1-aee2-aacfc6d15efb" />
+
 - [Todo App](examples/todo_app/) - Full CRUD application (coming soon)
-- [Calculator](examples/calculator/) - Complex layout example (coming soon)
+- [Calculator](examples/calculator/) - Complex layout example
+<img width="432" height="624" alt="Screenshot 2025-12-15 alle 22 46 42" src="https://github.com/user-attachments/assets/687f46d5-4d7b-49b6-93cd-9fc965b0c13f" />
+
 
 ---
 
