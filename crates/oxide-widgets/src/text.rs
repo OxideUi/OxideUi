@@ -884,26 +884,16 @@ impl Widget for Text {
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
         match event {
-            Event::Mouse(mouse_event) => {
-                match mouse_event {
-                    oxide_core::event::MouseEvent::Button { button, state, .. } => {
-                        if *button == oxide_core::event::MouseButton::Left {
-                            match state {
-                                oxide_core::event::ElementState::Pressed => {
-                                    if self.on_mouse_press(mouse_event.position) {
-                                        return EventResult::Handled;
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
+            Event::MouseDown(mouse_event) => {
+                if mouse_event.button == Some(oxide_core::event::MouseButton::Left) {
+                    if self.on_mouse_press(mouse_event.position.into()) {
+                        return EventResult::Handled;
                     }
-                    oxide_core::event::MouseEvent::Moved { position } => {
-                        if self.on_mouse_drag(*position) {
-                            return EventResult::Handled;
-                        }
-                    }
-                    _ => {}
+                }
+            }
+            Event::MouseMove(mouse_event) => {
+                if self.on_mouse_drag(mouse_event.position.into()) {
+                    return EventResult::Handled;
                 }
             }
             _ => {}
@@ -936,4 +926,3 @@ impl Widget for Text {
         })
     }
 }
-```

@@ -5,6 +5,7 @@
 
 use oxide_ui::prelude::*;
 use oxide_widgets::{ButtonStyle, text::TextAlign};
+use oxide_platform::init::{InitBuilder, InitConfig};
 use oxide_core::theme::Color as CoreColor;
 use std::sync::{Arc, Mutex};
 
