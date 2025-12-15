@@ -1,4 +1,4 @@
-use oxide_platform::{
+use strato_platform::{
     application::Application,
     window::WindowBuilder,
 };
@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
 
     // Create application
     let window_builder = WindowBuilder::new()
-        .with_title("OxideUI Modern Dashboard")
+        .with_title("StratoUI Modern Dashboard")
         .with_size(1440.0, 900.0)
         .resizable(true);
         

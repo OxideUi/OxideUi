@@ -1,4 +1,4 @@
-# OxideUI Advanced Renderer
+# StratoSDK Advanced Renderer
 
 A professional-grade, high-performance wgpu-based rendering system designed for modern applications. This renderer provides enterprise-level features including intelligent resource management, automatic performance optimization, and comprehensive profiling capabilities.
 
@@ -29,7 +29,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-oxide-renderer = { path = "path/to/oxide-renderer" }
+strato-renderer = { path = "path/to/strato-renderer" }
 ```
 
 ## Quick Start
@@ -37,7 +37,7 @@ oxide-renderer = { path = "path/to/oxide-renderer" }
 ### Basic Usage
 
 ```rust
-use oxide_renderer::{IntegratedRenderer, RendererBuilder};
+use strato_renderer::{IntegratedRenderer, RendererBuilder};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -62,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
 ### Advanced Configuration
 
 ```rust
-use oxide_renderer::{RendererBuilder, AllocationStrategy};
+use strato_renderer::{RendererBuilder, AllocationStrategy};
 use wgpu::PowerPreference;
 
 let renderer = RendererBuilder::new()
@@ -79,7 +79,7 @@ let renderer = RendererBuilder::new()
 ### Using Convenience Macros
 
 ```rust
-use oxide_renderer::create_renderer;
+use strato_renderer::create_renderer;
 
 // Debug configuration
 let renderer = create_renderer!(debug)?;
@@ -245,7 +245,7 @@ let renderer = RendererBuilder::new()
 ```rust
 // Initialize tracing for detailed logs
 tracing_subscriber::fmt()
-    .with_env_filter("oxide_renderer=debug")
+    .with_env_filter("strato_renderer=debug")
     .init();
 ```
 

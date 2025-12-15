@@ -1,8 +1,8 @@
-use oxide_widgets::{
+use strato_widgets::{
     Widget, Column, Container, Text, Flex,
     text::FontWeight,
 };
-use oxide_core::types::Color;
+use strato_core::types::Color;
 use crate::theme::{AppTheme, BORDER_RADIUS_MD, SPACING_MD, SPACING_SM};
 
 pub struct StatsCard {

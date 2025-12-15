@@ -1,4 +1,4 @@
-use oxide_widgets::{
+use strato_widgets::{
     Widget, Column, Row, Text, Flex,
     layout::{CrossAxisAlignment, MainAxisAlignment},
 };
@@ -47,7 +47,7 @@ impl DashboardView {
 
                             // Right Column (Placeholder for Chart)
                             Box::new(Flex::new(
-                                Box::new(oxide_widgets::Container::new()
+                                Box::new(strato_widgets::Container::new()
                                     .background(theme.bg_secondary)
                                     .padding(SPACING_MD)
                                     .border_radius(crate::theme::BORDER_RADIUS_MD)

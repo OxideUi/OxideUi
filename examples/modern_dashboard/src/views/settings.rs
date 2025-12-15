@@ -1,4 +1,4 @@
-use oxide_widgets::{Widget, Container, Text};
+use strato_widgets::{Widget, Container, Text};
 use crate::theme::AppTheme;
 
 pub struct SettingsView;

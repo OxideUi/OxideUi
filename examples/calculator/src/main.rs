@@ -1,12 +1,12 @@
-//! Calculator example for OxideUI
+//! Calculator example for StratoUI
 //! 
 //! This example demonstrates a functional calculator with a grid layout
 //! to test various rendering capabilities and identify potential issues.
 
-use oxide_ui::prelude::*;
-use oxide_widgets::{ButtonStyle, text::TextAlign};
-use oxide_platform::init::{InitBuilder, InitConfig};
-use oxide_core::theme::Color as CoreColor;
+use strato_ui::prelude::*;
+use strato_widgets::{ButtonStyle, text::TextAlign};
+use strato_platform::init::{InitBuilder, InitConfig};
+use strato_core::theme::Color as CoreColor;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug)]
@@ -114,11 +114,11 @@ fn main() -> Result<()> {
         .with_config(config)
         .init_all()?;
 
-    println!("Calculator - OxideUI initialized with font optimizations!");
+    println!("Calculator - StratoUI initialized with font optimizations!");
     
     // Build and run the application
     ApplicationBuilder::new()
-        .title("OxideUI Calculator")
+        .title("StratoUI Calculator")
         .window(WindowBuilder::new().with_size(320.0, 480.0).resizable(false))
         .run(build_calculator_ui());
 

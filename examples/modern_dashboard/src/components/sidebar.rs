@@ -1,9 +1,9 @@
-use oxide_widgets::{
+use strato_widgets::{
     Widget, Column, Container, Text, Button, Flex,
     text::FontWeight,
     layout::{CrossAxisAlignment, MainAxisAlignment},
 };
-use oxide_core::{
+use strato_core::{
     types::Color,
     state::Signal,
 };
@@ -39,7 +39,7 @@ impl Sidebar {
                         Box::new(Container::new()
                             .padding(SPACING_SM)
                             .child(
-                                Text::new("OxideUI")
+                                Text::new("StratoUI")
                                     .font_size(24.0)
                                     .font_weight(FontWeight::Bold)
                                     .color(theme.accent)

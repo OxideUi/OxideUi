@@ -8,16 +8,16 @@ members = [
     "examples/advanced_renderer",
     "examples/comprehensive_test",
     "examples/modern_dashboard",
-    "crates/oxide-core",
-    "crates/oxide-renderer", 
-    "crates/oxide-widgets",
-    "crates/oxide-platform",
-    "crates/oxide-macros",
+    "crates/strato-core",
+    "crates/strato-renderer", 
+    "crates/strato-widgets",
+    "crates/strato-platform",
+    "crates/strato-macros",
 ]
 resolver = "2"
 
 [package]
-name = "oxide-ui"
+name = "strato-sdk"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -31,29 +31,29 @@ categories.workspace = true
 description = "A lightweight, secure, and reactive UI framework"
 
 [dependencies]
-oxide-core = { workspace = true }
-oxide-widgets = { workspace = true }
-oxide-platform = { workspace = true }
+strato-core = { workspace = true }
+strato-widgets = { workspace = true }
+strato-platform = { workspace = true }
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["OxideUI Team"]
+authors = ["StratoSDK Team"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/oxideui/oxide-ui"
-homepage = "https://oxideui.dev"
-documentation = "https://docs.oxideui.dev"
+repository = "https://github.com/stratosdk/strato-sdk"
+homepage = "https://stratosdk.dev"
+documentation = "https://docs.stratosdk.dev"
 readme = "README.md"
 keywords = ["gui", "ui", "graphics", "wgpu", "cross-platform"]
 categories = ["gui", "graphics", "wasm"]
 
 [workspace.dependencies]
 # Internal crates
-oxide-core = { path = "crates/oxide-core", version = "0.1.0" }
-oxide-renderer = { path = "crates/oxide-renderer", version = "0.1.0" }
-oxide-widgets = { path = "crates/oxide-widgets", version = "0.1.0" }
-oxide-platform = { path = "crates/oxide-platform", version = "0.1.0" }
-oxide-macros = { path = "crates/oxide-macros", version = "0.1.0" }
+strato-core = { path = "crates/strato-core", version = "0.1.0" }
+strato-renderer = { path = "crates/strato-renderer", version = "0.1.0" }
+strato-widgets = { path = "crates/strato-widgets", version = "0.1.0" }
+strato-platform = { path = "crates/strato-platform", version = "0.1.0" }
+strato-macros = { path = "crates/strato-macros", version = "0.1.0" }
 
 # Core dependencies
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "sync", "time"] }

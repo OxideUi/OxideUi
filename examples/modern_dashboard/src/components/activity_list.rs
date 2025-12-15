@@ -1,4 +1,4 @@
-use oxide_widgets::{
+use strato_widgets::{
     Widget, Column, Container, Text, Row, Flex,
     text::FontWeight,
     layout::{CrossAxisAlignment, MainAxisAlignment},
@@ -42,7 +42,7 @@ impl ActivityList {
         )
     }
 
-    fn activity_item(&self, title: &str, time: &str, dot_color: oxide_core::types::Color) -> Box<dyn Widget> {
+    fn activity_item(&self, title: &str, time: &str, dot_color: strato_core::types::Color) -> Box<dyn Widget> {
         let theme = &self.theme;
         
         Box::new(Container::new()

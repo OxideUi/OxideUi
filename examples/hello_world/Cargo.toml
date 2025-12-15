@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-oxide-ui = { path = "../.." }
+strato-sdk = { path = "../.." }
 
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }
 anyhow = "1.0"

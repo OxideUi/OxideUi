@@ -1,22 +1,22 @@
-//! OxideUI - A lightweight, secure, and reactive UI framework
+//! StratoSDK - A lightweight, secure, and reactive UI framework
 //!
-//! OxideUI provides a modern, declarative approach to building user interfaces
+//! StratoSDK provides a modern, declarative approach to building user interfaces
 //! with a focus on performance, security, and developer experience.
 
-pub use oxide_core;
-pub use oxide_widgets;
-pub use oxide_platform;
+pub use strato_core;
+pub use strato_widgets;
+pub use strato_platform;
 
 // Re-export the new granular initialization system
-pub use oxide_platform::init::{InitBuilder, InitConfig, init_all, init_with_config, get_text_renderer, is_initialized};
+pub use strato_platform::init::{InitBuilder, InitConfig, init_all, init_with_config, get_text_renderer, is_initialized};
 
-use oxide_core::Result;
+use strato_core::Result;
 
 /// Unified prelude module that exports all commonly used types
 pub mod prelude {
-    pub use oxide_core::prelude::*;
-    pub use oxide_widgets::prelude::*;
-    pub use oxide_platform::{Application, ApplicationBuilder, Window, WindowBuilder};
+    pub use strato_core::prelude::*;
+    pub use strato_widgets::prelude::*;
+    pub use strato_platform::{Application, ApplicationBuilder, Window, WindowBuilder};
 }
 
 /// Legacy initialization function - now uses the new granular system
@@ -26,7 +26,7 @@ pub mod prelude {
 /// 
 /// For better control over initialization, use InitBuilder directly:
 /// ```rust
-/// use oxide_ui::{InitBuilder, InitConfig};
+/// use strato_sdk::{InitBuilder, InitConfig};
 /// 
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let config = InitConfig {
@@ -43,9 +43,9 @@ pub mod prelude {
 /// ```
 #[deprecated(since = "0.2.0", note = "Use InitBuilder for better control over initialization")]
 pub fn init_all_legacy() -> Result<()> {
-    oxide_core::init()?;
-    oxide_widgets::init()?;
-    oxide_platform::init().map_err(|e| oxide_core::OxideError::platform(format!("Platform init failed: {}", e)))?;
+    strato_core::init()?;
+    strato_widgets::init()?;
+    strato_platform::init().map_err(|e| strato_core::StratoError::platform(format!("Platform init failed: {}", e)))?;
     Ok(())
 }
 

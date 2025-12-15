@@ -1,8 +1,8 @@
-use oxide_platform::{
+use strato_platform::{
     application::Application,
     window::WindowBuilder,
 };
-use oxide_widgets::{
+use strato_widgets::{
     Button, ButtonStyle,
     Column,
     Container,
@@ -12,7 +12,7 @@ use oxide_widgets::{
     Widget,
     layout::{MainAxisAlignment, CrossAxisAlignment},
 };
-use oxide_core::types::Color;
+use strato_core::types::Color;
 
 fn main() -> anyhow::Result<()> {
     // Create application
@@ -68,7 +68,7 @@ fn create_header() -> Box<dyn Widget> {
                 .cross_axis_alignment(CrossAxisAlignment::Center)
                 .children(vec![
                     Box::new(
-                        Text::new("OxideUI Dashboard")
+                        Text::new("StratoUI Dashboard")
                             .font_size(24.0)
                             .font_weight(FontWeight::Bold)
                             .color(Color::rgba(0.1, 0.1, 0.2, 1.0))
@@ -125,7 +125,7 @@ fn create_main_content() -> Box<dyn Widget> {
                             .font_weight(FontWeight::SemiBold)
                     ) as Box<dyn Widget>,
                     Box::new(
-                        Text::new("Here is an overview of your system status. This text demonstrates automatic wrapping and layout capabilities of the OxideUI framework. It should flow naturally within the container.")
+                        Text::new("Here is an overview of your system status. This text demonstrates automatic wrapping and layout capabilities of the StratoUI framework. It should flow naturally within the container.")
                             .color(Color::rgba(0.3, 0.3, 0.3, 1.0))
                             .style(TextStyle {
                                 line_height: 1.6,

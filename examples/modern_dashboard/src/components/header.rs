@@ -1,4 +1,4 @@
-use oxide_widgets::{
+use strato_widgets::{
     Widget, Row, Container, Text, Button, InputType, TextInput,
     text::FontWeight,
     layout::{CrossAxisAlignment, MainAxisAlignment},
@@ -50,7 +50,7 @@ impl Header {
                                         Text::new("JD")
                                             .color(theme.text_primary)
                                             .font_weight(FontWeight::Bold)
-                                            .align(oxide_widgets::text::TextAlign::Center)
+                                            .align(strato_widgets::text::TextAlign::Center)
                                     )
                                 ) as Box<dyn Widget>,
                             ])

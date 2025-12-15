@@ -3,7 +3,7 @@
 ## VUID-vkQueueSubmit-pSignalSemaphores-00067
 
 ### Problem Description
-When running OxideUI applications, you might see Vulkan validation warnings similar to:
+When running StratoSDK applications, you might see Vulkan validation warnings similar to:
 
 ```
 VALIDATION [VUID-vkQueueSubmit-pSignalSemaphores-00067] vkQueueSubmit(): 
@@ -12,7 +12,7 @@ but it may still be in use by VkSwapchainKHR 0x...
 ```
 
 ### Cause
-This is a **known issue in WGPU** (the rendering backend used by OxideUI) related to unsafe reuse of semaphores in the Vulkan swapchain. The problem occurs because:
+This is a **known issue in WGPU** (the rendering backend used by StratoSDK) related to unsafe reuse of semaphores in the Vulkan swapchain. The problem occurs because:
 
 1. WGPU reuses the same semaphore for different frames before the previous presentation operation is completed
 2. Synchronization is based on frames in flight rather than swapchain images

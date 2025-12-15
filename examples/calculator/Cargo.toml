@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-oxide-core = { path = "../../crates/oxide-core" }
-oxide-widgets = { path = "../../crates/oxide-widgets" }
-oxide-platform = { path = "../../crates/oxide-platform" }
-oxide-macros = { path = "../../crates/oxide-macros" }
-oxide-ui = { path = "../.." }
+strato-core = { path = "../../crates/strato-core" }
+strato-widgets = { path = "../../crates/strato-widgets" }
+strato-platform = { path = "../../crates/strato-platform" }
+strato-macros = { path = "../../crates/strato-macros" }
+strato-sdk = { path = "../.." }
 
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }
 anyhow = "1.0"

@@ -6,7 +6,7 @@ description = "Advanced wgpu renderer example demonstrating the complete system"
 
 [dependencies]
 # Core renderer
-oxide-renderer = { path = "../../crates/oxide-renderer" }
+strato-renderer = { path = "../../crates/strato-renderer" }
 
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }

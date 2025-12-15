@@ -1,8 +1,8 @@
-use oxide_ui::{InitBuilder, InitConfig};
-use oxide_core::Result;
+use strato_ui::{InitBuilder, InitConfig};
+use strato_core::Result;
 
 fn main() -> Result<()> {
-    println!("OxideUI Custom Initialization Example");
+    println!("StratoUI Custom Initialization Example");
     println!("=====================================");
 
     // Example 1: Basic initialization with default config
@@ -17,7 +17,7 @@ fn main() -> Result<()> {
 
     // Example 2: Check global text renderer
     println!("\n2. Global text renderer status:");
-    match oxide_ui::get_text_renderer() {
+    match strato_ui::get_text_renderer() {
         Some(_renderer) => {
             println!("   Global text renderer: ✓ Available");
         }

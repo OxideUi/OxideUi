@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-oxide-core = { path = "../../crates/oxide-core" }
-oxide-platform = { path = "../../crates/oxide-platform" }
-oxide-widgets = { path = "../../crates/oxide-widgets" }
+strato-core = { path = "../../crates/strato-core" }
+strato-platform = { path = "../../crates/strato-platform" }
+strato-widgets = { path = "../../crates/strato-widgets" }
 anyhow = "1.0"

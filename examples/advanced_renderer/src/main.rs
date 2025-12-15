@@ -1,5 +1,5 @@
 use anyhow::Result;
-use oxide_renderer::{
+use strato_renderer::{
     IntegratedRenderer, RendererBuilder, RendererConfig,
     AllocationStrategy, RenderContext,
 };
@@ -20,8 +20,8 @@ struct AdvancedRendererExample {
     renderer: IntegratedRenderer,
     
     // Example resources
-    vertex_buffer: Option<oxide_renderer::ResourceHandle>,
-    index_buffer: Option<oxide_renderer::ResourceHandle>,
+    vertex_buffer: Option<strato_renderer::ResourceHandle>,
+    index_buffer: Option<strato_renderer::ResourceHandle>,
     render_pipeline: Option<RenderPipeline>,
     
     // State
@@ -120,8 +120,8 @@ impl AdvancedRendererExample {
         
         // Load shader
         let path = std::path::PathBuf::from("examples/advanced_renderer/shaders/triangle.wgsl");
-        let stage = oxide_renderer::shader::ShaderStage::Vertex;
-        let variant = oxide_renderer::shader::ShaderVariant {
+        let stage = strato_renderer::shader::ShaderStage::Vertex;
+        let variant = strato_renderer::shader::ShaderVariant {
             macros: vec![],
             features: vec![],
             optimization_level: 0,

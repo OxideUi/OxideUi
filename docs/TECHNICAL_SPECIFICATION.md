@@ -1,8 +1,8 @@
-# OxideUI Technical Specification
+# StratoSDK Technical Specification
 
 ## 1. Executive Summary
 
-OxideUI is a next-generation, lightweight, secure, and reactive UI framework written in pure Rust. It combines the declarative programming model of Flutter/React with Rust's performance and safety guarantees, targeting desktop applications, web prototypes via WebAssembly, and future mobile platforms.
+StratoSDK is a next-generation, lightweight, secure, and reactive UI framework written in pure Rust. It combines the declarative programming model of Flutter/React with Rust's performance and safety guarantees, targeting desktop applications, web prototypes via WebAssembly, and future mobile platforms.
 
 ### Core Values
 - **Performance First**: GPU-accelerated rendering with minimal CPU overhead
@@ -15,10 +15,10 @@ OxideUI is a next-generation, lightweight, secure, and reactive UI framework wri
 ### 2.1 Multi-Crate Workspace Structure
 
 ```
-oxide-ui/
+strato-ui/
 ├── Cargo.toml                 # Workspace root
 ├── crates/
-│   ├── oxide-core/            # Core functionality
+│   ├── strato-core/            # Core functionality
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── state.rs       # State management
@@ -26,7 +26,7 @@ oxide-ui/
 │   │       ├── layout.rs      # Layout engine
 │   │       └── lib.rs
 │   │
-│   ├── oxide-renderer/        # GPU rendering
+│   ├── strato-renderer/        # GPU rendering
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── gpu.rs         # wgpu integration
@@ -34,7 +34,7 @@ oxide-ui/
 │   │       ├── text.rs        # Text rendering
 │   │       └── lib.rs
 │   │
-│   ├── oxide-widgets/         # UI components
+│   ├── strato-widgets/         # UI components
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── button.rs
@@ -42,14 +42,14 @@ oxide-ui/
 │   │       ├── container.rs
 │   │       └── lib.rs
 │   │
-│   ├── oxide-platform/        # Platform abstraction
+│   ├── strato-platform/        # Platform abstraction
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── desktop.rs     # Desktop implementation
 │   │       ├── web.rs         # WASM implementation
 │   │       └── lib.rs
 │   │
-│   └── oxide-macros/          # Procedural macros
+│   └── strato-macros/          # Procedural macros
 │       ├── Cargo.toml
 │       └── src/
 │           └── lib.rs
@@ -139,7 +139,7 @@ tracing-subscriber = "0.3"
 criterion = "0.5"
 ```
 
-### 3.2 Core Module (`oxide-core`)
+### 3.2 Core Module (`strato-core`)
 
 #### State Management System
 ```rust
@@ -165,7 +165,7 @@ pub trait Component {
 - **Constraint Solver**: Linear constraint solving for responsive layouts
 - **Caching**: Layout result caching for unchanged subtrees
 
-### 3.3 Renderer Module (`oxide-renderer`)
+### 3.3 Renderer Module (`strato-renderer`)
 
 #### GPU Pipeline
 ```rust
@@ -185,11 +185,11 @@ pub struct RenderPipeline {
 - **Shader Hot-Reload**: Development-time shader recompilation
 - **Multi-Sample Anti-Aliasing**: 4x MSAA by default
 
-### 3.4 Widget Module (`oxide-widgets`)
+### 3.4 Widget Module (`strato-widgets`)
 
 #### Declarative API Design
 ```rust
-use oxide_ui::prelude::*;
+use strato_ui::prelude::*;
 
 fn app() -> impl Widget {
     Container::new()
@@ -198,7 +198,7 @@ fn app() -> impl Widget {
             Column::new()
                 .spacing(10.0)
                 .children(vec![
-                    Text::new("Welcome to OxideUI"),
+                    Text::new("Welcome to StratoSDK"),
                     Button::new("Click Me")
                         .on_click(|_| println!("Clicked!"))
                         .style(ButtonStyle::Primary),
@@ -510,9 +510,9 @@ impl Button<Disabled> {
 
 ## 11. Conclusion
 
-OxideUI represents a significant opportunity to bring Rust's safety and performance benefits to UI development. By focusing on a declarative API, GPU acceleration, and cross-platform support, we can create a framework that rivals existing solutions while leveraging Rust's unique strengths.
+StratoSDK represents a significant opportunity to bring Rust's safety and performance benefits to UI development. By focusing on a declarative API, GPU acceleration, and cross-platform support, we can create a framework that rivals existing solutions while leveraging Rust's unique strengths.
 
-The phased development approach ensures we can deliver value incrementally while maintaining high quality standards. With careful execution of this technical specification, OxideUI can become the go-to UI framework for Rust developers.
+The phased development approach ensures we can deliver value incrementally while maintaining high quality standards. With careful execution of this technical specification, StratoSDK can become the go-to UI framework for Rust developers.
 
 ---
 
@@ -521,4 +521,4 @@ The phased development approach ensures we can deliver value incrementally while
 **Version**: 0.1.0a
 **Date**: 2025-17-09
 **Status**: Draft  
-**Authors**: OxideUI Team - [SeregonWar](https://github.com/SeregonWar)
+**Authors**: StratoSDK Team - [SeregonWar](https://github.com/SeregonWar)

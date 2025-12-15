@@ -1,0 +1,85 @@
+[package]
+name = "strato-renderer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "GPU-accelerated renderer for StratoSDK framework"
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+strato-core = { workspace = true }
+
+# Rendering
+wgpu.workspace = true
+lyon.workspace = true
+cosmic-text.workspace = true
+image.workspace = true
+bytemuck.workspace = true
+
+# Font Management
+ab_glyph = "0.2"
+fontdue = "0.9"
+swash = "0.1"
+
+# Math
+glam.workspace = true
+euclid.workspace = true
+palette.workspace = true
+
+# Platform
+raw-window-handle.workspace = true
+winit.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Logging
+tracing.workspace = true
+log = "0.4"
+sys-locale = "0.3"
+
+# Collections
+dashmap.workspace = true
+slotmap.workspace = true
+parking_lot.workspace = true
+smallvec.workspace = true
+
+# Async and threading
+tokio = { version = "1.0", features = ["full"] }
+thread_local = "1.1"
+
+# File watching
+notify = "6.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Additional utilities
+once_cell = "1.19"
+crossbeam = "0.8"
+regex = "1.0"
+sha2 = "0.10"
+futures = "0.3"
+async-trait = "0.1.89"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+web-sys.workspace = true
+console_error_panic_hook.workspace = true
+wasm-bindgen-futures.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+pollster = "0.3"
+
+[features]
+default = []
+webgl = ["wgpu/webgl"]
+

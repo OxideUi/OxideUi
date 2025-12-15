@@ -1,12 +1,12 @@
-//! Counter example demonstrating state management in OxideUI
+//! Counter example demonstrating state management in StratoUI
 
-use oxide_core::{
+use strato_core::{
     types::Color,
     error::Result,
 };
-use oxide_widgets::prelude::*;
-use oxide_widgets::ButtonStyle;
-use oxide_platform::{ApplicationBuilder, WindowBuilder};
+use strato_widgets::prelude::*;
+use strato_widgets::ButtonStyle;
+use strato_platform::{ApplicationBuilder, WindowBuilder};
 use std::sync::Arc;
 use parking_lot::RwLock;
 
@@ -35,10 +35,10 @@ impl CounterApp {
 }
 
 fn main() -> Result<()> {
-    // Initialize all OxideUI modules
-    oxide_core::init()?;
-    oxide_widgets::init()?;
-    oxide_platform::init().map_err(|e| oxide_core::error::OxideError::platform(format!("{:?}", e)))?;
+    // Initialize all StratoUI modules
+    strato_core::init()?;
+    strato_widgets::init()?;
+    strato_platform::init().map_err(|e| strato_core::error::StratoError::platform(format!("{:?}", e)))?;
     
     let app = Arc::new(CounterApp::new());
 

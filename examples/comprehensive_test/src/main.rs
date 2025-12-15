@@ -1,8 +1,8 @@
-use oxide_platform::{
+use strato_platform::{
     application::Application,
     window::WindowBuilder,
 };
-use oxide_widgets::{
+use strato_widgets::{
     Button, ButtonStyle,
     Column,
     Container,
@@ -15,7 +15,7 @@ use oxide_widgets::{
     Widget,
     layout::{MainAxisAlignment, CrossAxisAlignment},
 };
-use oxide_core::types::Color;
+use strato_core::types::Color;
 use tracing::{info, warn};
 use tracing_subscriber::prelude::*;
 
@@ -47,11 +47,11 @@ fn main() -> anyhow::Result<()> {
 
     // Create application
     let window_builder = WindowBuilder::new()
-        .with_title("OxideUI Dashboard")
+        .with_title("StratoUI Dashboard")
         .with_size(1280.0, 900.0)
         .resizable(true);
         
-    let mut app = Application::new("OxideUI Dashboard", window_builder);
+    let mut app = Application::new("StratoUI Dashboard", window_builder);
 
     // Create UI structure
     let main_container = Container::new()
@@ -105,7 +105,7 @@ fn create_header() -> Box<dyn Widget> {
                             .spacing(5.0)
                             .children(vec![
                                 Box::new(
-                                    Text::new("OxideUI Dashboard")
+                                    Text::new("StratoUI Dashboard")
                                         .font_size(28.0)
                                         .font_weight(FontWeight::Bold)
                                         .color(theme_text_primary())

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use oxide_widgets::{
+use strato_widgets::{
     Widget, WidgetId, Row, Column, Container, Flex,
 };
-use oxide_core::layout::{Constraints, Layout, Size};
-use oxide_renderer::batch::RenderBatch;
-use oxide_core::state::Signal;
+use strato_core::layout::{Constraints, Layout, Size};
+use strato_renderer::batch::RenderBatch;
+use strato_core::state::Signal;
 use crate::theme::AppTheme;
 use crate::components::{sidebar::Sidebar, header::Header};
 use crate::views::{
@@ -83,7 +83,7 @@ impl ViewSwitcher {
         views.insert("settings".to_string(), SettingsView::build());
 
         Self {
-            id: oxide_widgets::widget::generate_id(),
+            id: strato_widgets::widget::generate_id(),
             active_tab,
             views,
             last_tab: "dashboard".to_string(),
@@ -112,12 +112,12 @@ impl Widget for ViewSwitcher {
         }
     }
 
-    fn handle_event(&mut self, event: &oxide_core::event::Event) -> oxide_core::event::EventResult {
+    fn handle_event(&mut self, event: &strato_core::event::Event) -> strato_core::event::EventResult {
         let current_tab = self.active_tab.get();
         if let Some(view) = self.views.get_mut(&current_tab) {
             view.handle_event(event)
         } else {
-            oxide_core::event::EventResult::Ignored
+            strato_core::event::EventResult::Ignored
         }
     }
 
@@ -136,7 +136,7 @@ impl Widget for ViewSwitcher {
         }
 
         Box::new(ViewSwitcher {
-            id: oxide_widgets::widget::generate_id(),
+            id: strato_widgets::widget::generate_id(),
             active_tab: self.active_tab.clone(),
             views: new_views,
             last_tab: self.last_tab.clone(),

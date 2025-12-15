@@ -1,27 +1,27 @@
                   OXIDEUI COMMERCIAL LICENSE
                        Version 1.0, 2025
 
- Copyright (C) 2025 OxideUI Project Contributors
+ Copyright (C) 2025 StratoSDK Project Contributors
  Everyone is permitted to copy and distribute verbatim copies
  of this license document, but changing it is not allowed.
 
                             Preamble
 
-  The OxideUI Commercial License is a proprietary license for
+  The StratoSDK Commercial License is a proprietary license for
 software and other kinds of works, specifically designed to enable
-commercial use of the OxideUI framework without the copyleft
+commercial use of the StratoSDK framework without the copyleft
 restrictions of the GNU Affero General Public License.
 
-  This license allows you to use, modify, and distribute OxideUI
+  This license allows you to use, modify, and distribute StratoSDK
 in commercial applications without the requirement to release your
 application's source code under the AGPL. This dual-licensing
-approach ensures that OxideUI remains free and open source for
+approach ensures that StratoSDK remains free and open source for
 the community while providing commercial flexibility for businesses.
 
-  The OxideUI framework consists of multiple components including
-the core framework (oxide-core), rendering engine (oxide-renderer),
-widget library (oxide-widgets), platform abstraction layer
-(oxide-platform), macro system (oxide-macros), CLI tools, and
+  The StratoSDK framework consists of multiple components including
+the core framework (strato-core), rendering engine (strato-renderer),
+widget library (strato-widgets), platform abstraction layer
+(strato-platform), macro system (strato-macros), CLI tools, and
 development kit with comprehensive documentation and examples.
 
   The precise terms and conditions for using, copying, distribution
@@ -31,12 +31,12 @@ and modification follow.
 
   0. Definitions.
 
-  "This License" refers to version 1.0 of the OxideUI Commercial License.
+  "This License" refers to version 1.0 of the StratoSDK Commercial License.
 
   "Copyright" also means copyright-like laws that apply to other kinds of
 works, such as semiconductor masks.
 
-  "The Program" refers to the OxideUI framework and any copyrightable work
+  "The Program" refers to the StratoSDK framework and any copyrightable work
 licensed under this License. Each licensee is addressed as "you".
 "Licensees" and "recipients" may be individuals or organizations.
 
@@ -182,7 +182,7 @@ to the validity and effectiveness of this License.
 
 **LICENSOR INFORMATION**
 
-OxideUI Project  
+StratoSDK Project  
 Licensor: Franchi Marco 
 Contact: franchimarco.work@gmail.com
 Legal correspondence address provided privately upon request

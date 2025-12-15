@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-oxide-core = { path = "../../crates/oxide-core" }
-oxide-platform = { path = "../../crates/oxide-platform" }
-oxide-widgets = { path = "../../crates/oxide-widgets" }
-oxide-renderer = { path = "../../crates/oxide-renderer" }
+strato-core = { path = "../../crates/strato-core" }
+strato-platform = { path = "../../crates/strato-platform" }
+strato-widgets = { path = "../../crates/strato-widgets" }
+strato-renderer = { path = "../../crates/strato-renderer" }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 tracing-appender = "0.2"

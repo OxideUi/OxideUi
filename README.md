@@ -2,7 +2,7 @@
 
 [![License: MIT/Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-orange.svg)](https://www.rust-lang.org)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-green.svg)](https://github.com/StratoSDK/oxide-ui)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Web-green.svg)](https://github.com/StratoSDK/strato-ui)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/seregonwar?label=GitHub%20Sponsors&style=flat&logo=GitHub)](https://github.com/sponsors/seregonwar)
 
 
@@ -26,12 +26,12 @@
 StratoSDK follows a modular architecture with clear separation of concerns:
 
 ```
-oxide-ui/
-├── oxide-core/       # Core functionality (state, events, layout)
-├── oxide-renderer/   # GPU rendering backend
-├── oxide-widgets/    # UI component library
-├── oxide-platform/   # Platform abstraction layer
-└── oxide-macros/     # Procedural macros for better DX
+strato-ui/
+├── strato-core/       # Core functionality (state, events, layout)
+├── strato-renderer/   # GPU rendering backend
+├── strato-widgets/    # UI component library
+├── strato-platform/   # Platform abstraction layer
+└── strato-macros/     # Procedural macros for better DX
 ```
 
 ## Quick Start
@@ -50,16 +50,16 @@ Add StratoSDK to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-oxide-core = "0.1.0"
-oxide-widgets = "0.1.0"
-oxide-platform = "0.1.0"
+strato-core = "0.1.0"
+strato-widgets = "0.1.0"
+strato-platform = "0.1.0"
 ```
 
 ### Hello World Example
 
 ```rust
-use oxide_widgets::prelude::*;
-use oxide_platform::ApplicationBuilder;
+use strato_widgets::prelude::*;
+use strato_platform::ApplicationBuilder;
 
 fn main() {
     ApplicationBuilder::new()
@@ -118,7 +118,7 @@ Column::new()
 Reactive state management with signals:
 
 ```rust
-use oxide_core::state::Signal;
+use strato_core::state::Signal;
 
 let count = Signal::new(0);
 
@@ -146,8 +146,8 @@ ThemeProvider::new(theme)
 
 ```bash
 # Clone the repository
-git clone https://github.com/StratoSDK/oxide-ui.git
-cd oxide-ui
+git clone https://github.com/StratoSDK/strato-ui.git
+cd strato-ui
 
 # Build all crates
 cargo build --workspace
@@ -167,7 +167,7 @@ cargo run --example counter
 cargo install wasm-pack
 
 # Build for web
-wasm-pack build --target web crates/oxide-platform
+wasm-pack build --target web crates/strato-platform
 
 # Serve with a local server
 python -m http.server 8000
@@ -210,11 +210,11 @@ python -m http.server 8000
 
 | Crate | Description | Key Features |
 |-------|-------------|--------------|
-| `oxide-core` | Core functionality | State management, events, layout engine |
-| `oxide-renderer` | GPU rendering | wgpu backend, texture atlas, text rendering |
-| `oxide-widgets` | Widget library | Declarative widgets, theming, builders |
-| `oxide-platform` | Platform layer | Window management, event loop, WASM support |
-| `oxide-macros` | Procedural macros | Derive macros, DSL support |
+| `strato-core` | Core functionality | State management, events, layout engine |
+| `strato-renderer` | GPU rendering | wgpu backend, texture atlas, text rendering |
+| `strato-widgets` | Widget library | Declarative widgets, theming, builders |
+| `strato-platform` | Platform layer | Window management, event loop, WASM support |
+| `strato-macros` | Procedural macros | Derive macros, DSL support |
 
 ### Performance Targets
 
@@ -256,7 +256,7 @@ at your option.
 ## Contact - (not yet available)
 
 - **Website**: [StratoSDK.dev](https://StratoSDK.dev)
-- **GitHub**: [github.com/StratoSDK/oxide-ui](https://github.com/StratoSDK/oxide-ui)
+- **GitHub**: [github.com/StratoSDK/strato-ui](https://github.com/StratoSDK/strato-ui)
 - **Discord**: [Join our community](https://discord.gg/StratoSDK)
 - **Twitter**: [@StratoHQ](https://twitter.com/StratoSDK)
 

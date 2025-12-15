@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-oxide-ui = { path = "../../" }
-oxide-core = { path = "../../crates/oxide-core" }
+strato-sdk = { path = "../../" }
+strato-core = { path = "../../crates/strato-core" }
 
 [[bin]]
 name = "custom_init"

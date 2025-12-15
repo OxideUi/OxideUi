@@ -1,13 +1,13 @@
-//! Hello World example for OxideUI with improved logging
+//! Hello World example for StratoUI with improved logging
 
 // Import standard del framework
-use oxide_ui::prelude::*;
-use oxide_ui::{InitBuilder, InitConfig};
-use oxide_ui::oxide_core::Result;
-use oxide_ui::oxide_core::{
-    config::{OxideConfig, LoggingConfig},
+use strato_ui::prelude::*;
+use strato_ui::{InitBuilder, InitConfig};
+use strato_ui::strato_core::Result;
+use strato_ui::strato_core::{
+    config::{StratoConfig, LoggingConfig},
     logging::{LogLevel, LogCategory},
-    oxide_info, oxide_debug, oxide_error, oxide_text_debug,
+    strato_info, strato_debug, strato_error, strato_text_debug,
 };
 use std::collections::HashMap;
 
@@ -23,22 +23,22 @@ fn main() -> Result<()> {
         ..Default::default()
     };
 
-    oxide_info!(LogCategory::Core, "OxideUI Hello World starting with optimized configuration");
+    strato_info!(LogCategory::Core, "StratoUI Hello World starting with optimized configuration");
 
     let mut builder = InitBuilder::new()
         .with_config(config.clone());
     
     match builder.init_all() {
         Ok(_) => {
-            oxide_info!(LogCategory::Core, "OxideUI initialization completed successfully");
+            strato_info!(LogCategory::Core, "StratoUI initialization completed successfully");
         }
         Err(e) => {
-            oxide_error!(LogCategory::Core, "Failed to initialize OxideUI: error={}, config_hash={:?}", e, config.skip_problematic_fonts);
+            strato_error!(LogCategory::Core, "Failed to initialize StratoUI: error={}, config_hash={:?}", e, config.skip_problematic_fonts);
             return Err(e);
         }
     }
 
-    println!("Hello World - OxideUI initialized with optimized font loading!");
+    println!("Hello World - StratoUI initialized with optimized font loading!");
 
     // Print configuration info before running
     println!("Font loading optimizations applied:");
@@ -47,11 +47,11 @@ fn main() -> Result<()> {
     println!("- Custom font directories: {:?}", config.custom_font_dirs);
     println!("- Preferred fonts: {:?}", config.preferred_fonts);
 
-    oxide_info!(LogCategory::Platform, "Starting application window with title='Hello OxideUI', size=400x300");
+    strato_info!(LogCategory::Platform, "Starting application window with title='Hello StratoUI', size=400x300");
 
     // Run the application
     ApplicationBuilder::new()
-        .title("Hello OxideUI")
+        .title("Hello StratoUI")
         .window(WindowBuilder::new().with_size(400.0, 300.0).resizable(true))
         .run(build_ui())
 }
@@ -82,10 +82,10 @@ fn setup_logging() -> Result<()> {
     };
 
     // Initialize logging with the configuration
-    oxide_ui::oxide_core::logging::init(&logging_config)
-        .map_err(|e| oxide_ui::oxide_core::OxideError::other(format!("Logging init failed: {}", e)))?;
+    strato_ui::strato_core::logging::init(&logging_config)
+        .map_err(|e| strato_ui::strato_core::StratoError::other(format!("Logging init failed: {}", e)))?;
     
-    oxide_info!(LogCategory::Core, "Logging system initialized with noise reduction: text_debug=false, layout_debug=false, vulkan_level=warn");
+    strato_info!(LogCategory::Core, "Logging system initialized with noise reduction: text_debug=false, layout_debug=false, vulkan_level=warn");
     Ok(())
 }
 
@@ -100,7 +100,7 @@ fn build_ui() -> impl Widget {
                 .cross_axis_alignment(CrossAxisAlignment::Center)
                 .children(vec![
                     Box::new(
-                        Text::new("Hello, OxideUI!")
+                        Text::new("Hello, StratoUI!")
                             .size(32.0)
                             .color(Color::rgb(1.0, 1.0, 0.0))  
                     ),

@@ -1,4 +1,4 @@
-use oxide_core::types::Color;
+use strato_core::types::Color;
 
 #[derive(Clone, Copy)]
 pub struct AppTheme {
