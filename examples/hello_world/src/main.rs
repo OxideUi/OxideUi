@@ -1,119 +1,145 @@
-//! Hello World example for StratoUI with improved logging
-
-// Import standard del framework
-use strato_ui::prelude::*;
-use strato_ui::{InitBuilder, InitConfig};
-use strato_ui::strato_core::Result;
-use strato_ui::strato_core::{
-    config::{StratoConfig, LoggingConfig},
-    logging::{LogLevel, LogCategory},
-    strato_info, strato_debug, strato_error, strato_text_debug,
+//! Hello World example for StratoSDK showing state management and modern UI
+use strato_sdk::prelude::*;
+use strato_sdk::strato_widgets::{
+    Button, Column, Container, Text,
+    text::TextAlign,
+    layout::{MainAxisAlignment, CrossAxisAlignment},
 };
-use std::collections::HashMap;
+use strato_sdk::strato_platform::{
+    ApplicationBuilder, WindowBuilder,
+    init::{InitBuilder, InitConfig},
+};
+use strato_sdk::strato_core::types::Color;
+use strato_sdk::strato_core::state::Signal;
+use std::sync::{Arc, Mutex};
 
-fn main() -> Result<()> {
-    // Configure logging to reduce noise and improve debugging
-    setup_logging()?;
+#[derive(Clone, Debug)]
+struct HelloWorldState {
+    counter: Signal<i32>,
+    message: Signal<String>,
+}
 
-    // Use the new granular initialization system with font optimization
-    let config = InitConfig {
-        enable_logging: true,
-        skip_problematic_fonts: true, // Avoid mstmc.ttf and other problematic fonts
-        max_font_faces: Some(30),     // Limit font loading for better performance
-        ..Default::default()
-    };
-
-    strato_info!(LogCategory::Core, "StratoUI Hello World starting with optimized configuration");
-
-    let mut builder = InitBuilder::new()
-        .with_config(config.clone());
-    
-    match builder.init_all() {
-        Ok(_) => {
-            strato_info!(LogCategory::Core, "StratoUI initialization completed successfully");
-        }
-        Err(e) => {
-            strato_error!(LogCategory::Core, "Failed to initialize StratoUI: error={}, config_hash={:?}", e, config.skip_problematic_fonts);
-            return Err(e);
+impl Default for HelloWorldState {
+    fn default() -> Self {
+        Self {
+            counter: Signal::new(0),
+            message: Signal::new("Welcome to StratoSDK!".to_string()),
         }
     }
+}
 
-    println!("Hello World - StratoUI initialized with optimized font loading!");
+impl HelloWorldState {
+    fn increment(&mut self) {
+        self.counter.update(|c| *c += 1);
+        let count = self.counter.get();
+        if count == 1 {
+            self.message.set("First click! Keep going!".to_string());
+        } else if count == 5 {
+             self.message.set("You're getting the hang of it!".to_string());
+        } else if count == 10 {
+             self.message.set("Double digits! 🚀".to_string());
+        }
+    }
+}
 
-    // Print configuration info before running
-    println!("Font loading optimizations applied:");
-    println!("- Skipped problematic fonts: {}", config.skip_problematic_fonts);
-    println!("- Max font faces: {:?}", config.max_font_faces);
-    println!("- Custom font directories: {:?}", config.custom_font_dirs);
-    println!("- Preferred fonts: {:?}", config.preferred_fonts);
+fn main() -> anyhow::Result<()> {
+    // Initialize StratoSDK
+    InitBuilder::new()
+        .with_config(InitConfig {
+            enable_logging: true,
+            ..Default::default()
+        })
+        .init_all()?;
 
-    strato_info!(LogCategory::Platform, "Starting application window with title='Hello StratoUI', size=400x300");
+    println!("Hello World - StratoSDK initialized!");
 
-    // Run the application
     ApplicationBuilder::new()
-        .title("Hello StratoUI")
-        .window(WindowBuilder::new().with_size(400.0, 300.0).resizable(true))
+        .title("Hello StratoSDK")
+        .window(WindowBuilder::new().with_size(500.0, 400.0).resizable(true))
         .run(build_ui())
 }
 
-fn setup_logging() -> Result<()> {
-    // Create a logging configuration that reduces noise
-    let mut category_levels = HashMap::new();
-    category_levels.insert(LogCategory::Core.to_string(), LogLevel::Info.to_string());
-    category_levels.insert(LogCategory::Renderer.to_string(), LogLevel::Info.to_string());
-    category_levels.insert(LogCategory::Platform.to_string(), LogLevel::Info.to_string());
-    // category_levels.insert(LogCategory::Event.to_string(), LogLevel::Info.to_string()); // Event category missing
-    // category_levels.insert(LogCategory::Performance.to_string(), LogLevel::Info.to_string()); // Performance category missing
-    // category_levels.insert(LogCategory::Animation.to_string(), LogLevel::Info.to_string()); // Animation category missing
-    
-    // Vulkan errors only at WARN level to reduce validation spam
-    category_levels.insert(LogCategory::Vulkan.to_string(), LogLevel::Warn.to_string());
-    
-    // Text and Layout debug disabled by default to prevent spam
-    category_levels.insert(LogCategory::Text.to_string(), LogLevel::Error.to_string());
-    category_levels.insert("layout".to_string(), LogLevel::Error.to_string()); // Layout is a string key in config defaults
-
-    let logging_config = LoggingConfig {
-        category_levels,
-        enable_text_debug: false,
-        enable_layout_debug: false,
-        rate_limit_seconds: 5,
-        max_rate_limit_count: 3,
-    };
-
-    // Initialize logging with the configuration
-    strato_ui::strato_core::logging::init(&logging_config)
-        .map_err(|e| strato_ui::strato_core::StratoError::other(format!("Logging init failed: {}", e)))?;
-    
-    strato_info!(LogCategory::Core, "Logging system initialized with noise reduction: text_debug=false, layout_debug=false, vulkan_level=warn");
-    Ok(())
-}
-
 fn build_ui() -> impl Widget {
+    let state = Arc::new(Mutex::new(HelloWorldState::default()));
+    
+    // Main Window Background
     Container::new()
-        .background(Color::rgb(0.2, 0.2, 0.8))  
-        .padding(20.0)
+        .background(Color::rgb(0.05, 0.05, 0.05)) // Deep dark background
         .child(
+            // Center content using Column alignment
             Column::new()
-                .spacing(20.0)
                 .main_axis_alignment(MainAxisAlignment::Center)
                 .cross_axis_alignment(CrossAxisAlignment::Center)
                 .children(vec![
+                    Box::new(create_interaction_card(state))
+                ])
+        )
+}
+
+fn create_interaction_card(state: Arc<Mutex<HelloWorldState>>) -> impl Widget {
+    let (counter_signal, message_signal) = {
+        let state = state.lock().unwrap();
+        (state.counter.clone(), state.message.clone())
+    };
+    
+    // Card Container
+    Container::new()
+        .background(Color::rgb(0.12, 0.12, 0.12)) // Slightly lighter card
+        .width(350.0)
+        // .border_radius(16.0) // If/when available
+        .padding(30.0)
+        .child(
+            Column::new()
+                .spacing(25.0)
+                .cross_axis_alignment(CrossAxisAlignment::Center) // Center children horizontally
+                .children(vec![
+                    // Icon / Logo Placeholder (Circle)
+                    // Centering inside a container via Column again if needed, or just container with size
                     Box::new(
-                        Text::new("Hello, StratoUI!")
+                        Container::new()
+                            .width(60.0)
+                            .height(60.0)
+                            .background(Color::rgb(0.25, 0.4, 0.9)) // Accent Blue
+                            // .corner_radius(30.0) // Circle
+                    ),
+                    
+                    // Title
+                    Box::new(
+                        Text::new("Hello, StratoSDK")
                             .size(32.0)
-                            .color(Color::rgb(1.0, 1.0, 0.0))  
+                            .color(Color::WHITE)
+                            .align(TextAlign::Center)
                     ),
+                    
+                    // Dynamic Message
                     Box::new(
-                        Text::new("Welcome to the future of UI development!")
-                            .size(20.0)
-                            .color(Color::rgb(0.0, 1.0, 0.0))  
+                        Text::new("")
+                            .bind(message_signal)
+                            .size(16.0)
+                            .color(Color::rgb(0.7, 0.7, 0.7))
+                            .align(TextAlign::Center)
                     ),
+                    
+                    // Spacer
+                    Box::new(Container::new().height(10.0)),
+                    
+                    // Counter Display
                     Box::new(
-                        Button::new("Click me!")
-                            .on_click(|| {
-                                println!("Button clicked!");
+                        Text::new("")
+                            .bind(counter_signal.map(|c| format!("Clicks: {}", c)))
+                            .size(48.0)
+                            .color(Color::rgb(0.25, 0.8, 0.4)) // Green accent
+                            .align(TextAlign::Center)
+                    ),
+                    
+                    // Interactive Button
+                    Box::new(
+                         Button::new("Increment Counter")
+                            .on_click(move || {
+                                let mut state = state.lock().unwrap();
+                                state.increment();
                             })
+                            // .style(...) // if we had style API on button directly
                     ),
                 ])
         )
