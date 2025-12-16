@@ -135,6 +135,66 @@ pub trait Widget: Debug + Send + Sync {
     }
 }
 
+/// Implement Widget for Box<T> to allow boxed widgets to be treated as widgets
+/// Implement Widget for Box<T> to allow boxed widgets to be treated as widgets
+impl<T: Widget + ?Sized> Widget for Box<T> {
+    fn id(&self) -> WidgetId {
+        (**self).id()
+    }
+
+    fn handle_event(&mut self, event: &Event, context: &mut WidgetContext) -> StratoResult<bool> {
+        (**self).handle_event(event, context)
+    }
+
+    fn update(&mut self, context: &mut WidgetContext) -> StratoResult<()> {
+        (**self).update(context)
+    }
+
+    fn layout(&mut self, constraints: &LayoutConstraints, context: &mut WidgetContext) -> StratoResult<Size> {
+        (**self).layout(constraints, context)
+    }
+
+    fn render(&self, context: &WidgetContext) -> StratoResult<()> {
+        (**self).render(context)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        (**self).as_any()
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        (**self).as_any_mut()
+    }
+
+    fn children(&self) -> Vec<&dyn Widget> {
+        (**self).children()
+    }
+
+    fn children_mut(&mut self) -> Vec<&mut dyn Widget> {
+        (**self).children_mut()
+    }
+
+    fn can_focus(&self) -> bool {
+        (**self).can_focus()
+    }
+
+    fn is_visible(&self) -> bool {
+        (**self).is_visible()
+    }
+
+    fn preferred_size(&self) -> Option<Size> {
+        (**self).preferred_size()
+    }
+
+    fn min_size(&self) -> Size {
+        (**self).min_size()
+    }
+
+    fn max_size(&self) -> Size {
+        (**self).max_size()
+    }
+}
+
 /// Widget builder trait for creating widgets with a fluent API
 pub trait WidgetBuilder<T: Widget> {
     /// Build the widget

@@ -18,6 +18,7 @@ pub mod plugin;
 pub mod text;
 pub mod logging;
 pub mod config;
+pub mod ui_node;
 
 pub use event::{Event, EventHandler, EventResult};
 pub use layout::{Constraints, Layout, LayoutEngine, LayoutConstraints, Size};

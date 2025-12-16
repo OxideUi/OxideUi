@@ -5,7 +5,7 @@ use syn::{
     parse_macro_input, Token, Ident, Expr, Lit,
     punctuated::Punctuated,
     bracketed, braced,
-    ext::IdentExt
+
 };
 
 // --- Parsed Structures ---
@@ -124,6 +124,7 @@ impl Parse for Child {
 
 impl ToTokens for View {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+         // Return the root UiNode
         self.root.to_tokens(tokens);
     }
 }
@@ -131,55 +132,104 @@ impl ToTokens for View {
 impl ToTokens for PropValue {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         match self {
-            PropValue::Node(node) => node.to_tokens(tokens),
-            PropValue::Expr(expr) => expr.to_tokens(tokens),
+            PropValue::Node(_) => {
+                 tokens.extend(quote! { compile_error!("Unexpected nested widget in PropValue generation") });
+            },
+            PropValue::Expr(expr) => {
+                 tokens.extend(quote! { strato_core::ui_node::PropValue::from(#expr) });
+            },
         }
     }
 }
 
 impl ToTokens for WidgetNode {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let name = &self.name;
+        let name_str = self.name.to_string();
         let props = &self.props;
         
-        let mut builder_chain = if let Some(arg) = &self.builder_arg {
-             quote! { #name::new(#arg) }
-        } else {
-             quote! { #name::new() }
-        };
+        // Handle props
+        let mut prop_tokens = Vec::new();
         
-        for prop in props {
-            let prop_name = &prop.name;
-            let prop_value = &prop.value;
-           
-            builder_chain = quote! {
-                #builder_chain.#prop_name(#prop_value)
-            };
+        // 1. Add constructor arg as "value" or specific prop
+        if let Some(arg) = &self.builder_arg {
+             // Heuristic: Text/Button -> "text", others -> "value"
+             let prop_name = match name_str.as_str() {
+                 "Text" | "Button" | "Label" => "text",
+                 "Image" => "source",
+                 _ => "value", 
+             };
+             
+             prop_tokens.push(quote! {
+                 (#prop_name.to_string(), strato_core::ui_node::PropValue::from(#arg))
+             });
         }
-
+        
+        // 2. Add standard props
+        for prop in props {
+            let key = prop.name.to_string();
+            let value = &prop.value;
+            
+            match value {
+                 PropValue::Node(_node) => {
+                     if key == "child" {
+                         // Handled in children section
+                     } else {
+                         // ERROR: Nested widgets in props (other than child) are FORBIDDEN in this pure AST.
+                         // We could panic here or emit a compile error.
+                         // For now, emit a compile error via quote if possible, or just ignore.
+                         // panic!("Nested widgets in properties (except 'child') are not supported in Semantic AST. Found widget in '{}'", key);
+                         
+                         // Better: prevent compilation
+                         let err_msg = format!("Property '{}' contains a Widget. Widgets can only be children.", key);
+                         prop_tokens.push(quote! { compile_error!(#err_msg) });
+                     }
+                 }
+                 PropValue::Expr(expr) => {
+                     prop_tokens.push(quote! {
+                         (#key.to_string(), strato_core::ui_node::PropValue::from(#expr))
+                     });
+                 }
+            }
+        }
+        
+        let mut children_tokens = Vec::new();
+        // 1. Explicit children from `children: [...]`
         if let Some(children) = &self.children {
-            let children_tokens: Vec<_> = children.iter().map(|child| {
+            for child in children {
                 match child {
                     Child::Node(node) => {
-                        quote! { Box::new(#node) }
+                        children_tokens.push(quote! { #node });
                     }
                     Child::Expr(expr) => {
-                        if let Expr::Lit(syn::ExprLit { lit: Lit::Str(_), .. }) = expr {
-                             quote! { Box::new(strato_widgets::prelude::Text::new(#expr)) }
-                        } else {
-                            quote! { Box::new(#expr) }
-                        }
+                        // Heuristic: string literal -> Text node
+                       if let Expr::Lit(syn::ExprLit { lit: Lit::Str(_), .. }) = expr {
+                            children_tokens.push(quote! { strato_core::ui_node::UiNode::Text(#expr.to_string()) });
+                       } else {
+                           // Dynamic expression? We can't easily turn it into UiNode unless it IS a UiNode.
+                           // Assuming expression evaluates to UiNode.
+                           children_tokens.push(quote! { #expr });
+                       }
                     }
                 }
-            }).collect();
-
-            // children() usually takes Vec<Box<dyn Widget>>
-            builder_chain = quote! {
-                #builder_chain.children(vec![ #(#children_tokens),* ])
-            };
+            }
+        }
+        
+        // 2. "child" prop moved to children
+        for prop in props {
+            if prop.name == "child" {
+                if let PropValue::Node(node) = &prop.value {
+                    children_tokens.push(quote! { #node });
+                }
+            }
         }
 
-        tokens.extend(builder_chain);
+        tokens.extend(quote! {
+            strato_core::ui_node::UiNode::Widget(strato_core::ui_node::WidgetNode {
+                name: #name_str.to_string(),
+                props: vec![ #(#prop_tokens),* ],
+                children: vec![ #(#children_tokens),* ],
+            })
+        });
     }
 }
 

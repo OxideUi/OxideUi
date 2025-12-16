@@ -37,5 +37,11 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    builder.run(root);
+    // Create legacy registry
+    let registry = strato_widgets::registry::create_default_registry();
+
+    // Build the widget tree using the registry
+    let root_widget = registry.build(root);
+
+    builder.run(root_widget);
 }

@@ -11,6 +11,7 @@ description = "Widget library for StratoSDK framework"
 [dependencies]
 strato-core = { workspace = true }
 strato-renderer = { workspace = true }
+strato-macros = { workspace = true }
 
 # Math
 glam.workspace = true

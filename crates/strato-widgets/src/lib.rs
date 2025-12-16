@@ -19,11 +19,13 @@ pub mod slider;
 pub mod dropdown;
 pub mod image;
 pub mod scroll_view;
+pub mod registry;
 
 pub mod prelude;
 use crate::prelude::*;
 
 // Re-export all widget types for easy access
+pub use strato_macros::view;
 pub use widget::{Widget, WidgetContext, WidgetId};
 pub use button::{Button, ButtonStyle};
 pub use text::{Text, TextStyle};

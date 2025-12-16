@@ -8,6 +8,7 @@ pub use crate::animation::{AnimationController, Curve, Tween, Tweenable};
 
 // Re-export core types that are commonly used with widgets
 pub use strato_core::prelude::*;
+pub use strato_macros::view;
 
 // Widget trait and common types
 pub use crate::widget::{Widget, WidgetId, WidgetState};
