@@ -1,4 +1,4 @@
-                  OXIDEUI COMMERCIAL LICENSE
+                  StratoSDK COMMERCIAL LICENSE
                        Version 1.0, 2025
 
  Copyright (C) 2025 StratoSDK Project Contributors
