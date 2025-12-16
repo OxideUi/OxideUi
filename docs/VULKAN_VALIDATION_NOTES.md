@@ -54,5 +54,5 @@ To reduce warnings during development:
 - The definitive resolution will come with future versions of WGPU
 
 ---
-*Last updated: January 2025*
+*Last updated: December 2025*
 *WGPU Version: 0.20+*

@@ -20,7 +20,7 @@ This todolist will be updated periodically as the project evolves.
 
 ## 🎨 Rendering and Graphics
 
-* [ ] 11\. Multi-platform `wgpu` backend – P5 D4 C4 V5
+* [x] 11\. Multi-platform `wgpu` backend – P5 D4 C4 V5
 * [ ] 12\. 2D vector layer (lyon) – P5 D3 C3 V5
 * [x] 13\. Advanced text shaping (swash/harfbuzz) – P5 D4 C4 V5
 * [ ] 14\. GPU text caching (glyph atlas) – P5 D3 C3 V5
@@ -70,7 +70,7 @@ This todolist will be updated periodically as the project evolves.
 
 ## 🧱 Architecture and Dev Experience
 
-* [ ] 46\. CLI `oxideui` (scaffold, build, serve) – P5 D3 C3 V5
+* [ ] 46\. CLI `StratoSDK` (scaffold, build, serve) – P5 D3 C3 V5
 * [ ] 47\. File-based configuration (ron/toml) – P5 D2 C2 V4
 * [ ] 48\. Macro `view!{}` DSL – P5 D4 C4 V5
 * [ ] 49\. Type-safe props and state – P5 D3 C3 V5

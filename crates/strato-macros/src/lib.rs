@@ -1,208 +1,217 @@
-//! Procedural macros for StratoUI framework
-
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Ident};
+use quote::{quote, ToTokens};
+use syn::{
+    parse::{Parse, ParseStream},
+    parse_macro_input, Token, Ident, Expr, Lit,
+    punctuated::Punctuated,
+    bracketed, braced,
+    ext::IdentExt
+};
 
-/// Derive macro for Widget trait
-#[proc_macro_derive(Widget, attributes(widget))]
-pub fn derive_widget(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = &input.ident;
-    
-    let expanded = quote! {
-        impl strato_widgets::widget::Widget for #name {
-            fn id(&self) -> strato_widgets::widget::WidgetId {
-                self.id
-            }
+// --- Parsed Structures ---
 
-            fn layout(&mut self, constraints: strato_core::layout::Constraints) -> strato_core::layout::Size {
-                self.base.calculate_size(constraints)
-            }
-
-            fn render(&self, batch: &mut strato_renderer::batch::RenderBatch, layout: strato_core::layout::Layout) {
-                // Default implementation
-            }
-
-            fn as_any(&self) -> &dyn std::any::Any {
-                self
-            }
-
-            fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-                self
-            }
-
-            fn clone_widget(&self) -> Box<dyn strato_widgets::widget::Widget> {
-                Box::new(self.clone())
-            }
-        }
-    };
-
-    TokenStream::from(expanded)
+struct View {
+    root: WidgetNode,
 }
 
-/// Macro for creating widget trees declaratively
+struct WidgetNode {
+    name: Ident,
+    builder_arg: Option<Expr>,
+    props: Vec<Prop>,
+    children: Option<Vec<Child>>,
+}
+
+struct Prop {
+    name: Ident,
+    value: PropValue,
+}
+
+enum PropValue {
+    Node(WidgetNode),
+    Expr(Expr),
+}
+
+enum Child {
+    Node(WidgetNode),
+    Expr(Expr),
+}
+
+// --- Parsing Logic ---
+
+impl Parse for View {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let root = input.parse()?;
+        Ok(View { root })
+    }
+}
+
+impl Parse for WidgetNode {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let name: Ident = input.parse()?;
+        let content;
+        braced!(content in input);
+
+        let mut builder_arg = None;
+        let mut props = Vec::new();
+        let mut children = None;
+
+        if !content.is_empty() {
+             let is_key_value = if content.peek(Ident) {
+                content.peek2(Token![:])
+             } else {
+                false
+             };
+
+             if !is_key_value {
+                let arg: Expr = content.parse()?;
+                builder_arg = Some(arg);
+                
+                if content.peek(Token![,]) {
+                    content.parse::<Token![,]>()?;
+                }
+             }
+        }
+
+        while !content.is_empty() {
+            if content.peek(Ident) && content.peek2(Token![:]) {
+                let key: Ident = content.parse()?;
+                content.parse::<Token![:]>()?;
+                
+                if key == "children" {
+                    let children_content;
+                    bracketed!(children_content in content);
+                    
+                    let parsed_children: Punctuated<Child, Token![,]> = 
+                        children_content.parse_terminated(Child::parse, Token![,])?;
+                    children = Some(parsed_children.into_iter().collect());
+                } else {
+                    // Parse value: could be WidgetNode (DSL) or Expr
+                    let value = if content.peek(Ident) && content.peek2(syn::token::Brace) {
+                         let node: WidgetNode = content.parse()?;
+                         PropValue::Node(node)
+                    } else {
+                         let expr: Expr = content.parse()?;
+                         PropValue::Expr(expr)
+                    };
+                    props.push(Prop { name: key, value });
+                }
+                 
+                if content.peek(Token![,]) {
+                    content.parse::<Token![,]>()?;
+                }
+            } else {
+                return Err(content.error("Expected property or children"));
+            }
+        }
+
+        Ok(WidgetNode { name, builder_arg, props, children })
+    }
+}
+
+impl Parse for Child {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.peek(Ident) && input.peek2(syn::token::Brace) {
+             let node: WidgetNode = input.parse()?;
+             Ok(Child::Node(node))
+        } else {
+            let expr: Expr = input.parse()?;
+            Ok(Child::Expr(expr))
+        }
+    }
+}
+
+// --- Code Generation ---
+
+impl ToTokens for View {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        self.root.to_tokens(tokens);
+    }
+}
+
+impl ToTokens for PropValue {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        match self {
+            PropValue::Node(node) => node.to_tokens(tokens),
+            PropValue::Expr(expr) => expr.to_tokens(tokens),
+        }
+    }
+}
+
+impl ToTokens for WidgetNode {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let name = &self.name;
+        let props = &self.props;
+        
+        let mut builder_chain = if let Some(arg) = &self.builder_arg {
+             quote! { #name::new(#arg) }
+        } else {
+             quote! { #name::new() }
+        };
+        
+        for prop in props {
+            let prop_name = &prop.name;
+            let prop_value = &prop.value;
+           
+            builder_chain = quote! {
+                #builder_chain.#prop_name(#prop_value)
+            };
+        }
+
+        if let Some(children) = &self.children {
+            let children_tokens: Vec<_> = children.iter().map(|child| {
+                match child {
+                    Child::Node(node) => {
+                        quote! { Box::new(#node) }
+                    }
+                    Child::Expr(expr) => {
+                        if let Expr::Lit(syn::ExprLit { lit: Lit::Str(_), .. }) = expr {
+                             quote! { Box::new(strato_widgets::prelude::Text::new(#expr)) }
+                        } else {
+                            quote! { Box::new(#expr) }
+                        }
+                    }
+                }
+            }).collect();
+
+            // children() usually takes Vec<Box<dyn Widget>>
+            builder_chain = quote! {
+                #builder_chain.children(vec![ #(#children_tokens),* ])
+            };
+        }
+
+        tokens.extend(builder_chain);
+    }
+}
+
+// --- Macro Entry Point ---
+
+/// Declarative UI definition macro
+///
+/// Example:
+/// ```rust
+/// view! {
+///     Column {
+///         spacing: 10.0,
+///         children: [
+///             Text { "Hello" },
+///             Button { child: Text { "Click" } }
+///         ]
+///     }
+/// }
+/// ```
 #[proc_macro]
-pub fn ui(_input: TokenStream) -> TokenStream {
-    // Parse the UI tree and generate widget construction code
-    // This is a simplified version - a real implementation would parse a DSL
-    
-    let expanded = quote! {
+pub fn view(input: TokenStream) -> TokenStream {
+    let view_def = parse_macro_input!(input as View);
+    quote! {
         {
             use strato_widgets::prelude::*;
-            Container::new()
+            #view_def
         }
-    };
-
-    TokenStream::from(expanded)
+    }.into()
 }
 
-/// State management macro
-#[proc_macro]
-pub fn state(input: TokenStream) -> TokenStream {
-    let input = input.to_string();
-    let parts: Vec<&str> = input.split('=').collect();
-    
-    if parts.len() != 2 {
-        panic!("state! macro expects format: state!(name = initial_value)");
-    }
-
-    let name = parts[0].trim();
-    let initial = parts[1].trim();
-    
-    let name_ident = syn::parse_str::<Ident>(name).expect("Invalid identifier");
-    
-    let expanded = quote! {
-        {
-            use strato_core::state::Signal;
-            let #name_ident = Signal::new(#initial);
-            #name_ident
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-/// Component macro for defining reusable components
-#[proc_macro]
-pub fn component(_input: TokenStream) -> TokenStream {
-    // Parse component definition
-    // This is a simplified placeholder
-    
-    let expanded = quote! {
-        pub struct Component {
-            id: strato_widgets::widget::WidgetId,
-            children: Vec<Box<dyn strato_widgets::widget::Widget>>,
-        }
-
-        impl Component {
-            pub fn new() -> Self {
-                Self {
-                    id: strato_widgets::widget::generate_id(),
-                    children: Vec::new(),
-                }
-            }
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-/// Style macro for defining widget styles
-#[proc_macro]
-pub fn style(_input: TokenStream) -> TokenStream {
-    // Parse style definitions
-    // This would parse CSS-like syntax
-    
-    let expanded = quote! {
-        {
-            use strato_widgets::theme::*;
-            StyleBuilder::new()
-                .build()
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-/// Event handler macro
-#[proc_macro]
-pub fn on(input: TokenStream) -> TokenStream {
-    let input_str = input.to_string();
-    let parts: Vec<&str> = input_str.split("=>").collect();
-    
-    if parts.len() != 2 {
-        panic!("on! macro expects format: on!(event => handler)");
-    }
-
-    let _event = parts[0].trim();
-    let handler = parts[1].trim();
-    
-    let expanded = quote! {
-        {
-            Box::new(move |e| {
-                #handler
-            })
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-/// Computed value macro
-#[proc_macro]
-pub fn computed(input: TokenStream) -> TokenStream {
-    // Convert to proc_macro2::TokenStream so it implements ToTokens
-    let input2: proc_macro2::TokenStream = input.into();
-    let expanded = quote! {
-        {
-            use strato_core::reactive::Computed;
-            Computed::new(move || {
-                #input2
-            })
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-/// Effect macro for side effects
-#[proc_macro]
-pub fn effect(input: TokenStream) -> TokenStream {
-    // Convert to proc_macro2::TokenStream so it implements ToTokens
-    let input2: proc_macro2::TokenStream = input.into();
-    let expanded = quote! {
-        {
-            use strato_core::reactive::Effect;
-            Effect::new(move || {
-                #input2
-            })
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-/// Watch macro for watching value changes
-#[proc_macro]
-pub fn watch(input: TokenStream) -> TokenStream {
-    let input_str = input.to_string();
-    let parts: Vec<&str> = input_str.split("=>").collect();
-    
-    if parts.len() != 2 {
-        panic!("watch! macro expects format: watch!(value => handler)");
-    }
-
-    let value = parts[0].trim();
-    let handler = parts[1].trim();
-    
-    let expanded = quote! {
-        {
-            #value.on_change(move |val| {
-                #handler
-            })
-        }
-    };
-
-    TokenStream::from(expanded)
+/// Derive macro for Widget trait (Placeholder)
+#[proc_macro_derive(Widget, attributes(widget))]
+pub fn derive_widget(_input: TokenStream) -> TokenStream {
+    TokenStream::new()
 }

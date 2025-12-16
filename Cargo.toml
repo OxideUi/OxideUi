@@ -14,6 +14,7 @@ members = [
     "crates/strato-platform",
     "crates/strato-macros",
     "examples/animated_showcase",
+    "examples/macro_showcase",
 ]
 resolver = "2"
 
