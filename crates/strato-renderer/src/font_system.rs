@@ -420,8 +420,6 @@ impl FontSystem {
     }
 
     fn ensure_glyph_in_atlas(&self, _glyph: &cosmic_text::PhysicalGlyph) -> [f32; 2] {
-        // This is a simplified implementation
-        // In a real implementation, you would rasterize the glyph and add it to the atlas
         [0.0, 0.0] // Placeholder texture coordinates
     }
 

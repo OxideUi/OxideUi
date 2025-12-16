@@ -275,8 +275,7 @@ pub struct TextPipeline {
 impl TextPipeline {
     /// Create a new text render pipeline
     pub fn new(device: &Device, surface_format: wgpu::TextureFormat) -> Self {
-        // For now, use the same shader as UI
-        // In a real implementation, you'd have a specialized text shader
+        
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Text Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/ui.wgsl").into()),

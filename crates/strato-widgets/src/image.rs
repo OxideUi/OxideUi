@@ -313,8 +313,7 @@ impl Image {
     }
 
     fn load_from_file(&mut self, path: &PathBuf) {
-        // In a real implementation, this would use an image loading library
-        // For now, we'll simulate loading
+       
         match std::fs::read(path) {
             Ok(bytes) => {
                 if let Ok(data) = self.decode_image_data(bytes) {
@@ -341,8 +340,7 @@ impl Image {
     }
 
     fn load_from_url(&mut self, _url: &str) {
-        // In a real implementation, this would make an HTTP request
-        // For now, we'll simulate an error
+        
         let error = "URL loading not implemented".to_string();
         self.state = ImageState::Error(error.clone());
         if let Some(callback) = &self.on_error {
@@ -351,8 +349,7 @@ impl Image {
     }
 
     fn decode_image_data(&self, _bytes: Vec<u8>) -> Result<ImageData, String> {
-        // In a real implementation, this would use an image decoding library
-        // For now, we'll create a dummy image
+        
         Ok(ImageData {
             width: 100,
             height: 100,

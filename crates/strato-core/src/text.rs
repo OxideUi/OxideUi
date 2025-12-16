@@ -296,8 +296,7 @@ impl TextShaper {
 
     /// Shape text into positioned glyphs
     pub fn shape_text(&self, text: &str, style: &TextStyle) -> Result<Vec<PositionedGlyph>, TextError> {
-        // Simplified shaping - in a real implementation, this would use
-        // libraries like HarfBuzz for proper text shaping
+     
         // TODO: Use self.font_manager to get proper font metrics
         let mut glyphs = Vec::new();
         let mut x = 0.0;

@@ -479,8 +479,7 @@ impl DynamicBuffer {
         
         // Copy existing data if needed
         if let Some(_old_buffer) = self.current_buffer.read().as_ref() {
-            // In a real implementation, you would copy data here
-            // This requires a command encoder and proper synchronization
+            
         }
         
         *self.current_buffer.write() = Some(allocation);

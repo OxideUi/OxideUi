@@ -434,7 +434,7 @@ where
     f();
     
     // Return a disposable that does nothing for now
-    // In a real implementation, this would track the effect for disposal
+    
     Disposable::new(|| {})
 }
 

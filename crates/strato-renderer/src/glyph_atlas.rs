@@ -283,7 +283,6 @@ mod tests {
     fn test_glyph_addition() {
         let mut atlas = GlyphAtlas::new(256, 256);
 
-        // Use cosmic-text to obtain a real glyph cache key and bitmap
         let mut font_system = FontSystem::new();
         let mut swash_cache = SwashCache::new();
 

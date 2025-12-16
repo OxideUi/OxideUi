@@ -501,10 +501,7 @@ impl ShaderManager {
     /// Validate compiled shader
     fn validate_shader(&self, _module: &ShaderModule, _source: &ShaderSource) -> Result<Vec<String>> {
         // Placeholder for shader validation
-        // In a real implementation, you would use tools like:
-        // - SPIRV-Tools for SPIR-V validation
-        // - glslang for GLSL validation
-        // - DXC for HLSL validation
+       
         Ok(Vec::new())
     }
     

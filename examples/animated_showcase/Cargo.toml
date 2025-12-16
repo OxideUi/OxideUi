@@ -1,0 +1,16 @@
+[package]
+name = "animated_showcase"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+strato-platform = { path = "../../crates/strato-platform" }
+strato-core = { path = "../../crates/strato-core" }
+strato-renderer = { path = "../../crates/strato-renderer" }
+strato-widgets = { path = "../../crates/strato-widgets" }
+tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+winit = { workspace = true }
+glam = { workspace = true }
+anyhow = "1.0"
