@@ -19,6 +19,7 @@ glam.workspace = true
 # State
 parking_lot.workspace = true
 smallvec.workspace = true
+slotmap.workspace = true
 
 # Error handling
 thiserror.workspace = true

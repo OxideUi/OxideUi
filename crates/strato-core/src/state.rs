@@ -11,6 +11,26 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+// Helper for optional serialization
+#[cfg(feature = "serde")]
+mod serde_helper {
+    pub struct JsonInspector<'a, T: ?Sized>(pub &'a T);
+
+    pub trait Fallback {
+        fn to_json(&self) -> String {
+            "<unserializable>".into()
+        }
+    }
+
+    impl<'a, T: ?Sized> Fallback for JsonInspector<'a, T> {}
+
+    impl<'a, T: ?Sized + serde::Serialize> JsonInspector<'a, T> {
+        pub fn to_json(&self) -> String {
+            serde_json::to_string(self.0).unwrap_or_else(|_| "<unserializable>".into())
+        }
+    }
+}
+
 /// Unique identifier for state values
 pub type StateId = slotmap::DefaultKey;
 
@@ -171,8 +191,8 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
         #[cfg(feature = "serde")]
         {
             // Record inspector snapshot if available.
-            let detail =
-                serde_json::to_string(&value).unwrap_or_else(|_| "<unserializable>".into());
+            use self::serde_helper::{JsonInspector, Fallback};
+            let detail = JsonInspector(&value).to_json();
             crate::inspector::inspector().record_state_snapshot(self.id, detail);
         }
         #[cfg(not(feature = "serde"))]
@@ -194,8 +214,8 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
         };
         #[cfg(feature = "serde")]
         {
-            let detail =
-                serde_json::to_string(&value).unwrap_or_else(|_| "<unserializable>".into());
+            use self::serde_helper::{JsonInspector, Fallback};
+            let detail = JsonInspector(&value).to_json();
             crate::inspector::inspector().record_state_snapshot(self.id, detail);
         }
         #[cfg(not(feature = "serde"))]

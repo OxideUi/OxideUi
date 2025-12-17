@@ -21,6 +21,7 @@ pub mod text;
 pub mod theme;
 pub mod widget;
 pub mod wrap;
+pub mod top_bar;
 
 pub mod prelude;
 use crate::prelude::*;
@@ -44,6 +45,7 @@ pub use strato_macros::view;
 pub use text::{Text, TextStyle};
 pub use theme::Theme;
 pub use widget::{Widget, WidgetContext, WidgetId};
+pub use top_bar::TopBar;
 
 /// Initialize the widgets module
 pub fn init() -> strato_core::Result<()> {

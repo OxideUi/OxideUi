@@ -14,6 +14,7 @@ use crate::layout::Column;
 use crate::scroll_view::ScrollView;
 use crate::text::Text;
 use crate::widget::{generate_id, Widget, WidgetId};
+use slotmap::Key;
 
 const DEFAULT_PANEL_WIDTH: f32 = 340.0;
 const DEFAULT_PANEL_HEIGHT: f32 = 320.0;
@@ -73,7 +74,7 @@ impl InspectorOverlay {
         nodes: &mut Vec<ComponentNodeSnapshot>,
     ) {
         nodes.push(ComponentNodeSnapshot {
-            id: widget.id(),
+            id: strato_core::widget::WidgetId(widget.id()),
             name: format!("{:?}", widget),
             depth,
             props: HashMap::new(),
@@ -105,7 +106,7 @@ impl InspectorOverlay {
         } else {
             for node in &snapshot.components {
                 let indent = "  ".repeat(node.depth);
-                let line = format!("{}• {} #{}", indent, node.name, node.id);
+                let line = format!("{}• {} #{:?}", indent, node.name, node.id);
                 lines.push(Box::new(
                     Text::new(line)
                         .font_size(12.0)
@@ -125,7 +126,7 @@ impl InspectorOverlay {
             ));
         } else {
             for snapshot in snapshot.state_snapshots.iter().take(8) {
-                let line = format!("• {} => {}", snapshot.state_id.data(), snapshot.detail);
+                let line = format!("• {:?} => {}", snapshot.state_id.data(), snapshot.detail);
                 lines.push(Box::new(Text::new(line).font_size(12.0)));
             }
         }
@@ -181,6 +182,33 @@ impl Widget for InspectorOverlay {
         self.id
     }
 
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn clone_widget(&self) -> Box<dyn Widget> {
+        // Since we can't easily clone the boxed child trait object without more bounds,
+        // and InspectorOverlay is likely a singleton/special widget, 
+        // we might need a specific strategy. 
+        // For now, assuming `InspectorOverlay` needs to be Clone but `child` is `Box<dyn Widget>`.
+        // `Box<dyn Widget>` isn't automatically cloneable unless `Widget` has `clone_widget`.
+        // We can use the child's `clone_widget` method.
+        Box::new(Self {
+            id: generate_id(), // Generate new ID on clone? Or copy? Usually clone implies new ID for widgets or copy? 
+                             // BaseWidget generates new ID.
+            child: self.child.clone_widget(),
+            shortcut: self.shortcut,
+            visible: self.visible,
+            cached_child_size: self.cached_child_size,
+            panel: self.panel.as_ref().map(|p| p.clone_widget()),
+            panel_size: self.panel_size,
+        })
+    }
+
     fn layout(&mut self, constraints: Constraints) -> Size {
         let inspector = inspector::inspector();
         if inspector.is_enabled() && self.visible {
@@ -217,7 +245,7 @@ impl Widget for InspectorOverlay {
 
         if inspector::inspector().is_enabled() && self.visible {
             inspector::inspector().record_layout_box(LayoutBoxSnapshot {
-                widget_id: self.child.id(),
+                widget_id: strato_core::widget::WidgetId(self.child.id()),
                 bounds: Rect::new(
                     layout.position.x,
                     layout.position.y,
@@ -244,7 +272,7 @@ impl Widget for InspectorOverlay {
                 panel.render(batch, panel_layout);
 
                 inspector::inspector().record_layout_box(LayoutBoxSnapshot {
-                    widget_id: panel.id(),
+                    widget_id: strato_core::widget::WidgetId(panel.id()),
                     bounds: Rect::new(
                         panel_pos.x,
                         panel_pos.y,
