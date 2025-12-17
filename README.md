@@ -240,7 +240,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 StratoSDK is dual-licensed under either:
 
-- AGPL v3 License ([LICENSE-AGPLv3](LICENSE.md))
+- MIT License ([LICENSE-MIT](LICENSE.md))
 - Commercial license ([LICENSE-COMMERCIAL](COMMERCIAL.md))
 
 at your option.
