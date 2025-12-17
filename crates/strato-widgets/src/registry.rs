@@ -7,6 +7,7 @@ use strato_core::layout::{Constraints, Layout, Size};
 use strato_core::types::Point;
 use strato_renderer::batch::RenderBatch;
 use crate::prelude::*;
+use crate::image::{Image, ImageSource, ImageFit};
 
 /// A builder function that creates a widget from properties.
 type WidgetBuilder = Box<dyn Fn(Vec<(String, PropValue)>, Vec<UiNode>, &WidgetRegistry) -> Box<dyn Widget> + Send + Sync>;
@@ -105,6 +106,8 @@ impl WidgetRegistry {
                      ("background", PropValue::Color(c)) => widget = widget.background(c),
                      ("width", PropValue::Float(v)) => widget = widget.width(v as f32),
                      ("height", PropValue::Float(v)) => widget = widget.height(v as f32),
+                     ("radius", PropValue::Float(v)) => widget = widget.border_radius(v as f32),
+                     ("margin", PropValue::Float(v)) => widget = widget.margin(v as f32),
                     _ => {}
                 }
             }
@@ -208,8 +211,73 @@ impl WidgetRegistry {
             }
             Box::new(widget)
         });
+        // Image
+        self.register("Image", |props, _children, _registry| {
+            let mut source = ImageSource::Placeholder { 
+                width: 100, 
+                height: 100, 
+                color: Color::GRAY 
+            };
+            
+            for (name, value) in &props {
+                if name == "source" {
+                    if let PropValue::String(s) = value {
+                        // Simple heuristic for source type
+                        if s.starts_with("http") {
+                             source = ImageSource::Url(s.clone());
+                        } else if s.starts_with("placeholder") {
+                            // Format: placeholder:width:height:hex
+                            // Simplified parsing for now: placeholder -> default
+                        } else {
+                             source = ImageSource::File(std::path::PathBuf::from(s));
+                        }
+                    }
+                }
+            }
+            
+            let mut widget = Image::new(source);
+             for (name, value) in props {
+                match (name.as_str(), value) {
+                    ("fit", PropValue::String(s)) => {
+                        let fit = match s.as_str() {
+                            "cover" => ImageFit::Cover,
+                            "contain" => ImageFit::Contain,
+                            "fill" => ImageFit::Fill,
+                            _ => ImageFit::None,
+                        };
+                        widget = widget.fit(fit);
+                    }
+                    ("opacity", PropValue::Float(v)) => widget = widget.opacity(v as f32),
+                     ("radius", PropValue::Float(v)) => widget = widget.border_radius(v as f32),
+                    _ => {}
+                }
+             }
+             Box::new(widget)
+        });
 
+        // TopBar
+        self.register("TopBar", |props, _children, _registry| {
+            let mut title = "".to_string();
+            // First pass for title
+            for (name, value) in &props {
+                if name == "title" {
+                    if let PropValue::String(s) = value {
+                        title = s.clone();
+                    }
+                }
+            }
 
+            let mut widget = crate::top_bar::TopBar::new(title);
+            
+            for (name, value) in props {
+                match (name.as_str(), value) {
+                    ("background", PropValue::Color(c)) => widget = widget.with_background(c),
+                     // height handles directly field access if needed, or via method if added
+                    _ => {}
+                }
+            }
+            Box::new(widget)
+        });
     }
 }
 

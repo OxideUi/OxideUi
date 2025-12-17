@@ -115,7 +115,7 @@ pub struct Image {
     id: WidgetId,
     source: ImageSource,
     style: ImageStyle,
-    state: ImageState,
+    state: Signal<ImageState>,
     alt_text: Option<String>,
     on_load: Option<Box<dyn Fn(&ImageData) + Send + Sync>>,
     on_error: Option<Box<dyn Fn(&str) + Send + Sync>>,
@@ -164,11 +164,11 @@ impl Clone for Image {
 impl Image {
     /// Create a new image widget
     pub fn new(source: ImageSource) -> Self {
-        Self {
+        let img = Self {
             id: generate_id(),
             source,
             style: ImageStyle::default(),
-            state: ImageState::Loading,
+            state: Signal::new(ImageState::Loading),
             alt_text: None,
             on_load: None,
             on_error: None,
@@ -176,7 +176,9 @@ impl Image {
             loading_placeholder: None,
             error_placeholder: None,
             bounds: Signal::new(Rect::default()),
-        }
+        };
+        img.load_image();
+        img
     }
 
     /// Create image from file path
@@ -282,102 +284,121 @@ impl Image {
     }
 
     /// Get current image state
-    pub fn state(&self) -> &ImageState {
-        &self.state
+    pub fn state(&self) -> ImageState {
+        self.state.get()
     }
 
     /// Load image from source
-    pub fn load_image(&mut self) {
+    pub fn load_image(&self) {
         let source = self.source.clone();
+        let state = self.state.clone();
+        
+        // Mark as loading
+        state.set(ImageState::Loading);
+
         match source {
             ImageSource::File(path) => {
-                self.load_from_file(&path);
+                let state = state.clone();
+                std::thread::spawn(move || {
+                    match std::fs::read(&path) {
+                        Ok(bytes) => {
+                            if let Ok(data) = decode_image_data_internal(bytes) {
+                                state.set(ImageState::Loaded(data));
+                            } else {
+                                state.set(ImageState::Error("Failed to decode image".to_string()));
+                            }
+                        }
+                        Err(e) => {
+                            state.set(ImageState::Error(format!("Failed to load image: {}", e)));
+                        }
+                    }
+                });
             }
             ImageSource::Url(url) => {
-                self.load_from_url(&url);
+                let state = state.clone();
+                std::thread::spawn(move || {
+                    // Fetch image data
+                    let client = reqwest::blocking::Client::new();
+                    match client.get(&url)
+                        .header("User-Agent", "StratoUI/0.1.0")
+                        .send() {
+                        Ok(response) => {
+                            if response.status().is_success() {
+                                match response.bytes() {
+                                    Ok(bytes) => {
+                                        if let Ok(data) = decode_image_data_internal(bytes.to_vec()) {
+                                            state.set(ImageState::Loaded(data));
+                                        } else {
+                                            state.set(ImageState::Error("Failed to decode image from URL".to_string()));
+                                        }
+                                    }
+                                    Err(e) => {
+                                        state.set(ImageState::Error(format!("Failed to read bytes: {}", e)));
+                                    }
+                                }
+                            } else {
+                                state.set(ImageState::Error(format!("HTTP Error: {}", response.status())));
+                            }
+                        }
+                        Err(e) => {
+                            state.set(ImageState::Error(format!("Failed to fetch URL: {}", e)));
+                        }
+                    }
+                });
             }
             ImageSource::Data(data) => {
-                self.state = ImageState::Loaded(data.clone());
-                if let Some(callback) = &self.on_load {
-                    callback(&data);
-                }
+                state.set(ImageState::Loaded(data));
             }
             ImageSource::Placeholder { width, height, color } => {
-                let data = self.create_placeholder_data(width, height, color);
-                self.state = ImageState::Loaded(data.clone());
-                if let Some(callback) = &self.on_load {
-                    callback(&data);
-                }
+                let data = create_placeholder_data_internal(width, height, color);
+                state.set(ImageState::Loaded(data));
             }
         }
     }
+}
 
-    fn load_from_file(&mut self, path: &PathBuf) {
-       
-        match std::fs::read(path) {
-            Ok(bytes) => {
-                if let Ok(data) = self.decode_image_data(bytes) {
-                    self.state = ImageState::Loaded(data.clone());
-                    if let Some(callback) = &self.on_load {
-                        callback(&data);
-                    }
-                } else {
-                    let error = "Failed to decode image".to_string();
-                    self.state = ImageState::Error(error.clone());
-                    if let Some(callback) = &self.on_error {
-                        callback(&error);
-                    }
-                }
-            }
-            Err(e) => {
-                let error = format!("Failed to load image: {}", e);
-                self.state = ImageState::Error(error.clone());
-                if let Some(callback) = &self.on_error {
-                    callback(&error);
-                }
-            }
+// Internal helper for decoding without &self
+fn decode_image_data_internal(bytes: Vec<u8>) -> Result<ImageData, String> {
+    match image::load_from_memory(&bytes) {
+        Ok(dynamic_image) => {
+            let rgba_image = dynamic_image.to_rgba8();
+            let (width, height) = rgba_image.dimensions();
+            let data = rgba_image.into_raw();
+            
+            Ok(ImageData {
+                width,
+                height,
+                data: Arc::new(data),
+                format: ImageFormat::Png, // Treated as raw RGBA
+            })
         }
+        Err(e) => Err(format!("Image decoding error: {}", e)),
     }
+}
 
-    fn load_from_url(&mut self, _url: &str) {
-        
-        let error = "URL loading not implemented".to_string();
-        self.state = ImageState::Error(error.clone());
-        if let Some(callback) = &self.on_error {
-            callback(&error);
-        }
+fn create_placeholder_data_internal(width: u32, height: u32, color: Color) -> ImageData {
+    let pixel_count = (width * height) as usize;
+    let mut data = Vec::with_capacity(pixel_count * 4);
+    
+    let r = (color.r * 255.0) as u8;
+    let g = (color.g * 255.0) as u8;
+    let b = (color.b * 255.0) as u8;
+    let a = (color.a * 255.0) as u8;
+    
+    for _ in 0..pixel_count {
+        data.extend_from_slice(&[r, g, b, a]);
     }
+    
+    ImageData {
+        width,
+        height,
+        data: Arc::new(data),
+        format: ImageFormat::Png,
+    }
+}
 
-    fn decode_image_data(&self, _bytes: Vec<u8>) -> Result<ImageData, String> {
-        
-        Ok(ImageData {
-            width: 100,
-            height: 100,
-            data: Arc::new(vec![255; 100 * 100 * 4]), // White RGBA
-            format: ImageFormat::Png,
-        })
-    }
+impl Image { // Re-opening impl to fix the struct definition gap if needed, but here we are replacing methods.
 
-    fn create_placeholder_data(&self, width: u32, height: u32, color: Color) -> ImageData {
-        let pixel_count = (width * height) as usize;
-        let mut data = Vec::with_capacity(pixel_count * 4);
-        
-        let r = (color.r * 255.0) as u8;
-        let g = (color.g * 255.0) as u8;
-        let b = (color.b * 255.0) as u8;
-        let a = (color.a * 255.0) as u8;
-        
-        for _ in 0..pixel_count {
-            data.extend_from_slice(&[r, g, b, a]);
-        }
-        
-        ImageData {
-            width,
-            height,
-            data: Arc::new(data),
-            format: ImageFormat::Png,
-        }
-    }
 
     fn calculate_display_size(&self, container_size: Size, image_size: Size) -> (Size, Rect) {
         match self.style.fit {
@@ -456,7 +477,7 @@ impl Widget for Image {
     }
 
     fn layout(&mut self, constraints: Constraints) -> Size {
-        match &self.state {
+        match &self.state.get() {
             ImageState::Loaded(data) => {
                 let image_size = Size::new(data.width as f32, data.height as f32);
                 let container_size = Size::new(constraints.max_width, constraints.max_height);
@@ -486,7 +507,7 @@ impl Widget for Image {
             0.0,
         ));
 
-        match &self.state {
+        match self.state.get() {
             ImageState::Loaded(data) => {
                 let image_size = Size::new(data.width as f32, data.height as f32);
                 let container_size = Size::new(bounds.width, bounds.height);

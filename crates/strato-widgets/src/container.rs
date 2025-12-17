@@ -4,19 +4,44 @@ use crate::widget::{Widget, WidgetId, generate_id};
 use strato_core::{
     event::{Event, EventResult},
     layout::{Constraints, EdgeInsets, Layout, Size},
-    types::{Color, Rect, BorderRadius, Shadow},
+    types::{Color, Rect, BorderRadius, Shadow, Point},
+    state::Signal,
     Transform,
 };
 use strato_renderer::batch::RenderBatch;
 use std::any::Any;
 
 /// Container widget for grouping and styling child widgets
-#[derive(Debug)]
 pub struct Container {
     id: WidgetId,
     child: Option<Box<dyn Widget>>,
     style: ContainerStyle,
     constraints: Option<Constraints>,
+    on_click: Option<Box<dyn Fn() + Send + Sync>>,
+    on_hover: Option<Box<dyn Fn(bool) + Send + Sync>>,
+    state: Signal<ContainerState>,
+    bounds: Signal<Rect>,
+}
+
+impl std::fmt::Debug for Container {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Container")
+            .field("id", &self.id)
+            .field("child", &self.child)
+            .field("style", &self.style)
+            .field("constraints", &self.constraints)
+            .field("on_click", &self.on_click.as_ref().map(|_| "Fn()"))
+            .field("on_hover", &self.on_hover.as_ref().map(|_| "Fn(bool)"))
+            .field("state", &self.state)
+            .field("bounds", &self.bounds)
+            .finish()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+struct ContainerState {
+    hovered: bool,
+    pressed: bool,
 }
 
 impl Container {
@@ -27,6 +52,10 @@ impl Container {
             child: None,
             style: ContainerStyle::default(),
             constraints: None,
+            on_click: None,
+            on_hover: None,
+            state: Signal::new(ContainerState::default()),
+            bounds: Signal::new(Rect::default()),
         }
     }
 
@@ -109,6 +138,24 @@ impl Container {
         self.constraints = Some(constraints);
         self
     }
+
+    /// Set click handler
+    pub fn on_click<F>(mut self, handler: F) -> Self
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        self.on_click = Some(Box::new(handler));
+        self
+    }
+
+    /// Set hover handler
+    pub fn on_hover<F>(mut self, handler: F) -> Self
+    where
+        F: Fn(bool) + Send + Sync + 'static,
+    {
+        self.on_hover = Some(Box::new(handler));
+        self
+    }
 }
 
 impl Widget for Container {
@@ -168,6 +215,9 @@ impl Widget for Container {
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
+        let bounds = Rect::new(layout.position.x, layout.position.y, layout.size.width, layout.size.height);
+        self.bounds.set(bounds);
+
         let margin = self.style.margin;
         let padding = self.style.padding;
         
@@ -185,9 +235,18 @@ impl Widget for Container {
             // TODO: Implement proper shadow rendering
         }
         
-        // Draw background
-        if self.style.background_color.a > 0.0 {
-            batch.add_rect(content_rect, self.style.background_color, Transform::identity());
+        // Draw background with state feedback
+        let mut background_color = self.style.background_color;
+        let state = self.state.get();
+        
+        if state.pressed {
+            background_color = background_color.darken(0.2); // Visual feedback for press
+        } else if state.hovered {
+             background_color = background_color.lighten(0.1); // Visual feedback for hover
+        }
+
+        if background_color.a > 0.0 {
+            batch.add_rect(content_rect, background_color, Transform::identity());
         }
         
         // Draw border
@@ -212,11 +271,87 @@ impl Widget for Container {
     }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
-        if let Some(child) = &mut self.child {
-            child.handle_event(event)
-        } else {
-            EventResult::Ignored
+        // Handle interactions if callbacks are present
+        if self.on_click.is_some() || self.on_hover.is_some() {
+            match event {
+                Event::MouseMove(mouse_event) => {
+                    let bounds = self.bounds.get();
+                    let point = Point::new(mouse_event.position.x, mouse_event.position.y);
+                    let is_hovered = bounds.contains(point);
+                    let mut state = self.state.get();
+                    
+                    if is_hovered != state.hovered {
+                        state.hovered = is_hovered;
+                        self.state.set(state);
+                        if let Some(handler) = &self.on_hover {
+                            handler(is_hovered);
+                        }
+                       
+                    }
+                    if is_hovered {
+                         // Don't necessarily block children, but track state
+                    }
+                }
+                Event::MouseDown(mouse_event) => {
+                     let bounds = self.bounds.get();
+                     let point = Point::new(mouse_event.position.x, mouse_event.position.y);
+                     if bounds.contains(point) {
+                         let mut state = self.state.get();
+                         state.pressed = true;
+                         self.state.set(state);
+                         
+                
+                     }
+                }
+                Event::MouseUp(mouse_event) => {
+                    let bounds = self.bounds.get();
+                    let point = Point::new(mouse_event.position.x, mouse_event.position.y);
+                    let mut state = self.state.get();
+                    
+                    if state.pressed {
+                        state.pressed = false;
+                        self.state.set(state);
+                        if bounds.contains(point) {
+                             if let Some(handler) = &self.on_click {
+                                 handler();
+                                 // If we clicked, we probably handled it. But child might have handled it?
+                                 // If child handled it, its result would be Handled.
+                             }
+                        }
+                    }
+                }
+                 _ => {}
+            }
         }
+        
+        // Delegate to child FIRST to allow inner interactive elements to work
+        if let Some(child) = &mut self.child {
+            let child_result = child.handle_event(event);
+            if child_result == EventResult::Handled {
+                return EventResult::Handled;
+            }
+        }
+
+        // If child didn't handle it, AND we have interactions, check if we should handle it
+        if self.on_click.is_some() {
+             match event {
+                 Event::MouseDown(e) => {
+                      let bounds = self.bounds.get();
+                      if bounds.contains(Point::new(e.position.x, e.position.y)) {
+                          return EventResult::Handled;
+                      }
+                 }
+                 Event::MouseUp(e) => {
+                      let bounds = self.bounds.get();
+                      if bounds.contains(Point::new(e.position.x, e.position.y)) { // And was pressed logic...
+                          return EventResult::Handled;
+                      }
+                 }
+                 _ => {}
+             }
+        }
+        
+        EventResult::Ignored
     }
 
     fn children(&self) -> Vec<&(dyn Widget + '_)> {
@@ -249,6 +384,10 @@ impl Widget for Container {
             child: self.child.as_ref().map(|c| c.clone_widget()),
             style: self.style.clone(),
             constraints: self.constraints,
+            on_click: None,
+            on_hover: None,
+            state: Signal::new(self.state.get()),
+            bounds: Signal::new(self.bounds.get()),
         })
     }
 }

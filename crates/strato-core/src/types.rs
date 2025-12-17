@@ -140,6 +140,26 @@ impl Color {
         [self.r, self.g, self.b, self.a]
     }
 
+    /// Lighten the color by a factor 0.0..1.0
+    pub fn lighten(&self, factor: f32) -> Self {
+        Self {
+            r: (self.r + (1.0 - self.r) * factor).clamp(0.0, 1.0),
+            g: (self.g + (1.0 - self.g) * factor).clamp(0.0, 1.0),
+            b: (self.b + (1.0 - self.b) * factor).clamp(0.0, 1.0),
+            a: self.a,
+        }
+    }
+
+    /// Darken the color by a factor 0.0..1.0
+    pub fn darken(&self, factor: f32) -> Self {
+        Self {
+            r: (self.r * (1.0 - factor)).clamp(0.0, 1.0),
+            g: (self.g * (1.0 - factor)).clamp(0.0, 1.0),
+            b: (self.b * (1.0 - factor)).clamp(0.0, 1.0),
+            a: self.a,
+        }
+    }
+
     /// Common colors
     pub const WHITE: Self = Self { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
     pub const BLACK: Self = Self { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };

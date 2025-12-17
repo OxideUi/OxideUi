@@ -24,6 +24,10 @@ smallvec.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 
+# Image & Network
+image.workspace = true
+reqwest.workspace = true
+
 # Logging
 tracing.workspace = true
 

@@ -5,11 +5,6 @@ edition = "2021"
 
 [dependencies]
 strato-core = { path = "../../crates/strato-core" }
-strato-widgets = { path = "../../crates/strato-widgets" }
-strato-renderer = { path = "../../crates/strato-renderer" }
 strato-platform = { path = "../../crates/strato-platform" }
-tracing = "0.1"
-tracing-subscriber = "0.3"
-tracing-appender = "0.2"
-anyhow = "1.0"
-chrono = "0.4"
+strato-widgets = { path = "../../crates/strato-widgets" }
+strato-macros = { path = "../../crates/strato-macros" }

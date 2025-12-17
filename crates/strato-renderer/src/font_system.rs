@@ -212,6 +212,7 @@ impl FontSystem {
         #[cfg(target_os = "windows")]
         let default_font_chain = vec![
             "Segoe UI".to_string(),
+            "Segoe UI Emoji".to_string(),
             "Tahoma".to_string(),
             "Arial".to_string(),
             "sans-serif".to_string(),
@@ -220,6 +221,7 @@ impl FontSystem {
         #[cfg(target_os = "macos")]
         let default_font_chain = vec![
             "SF Pro Display".to_string(),
+            "Apple Color Emoji".to_string(),
             "Helvetica Neue".to_string(),
             "Arial".to_string(),
             "sans-serif".to_string(),
@@ -228,6 +230,7 @@ impl FontSystem {
         #[cfg(target_os = "linux")]
         let default_font_chain = vec![
             "Ubuntu".to_string(),
+            "Noto Color Emoji".to_string(),
             "DejaVu Sans".to_string(),
             "Liberation Sans".to_string(),
             "Arial".to_string(),
@@ -245,13 +248,14 @@ impl FontSystem {
             family: default_font_chain[0].clone(),
             fallback_chain: default_font_chain.clone(),
             supports_cjk: false,
-            supports_emoji: false,
+            supports_emoji: true,
         });
 
         // System font with CJK support
         #[cfg(target_os = "windows")]
         let system_font_chain = vec![
             "Segoe UI".to_string(),
+            "Segoe UI Emoji".to_string(),
             "Microsoft YaHei".to_string(),
             "SimSun".to_string(),
             "Tahoma".to_string(),
@@ -262,6 +266,7 @@ impl FontSystem {
         #[cfg(target_os = "macos")]
         let system_font_chain = vec![
             "SF Pro Display".to_string(),
+            "Apple Color Emoji".to_string(),
             "Hiragino Sans".to_string(),
             "PingFang SC".to_string(),
             "Helvetica Neue".to_string(),
@@ -272,6 +277,7 @@ impl FontSystem {
         #[cfg(target_os = "linux")]
         let system_font_chain = vec![
             "Ubuntu".to_string(),
+            "Noto Color Emoji".to_string(),
             "Noto Sans CJK".to_string(),
             "DejaVu Sans".to_string(),
             "Liberation Sans".to_string(),

@@ -43,6 +43,19 @@ impl Theme {
         }
     }
 
+    /// Create a high contrast theme
+    pub fn high_contrast() -> Self {
+        Self {
+            name: "High Contrast".to_string(),
+            colors: ColorPalette::high_contrast(),
+            typography: Typography::default(),
+            spacing: SpacingScale::default(),
+            borders: BorderStyles::default(), // Borders might need thickening?
+            shadows: ShadowStyles::default(), // Shadows less visible on black
+            components: ComponentThemes::default(), // Recycle light components for now
+        }
+    }
+
     /// Create a custom theme
     pub fn custom(name: impl Into<String>) -> Self {
         Self {
@@ -114,6 +127,24 @@ impl ColorPalette {
             text_secondary: Color::rgba(1.0, 1.0, 1.0, 0.60),
             text_disabled: Color::rgba(1.0, 1.0, 1.0, 0.38),
             divider: Color::rgba(1.0, 1.0, 1.0, 0.12),
+        }
+    }
+
+    /// High contrast color palette
+    pub fn high_contrast() -> Self {
+        Self {
+            primary: Color::rgb(0.0, 1.0, 1.0), // Cyan
+            secondary: Color::rgb(1.0, 1.0, 0.0), // Yellow
+            success: Color::rgb(0.0, 1.0, 0.0),
+            warning: Color::rgb(1.0, 0.5, 0.0),
+            error: Color::rgb(1.0, 0.0, 0.0),
+            info: Color::rgb(0.0, 1.0, 1.0),
+            background: Color::BLACK,
+            surface: Color::BLACK,
+            text_primary: Color::WHITE,
+            text_secondary: Color::WHITE, // No subtle text in HC
+            text_disabled: Color::rgb(0.7, 0.7, 0.7),
+            divider: Color::WHITE,
         }
     }
 }

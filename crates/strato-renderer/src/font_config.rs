@@ -110,8 +110,16 @@ pub fn create_safe_font_system() -> CosmicFontSystem {
             db.load_font_file(format!("{}\\tahoma.ttf", system_fonts_dir)).ok();
         }
     } else {
-        // On macOS and Linux, load system fonts normally (they don't have the same issues)
+        // On macOS and Linux, load system fonts normally
         db.load_system_fonts();
+        
+        // Explicitly load emoji font on macOS to ensure it's available
+        if cfg!(target_os = "macos") {
+            let emoji_path = "/System/Library/Fonts/Apple Color Emoji.ttc";
+            if std::path::Path::new(emoji_path).exists() {
+                db.load_font_file(emoji_path).ok();
+            }
+        }
     }
     
     let locale = get_locale().unwrap_or_else(|| "en-US".to_string());
