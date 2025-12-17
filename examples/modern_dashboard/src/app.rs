@@ -25,7 +25,7 @@ impl ModernDashboardApp {
 
         let sidebar = Sidebar::new(active_tab.clone()).build();
         let header = Header::new().build();
-        
+
         let view_switcher = ViewSwitcher::new(active_tab);
 
         let root = Container::new()
@@ -35,7 +35,7 @@ impl ModernDashboardApp {
                     .children(vec![
                         // Sidebar
                         sidebar,
-                        
+
                         // Main Content Area
                         Box::new(Flex::new(
                             Box::new(Column::new()
@@ -142,7 +142,7 @@ impl Widget for ViewSwitcher {
             last_tab: self.last_tab.clone(),
         })
     }
-    
+
     fn children(&self) -> Vec<&(dyn Widget + '_)> {
         let current_tab = self.active_tab.get();
         if let Some(view) = self.views.get(&current_tab) {

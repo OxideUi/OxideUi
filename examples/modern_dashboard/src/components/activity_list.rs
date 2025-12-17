@@ -32,7 +32,7 @@ impl ActivityList {
                             .font_size(18.0)
                             .font_weight(FontWeight::Bold)
                             .color(theme.text_primary)) as Box<dyn Widget>,
-                        
+
                         self.activity_item("New user registered", "2 min ago", theme.success),
                         self.activity_item("Server rebooted", "15 min ago", theme.warning),
                         self.activity_item("Database backup completed", "1 hour ago", theme.accent),
@@ -43,7 +43,7 @@ impl ActivityList {
 
     fn activity_item(&self, title: &str, time: &str, dot_color: strato_core::types::Color) -> Box<dyn Widget> {
         let theme = &self.theme;
-        
+
         Box::new(Container::new()
             .padding(SPACING_SM)
             .child(
@@ -57,7 +57,7 @@ impl ActivityList {
                             .height(10.0)
                             .border_radius(5.0)
                             .background(dot_color)) as Box<dyn Widget>,
-                            
+
                         // Content
                         Box::new(Flex::new(
                             Box::new(Column::new()

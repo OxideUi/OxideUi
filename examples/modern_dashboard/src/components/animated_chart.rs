@@ -1,5 +1,5 @@
 use strato_widgets::{
-    Widget, WidgetId, 
+    Widget, WidgetId,
     animation::{AnimationController, Curve},
 };
 // Clean imports:
@@ -48,7 +48,7 @@ impl Widget for AnimatedChart {
     fn layout(&mut self, constraints: strato_core::layout::Constraints) -> Size {
         // Take all available space, or default specific size if unbounded
         Size::new(
-            constraints.max_width.min(800.0).max(300.0), 
+            constraints.max_width.min(800.0).max(300.0),
             constraints.max_height.min(400.0).max(200.0)
         )
     }
@@ -65,15 +65,15 @@ impl Widget for AnimatedChart {
 
         for (i, &value) in self.data.iter().enumerate() {
             let x = layout.position.x + i as f32 * (bar_width + gap);
-            
+
             // Animate height
             let target_h = (value / max_val) * layout.size.height;
             let current_h = target_h * progress;
-            
+
             let y = layout.position.y + layout.size.height - current_h;
 
             let rect = Rect::new(x, y, bar_width, current_h);
-            
+
             // Use different opacity based on index to show it's dynamic
             let alpha = 0.5 + 0.5 * (i as f32 / bar_count as f32);
             let color = Color {

@@ -1,5 +1,6 @@
-use strato_ui::{InitBuilder, InitConfig};
+use strato_core::inspector::{inspector, InspectorConfig};
 use strato_core::Result;
+use strato_ui::{InitBuilder, InitConfig};
 
 fn main() -> Result<()> {
     println!("StratoUI Custom Initialization Example");
@@ -9,10 +10,16 @@ fn main() -> Result<()> {
     println!("\n1. Basic initialization with default config:");
     let mut builder = InitBuilder::new();
     builder.init_all()?;
-    
+
+    inspector().configure(InspectorConfig {
+        enabled: true,
+        ..Default::default()
+    });
+
     println!("   Core: ✓");
     println!("   Widgets: ✓");
     println!("   Platform: ✓");
+    println!("   Inspector: ✓ Enabled for runtime overlays");
     println!("   Complete: ✓");
 
     // Example 2: Check global text renderer
