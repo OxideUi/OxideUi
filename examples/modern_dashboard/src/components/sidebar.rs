@@ -51,10 +51,10 @@ impl Sidebar {
                         self.nav_item("Analytics", "analytics", active_tab.clone(), theme.clone()),
                         self.nav_item("Users", "users", active_tab.clone(), theme.clone()),
                         self.nav_item("Settings", "settings", active_tab.clone(), theme.clone()),
-                        
+
                         // Spacer
                         Box::new(Flex::new(Box::new(Container::new())).flex(1.0)) as Box<dyn Widget>,
-                        
+
                         // Bottom Area
                         Box::new(Container::new()
                             .background(theme.bg_tertiary)
@@ -79,7 +79,7 @@ impl Sidebar {
         // Note: Real interactivity would check active_signal value to change style
         // For now, we simulate basic structure
         let id_owned = id.to_string();
-        
+
         Box::new(Button::new(label)
             .secondary() // Use secondary style by default
             .on_click(move || {

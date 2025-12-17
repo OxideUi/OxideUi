@@ -69,9 +69,9 @@ impl DashboardView {
                                                 Box::new(Text::new("Growth Analytics")
                                                     .font_size(20.0)
                                                     .color(theme.text_primary)) as Box<dyn Widget>,
-                                                
+
                                                 Box::new(AnimatedChart::new(vec![
-                                                    65.0, 40.0, 100.0, 85.0, 45.0, 92.0, 
+                                                    65.0, 40.0, 100.0, 85.0, 45.0, 92.0,
                                                     55.0, 70.0, 30.0, 60.0, 95.0, 80.0
                                                 ]).color(Color::rgb(0.4, 0.7, 1.0))) as Box<dyn Widget>
                                             ])

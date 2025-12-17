@@ -41,12 +41,12 @@ impl StatsCard {
                             Box::new(Text::new(&self.title)
                                 .color(theme.text_secondary)
                                 .font_size(14.0)) as Box<dyn Widget>,
-                            
+
                             Box::new(Text::new(&self.value)
                                 .color(theme.text_primary)
                                 .font_size(28.0)
                                 .font_weight(FontWeight::Bold)) as Box<dyn Widget>,
-                            
+
                             Box::new(Text::new(&self.trend)
                                 .color(trend_color)
                                 .font_size(12.0)) as Box<dyn Widget>,

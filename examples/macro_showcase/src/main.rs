@@ -1,16 +1,23 @@
-use strato_platform::{ApplicationBuilder, WindowBuilder};
-use strato_widgets::prelude::*;
+use strato_core::inspector::{inspector, InspectorConfig};
 use strato_core::types::Color;
 use strato_macros::view;
+use strato_platform::{ApplicationBuilder, WindowBuilder};
+use strato_widgets::prelude::*;
+use strato_widgets::InspectorOverlay;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
+    inspector().configure(InspectorConfig {
+        enabled: true,
+        ..Default::default()
+    });
+
     let builder = ApplicationBuilder::new()
         .title("Macro DSL Showcase")
         .window(WindowBuilder::new().with_size(800.0, 600.0));
-    
+
     // Using the view! macro to declaratively build the UI
     let root = view! {
         Container {
@@ -43,5 +50,5 @@ async fn main() -> anyhow::Result<()> {
     // Build the widget tree using the registry
     let root_widget = registry.build(root);
 
-    builder.run(root_widget);
+    builder.run(InspectorOverlay::new(root_widget));
 }

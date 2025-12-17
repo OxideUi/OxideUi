@@ -1,19 +1,24 @@
-use strato_core::{
-    types::Color,
-};
+use strato_core::inspector::{inspector, InspectorConfig};
+use strato_core::types::Color;
 use strato_platform::{application::ApplicationBuilder, window::WindowBuilder};
 use strato_widgets::{
-    prelude::*,
     container::Container,
-    text::Text,
     image::Image,
+    layout::{Column, Flex, Row},
+    prelude::*,
+    text::Text,
     top_bar::TopBar,
-    layout::{Column, Row, Flex}, 
+    InspectorOverlay,
 };
 
 fn main() {
     // We don't need registry for direct widget construction
-    let root_widget = build_ui();
+    inspector().configure(InspectorConfig {
+        enabled: true,
+        ..Default::default()
+    });
+
+    let root_widget = InspectorOverlay::new(build_ui());
 
     ApplicationBuilder::new()
         .window(
@@ -22,23 +27,38 @@ fn main() {
                 .with_size(1200.0, 800.0)
                 .resizable(true)
                 .transparent(true) // Enable glassmorphism support
-                .decorations(true) // Restore native window controls
+                .decorations(true), // Restore native window controls
         )
         .run(root_widget);
 }
 
-
 // --- Theme Colors ---
 // Catppuccin-inspired Logic format (0.0-1.0)
 // --- Theme Colors (Refined) ---
-fn col_bg() -> Color { Color::rgba(0.13, 0.13, 0.18, 0.90) } // Semi-transparent background
-fn col_sidebar() -> Color { Color::rgba(0.18, 0.18, 0.25, 0.95) } 
-fn col_card_bg() -> Color { Color::rgba(0.20, 0.20, 0.28, 0.8) } // Glassy cards
-fn col_text() -> Color { Color::rgba(0.95, 0.95, 0.95, 1.0) }
-fn col_text_dim() -> Color { Color::rgba(0.70, 0.70, 0.80, 1.0) }
-fn col_subtext() -> Color { Color::rgba(0.60, 0.60, 0.70, 1.0) } 
-fn col_accent() -> Color { Color::rgba(0.12, 0.45, 0.98, 1.0) } 
-fn col_header() -> Color { Color::rgba(0.50, 0.50, 0.60, 1.0) }
+fn col_bg() -> Color {
+    Color::rgba(0.13, 0.13, 0.18, 0.90)
+} // Semi-transparent background
+fn col_sidebar() -> Color {
+    Color::rgba(0.18, 0.18, 0.25, 0.95)
+}
+fn col_card_bg() -> Color {
+    Color::rgba(0.20, 0.20, 0.28, 0.8)
+} // Glassy cards
+fn col_text() -> Color {
+    Color::rgba(0.95, 0.95, 0.95, 1.0)
+}
+fn col_text_dim() -> Color {
+    Color::rgba(0.70, 0.70, 0.80, 1.0)
+}
+fn col_subtext() -> Color {
+    Color::rgba(0.60, 0.60, 0.70, 1.0)
+}
+fn col_accent() -> Color {
+    Color::rgba(0.12, 0.45, 0.98, 1.0)
+}
+fn col_header() -> Color {
+    Color::rgba(0.50, 0.50, 0.60, 1.0)
+}
 
 fn build_ui() -> Container {
     Container::new()
@@ -58,7 +78,7 @@ fn build_ui() -> Container {
                         .children(vec![
                             // Window Controls Spacer
                             Box::new(Container::new().height(20.0).child(Text::new(""))),
-                            
+
                             // User Profile
                             Box::new(Container::new()
                                 .padding(16.0)
@@ -76,7 +96,7 @@ fn build_ui() -> Container {
                                     ])
                                 )
                             ),
-                            
+
                             // TIMELINES
                             section_header("TIMELINES"),
                             sidebar_item("Classic Timeline", "📅", false),
@@ -84,14 +104,14 @@ fn build_ui() -> Container {
                             sidebar_item("Federated", "🌐", false),
 
                             // ACCOUNT
-                            Box::new(Container::new().height(20.0).child(Text::new(""))), 
+                            Box::new(Container::new().height(20.0).child(Text::new(""))),
                             section_header("ACCOUNT"),
                             sidebar_item("Your Posts", "📝", false),
                             sidebar_item("Followers", "👥", false),
-                            sidebar_item("Following", "👤", true), 
+                            sidebar_item("Following", "👤", true),
                             sidebar_item("Bookmarks", "🔖", false),
                             sidebar_item("Favorites", "⭐️", false),
-                        
+
                             // Spacer (Pushes content down)
                             Box::new(Flex::new(
                                 Box::new(Container::new().height(1.0).child(Text::new("")))
@@ -106,7 +126,7 @@ fn build_ui() -> Container {
                                 .child(Row::new()
                                     .spacing(12.0)
                                     .children(vec![
-                                        Box::new(Text::new("sun").size(14.0)), 
+                                        Box::new(Text::new("sun").size(14.0)),
                                         Box::new(Text::new("Toggle Theme").color(col_text_dim()).size(14.0))
                                     ])
                                 )
@@ -117,7 +137,7 @@ fn build_ui() -> Container {
                         ])
                     )
                 ),
-                
+
                 // Main Content Area
                 Box::new(Container::new()
                     .padding(0.0)
@@ -140,23 +160,23 @@ fn build_ui() -> Container {
                                     .spacing(16.0)
                                     .children(vec![
                                         card_item(
-                                            "NDR", 
-                                            "@NDR", 
-                                            "Moin! Hier gibt's pro Tag 3-5 Nachrichten aus Hamburg...", 
+                                            "NDR",
+                                            "@NDR",
+                                            "Moin! Hier gibt's pro Tag 3-5 Nachrichten aus Hamburg...",
                                             "146 Posts  7 Following  5k Followers",
                                             "https://avatars.githubusercontent.com/u/1?v=4"
                                         ),
                                         card_item(
-                                            "tagesschau", 
-                                            "@tagesschau", 
-                                            "Hier trötet die tagesschau Nachrichten von https://www.tagesschau.de/", 
+                                            "tagesschau",
+                                            "@tagesschau",
+                                            "Hier trötet die tagesschau Nachrichten von https://www.tagesschau.de/",
                                             "683 Posts  4 Following  20k Followers",
                                             "https://avatars.githubusercontent.com/u/2?v=4"
                                         ),
                                         card_item(
-                                            "Simon Willison", 
-                                            "@simon", 
-                                            "Open source developer building tools to help journalists...", 
+                                            "Simon Willison",
+                                            "@simon",
+                                            "Open source developer building tools to help journalists...",
                                             "3k Posts  1k Following  17k Followers",
                                             "https://avatars.githubusercontent.com/u/3?v=4"
                                         ),
@@ -173,46 +193,54 @@ fn build_ui() -> Container {
 // --- Components ---
 
 fn section_header(title: &str) -> Box<dyn Widget> {
-    Box::new(Container::new()
-        .padding(16.0) // Left padding alignment
-        .margin(0.0)
-        .child(Text::new(title).color(col_header()).size(11.0))
+    Box::new(
+        Container::new()
+            .padding(16.0) // Left padding alignment
+            .margin(0.0)
+            .child(Text::new(title).color(col_header()).size(11.0)),
     )
 }
 
 fn sidebar_item(label: &str, icon: &str, active: bool) -> Box<dyn Widget> {
-    let bg_color = if active { col_accent() } else { Color::TRANSPARENT };
+    let bg_color = if active {
+        col_accent()
+    } else {
+        Color::TRANSPARENT
+    };
     let text_color = if active { Color::WHITE } else { col_subtext() };
     let label_clone = label.to_string();
-    
-    Box::new(Container::new()
-        .background(bg_color)
-        .margin(0.0)
-        .padding(10.0)
-        .border_radius(6.0) // Rounded active item
-        .width(240.0) // Slight inset from full width
-        .child(Row::new()
-            .spacing(12.0)
-            .children(vec![
+
+    Box::new(
+        Container::new()
+            .background(bg_color)
+            .margin(0.0)
+            .padding(10.0)
+            .border_radius(6.0) // Rounded active item
+            .width(240.0) // Slight inset from full width
+            .child(Row::new().spacing(12.0).children(vec![
                 Box::new(Text::new(icon).size(14.0)), // Smaller icons
-                Box::new(Text::new(label).color(text_color).size(14.0))
-            ])
-        )
-        .on_click(move || {
-            println!("Clicked sidebar item: {}", label_clone);
-        })
+                Box::new(Text::new(label).color(text_color).size(14.0)),
+            ]))
+            .on_click(move || {
+                println!("Clicked sidebar item: {}", label_clone);
+            }),
     )
 }
 
-fn card_item(name: &str, handle: &str, content: &str, stats: &str, avatar_url: &str) -> Box<dyn Widget> {
-    Box::new(Container::new()
-        .background(col_card_bg())
-        .padding(16.0)
-        .border_radius(10.0) // Smooth card rounding
-        .width(600.0) // Fixed card width for specific look
-        .child(Column::new()
-            .spacing(12.0)
-            .children(vec![
+fn card_item(
+    name: &str,
+    handle: &str,
+    content: &str,
+    stats: &str,
+    avatar_url: &str,
+) -> Box<dyn Widget> {
+    Box::new(
+        Container::new()
+            .background(col_card_bg())
+            .padding(16.0)
+            .border_radius(10.0) // Smooth card rounding
+            .width(600.0) // Fixed card width for specific look
+            .child(Column::new().spacing(12.0).children(vec![
                 // Header Row
                 Box::new(Row::new()
                     .spacing(12.0)
@@ -258,7 +286,6 @@ fn card_item(name: &str, handle: &str, content: &str, stats: &str, avatar_url: &
                     .padding(0.0)
                     .child(Text::new(stats).color(col_header()).size(12.0))
                 )
-            ])
-        )
+            ])),
     )
 }

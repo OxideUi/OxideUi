@@ -1,14 +1,13 @@
 //! Counter example demonstrating state management in StratoUI
 
-use strato_core::{
-    types::Color,
-    error::Result,
-};
+use parking_lot::RwLock;
+use std::sync::Arc;
+use strato_core::inspector::{inspector, InspectorConfig};
+use strato_core::{error::Result, types::Color};
+use strato_platform::{ApplicationBuilder, WindowBuilder};
 use strato_widgets::prelude::*;
 use strato_widgets::ButtonStyle;
-use strato_platform::{ApplicationBuilder, WindowBuilder};
-use std::sync::Arc;
-use parking_lot::RwLock;
+use strato_widgets::InspectorOverlay;
 
 struct CounterApp {
     count: Arc<RwLock<i32>>,
@@ -38,8 +37,15 @@ fn main() -> Result<()> {
     // Initialize all StratoUI modules
     strato_core::init()?;
     strato_widgets::init()?;
-    strato_platform::init().map_err(|e| strato_core::error::StratoError::platform(format!("{:?}", e)))?;
-    
+    strato_platform::init()
+        .map_err(|e| strato_core::error::StratoError::platform(format!("{:?}", e)))?;
+
+    // Keep the inspector active even outside debug builds so the example surfaces diagnostics.
+    inspector().configure(InspectorConfig {
+        enabled: true,
+        ..Default::default()
+    });
+
     let app = Arc::new(CounterApp::new());
 
     // Create and run the application
@@ -48,10 +54,10 @@ fn main() -> Result<()> {
         .window(
             WindowBuilder::new()
                 .with_size(350.0, 250.0)
-                .resizable(false)
+                .resizable(false),
         )
-        .run(build_ui(app));
-    
+        .run(InspectorOverlay::new(build_ui(app)));
+
     Ok(())
 }
 
@@ -72,7 +78,7 @@ fn build_ui(app: Arc<CounterApp>) -> impl Widget {
                     Box::new(
                         Text::new("Counter App")
                             .size(28.0)
-                            .color(Color::rgb(0.2, 0.2, 0.2))
+                            .color(Color::rgb(0.2, 0.2, 0.2)),
                     ),
                     Box::new(
                         Container::new()
@@ -82,8 +88,8 @@ fn build_ui(app: Arc<CounterApp>) -> impl Widget {
                             .child(
                                 Text::new(format!("{}", *app.count.read()))
                                     .size(48.0)
-                                    .color(Color::BLACK)
-                            )
+                                    .color(Color::BLACK),
+                            ),
                     ),
                     Box::new(
                         Row::new()
@@ -97,16 +103,14 @@ fn build_ui(app: Arc<CounterApp>) -> impl Widget {
                                         .on_click(move || {
                                             app_dec.decrement();
                                             println!("Count: {}", *app_dec.count.read());
-                                        })
+                                        }),
                                 ),
-                                Box::new(
-                                    Button::new("Reset")
-                                        .style(ButtonStyle::text())
-                                        .on_click(move || {
-                                            app_reset.reset();
-                                            println!("Count reset to 0");
-                                        })
-                                ),
+                                Box::new(Button::new("Reset").style(ButtonStyle::text()).on_click(
+                                    move || {
+                                        app_reset.reset();
+                                        println!("Count reset to 0");
+                                    },
+                                )),
                                 Box::new(
                                     Button::new("+")
                                         .style(ButtonStyle::primary())
@@ -114,10 +118,10 @@ fn build_ui(app: Arc<CounterApp>) -> impl Widget {
                                         .on_click(move || {
                                             app_inc.increment();
                                             println!("Count: {}", *app_inc.count.read());
-                                        })
+                                        }),
                                 ),
-                            ])
+                            ]),
                     ),
-                ])
+                ]),
         )
 }

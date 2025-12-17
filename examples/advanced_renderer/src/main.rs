@@ -1,16 +1,15 @@
 use anyhow::Result;
+use std::sync::Arc;
 use strato_renderer::{
-    IntegratedRenderer, RendererBuilder, RendererConfig,
-    AllocationStrategy, RenderContext,
+    AllocationStrategy, IntegratedRenderer, RenderContext, RendererBuilder, RendererConfig,
 };
+use tracing::{error, info};
 use wgpu::*;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-use std::sync::Arc;
-use tracing::{info, error};
 
 /// Advanced renderer example demonstrating the complete wgpu system
 struct AdvancedRendererExample {
@@ -18,12 +17,12 @@ struct AdvancedRendererExample {
     surface: Surface<'static>,
     surface_config: SurfaceConfiguration,
     renderer: IntegratedRenderer,
-    
+
     // Example resources
     vertex_buffer: Option<strato_renderer::ResourceHandle>,
     index_buffer: Option<strato_renderer::ResourceHandle>,
     render_pipeline: Option<RenderPipeline>,
-    
+
     // State
     frame_count: u64,
 }
@@ -31,15 +30,15 @@ struct AdvancedRendererExample {
 impl AdvancedRendererExample {
     async fn new(window: Arc<Window>) -> Result<Self> {
         info!("Initializing advanced renderer example");
-        
+
         // Create surface
         let instance = Instance::new(InstanceDescriptor {
             backends: Backends::PRIMARY,
             ..Default::default()
         });
-        
+
         let surface = instance.create_surface(window.clone())?;
-        
+
         // Create renderer with performance configuration
         let mut renderer = RendererBuilder::new()
             .with_instance(instance)
@@ -52,9 +51,10 @@ impl AdvancedRendererExample {
             .with_validation(cfg!(debug_assertions))
             .build()
             .await?;
-        
+
         // Configure surface
-        let adapter = renderer.get_active_adapter()
+        let adapter = renderer
+            .get_active_adapter()
             .expect("Current adapter not found");
 
         let size = window.inner_size();
@@ -68,16 +68,16 @@ impl AdvancedRendererExample {
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
-        
+
         surface.configure(&renderer.device().device, &surface_config);
-        
+
         // Initialize renderer
         renderer.initialize().await?;
-        
+
         info!("Renderer initialized successfully");
         info!("GPU: {}", renderer.get_device_info().device_name);
         // info!("Backend: {:?}", renderer.get_device_info().backend);
-        
+
         let mut example = Self {
             window,
             surface,
@@ -88,36 +88,36 @@ impl AdvancedRendererExample {
             render_pipeline: None,
             frame_count: 0,
         };
-        
+
         // Create example resources
         example.create_resources().await?;
-        
+
         Ok(example)
     }
-    
+
     async fn create_resources(&mut self) -> Result<()> {
         info!("Creating example resources");
-        
+
         // Create vertex buffer
         let vertices: &[f32] = &[
             // Triangle vertices (position + color)
             -0.5, -0.5, 1.0, 0.0, 0.0, // Bottom left - Red
-             0.5, -0.5, 0.0, 1.0, 0.0, // Bottom right - Green
-             0.0,  0.5, 0.0, 0.0, 1.0, // Top - Blue
+            0.5, -0.5, 0.0, 1.0, 0.0, // Bottom right - Green
+            0.0, 0.5, 0.0, 0.0, 1.0, // Top - Blue
         ];
-        
+
         let vertex_buffer = self.renderer.create_buffer(
             (vertices.len() * std::mem::size_of::<f32>()) as u64,
             BufferUsages::VERTEX | BufferUsages::COPY_DST,
         )?;
-        
+
         // Create index buffer
         let indices: &[u16] = &[0, 1, 2];
         let index_buffer = self.renderer.create_buffer(
             (indices.len() * std::mem::size_of::<u16>()) as u64,
             BufferUsages::INDEX | BufferUsages::COPY_DST,
         )?;
-        
+
         // Load shader
         let path = std::path::PathBuf::from("examples/advanced_renderer/shaders/triangle.wgsl");
         let stage = strato_renderer::shader::ShaderStage::Vertex;
@@ -126,9 +126,9 @@ impl AdvancedRendererExample {
             features: vec![],
             optimization_level: 0,
         };
-        
+
         let shader = self.renderer.load_shader(&path, stage, variant)?;
-        
+
         // Create render pipeline
         let render_pipeline_desc = RenderPipelineDescriptor {
             label: Some("Triangle Pipeline"),
@@ -181,17 +181,21 @@ impl AdvancedRendererExample {
             },
             multiview: None,
         };
-        
-        let render_pipeline = self.renderer.device().device.create_render_pipeline(&render_pipeline_desc);
+
+        let render_pipeline = self
+            .renderer
+            .device()
+            .device
+            .create_render_pipeline(&render_pipeline_desc);
         self.render_pipeline = Some(render_pipeline);
-        
+
         self.vertex_buffer = Some(vertex_buffer);
         self.index_buffer = Some(index_buffer);
-        
+
         info!("Resources created successfully");
         Ok(())
     }
-    
+
     fn render(&mut self) -> Result<()> {
         // Resolve resources first to ensure they live long enough for the render pass
         let vertex_buffer_res = if let Some(handle) = self.vertex_buffer {
@@ -199,7 +203,7 @@ impl AdvancedRendererExample {
         } else {
             None
         };
-        
+
         let index_buffer_res = if let Some(handle) = self.index_buffer {
             self.renderer.get_buffer(handle)
         } else {
@@ -208,11 +212,13 @@ impl AdvancedRendererExample {
 
         // Begin frame
         let mut render_context = self.renderer.begin_frame()?;
-        
+
         // Get surface texture
         let output = self.surface.get_current_texture()?;
-        let view = output.texture.create_view(&TextureViewDescriptor::default());
-        
+        let view = output
+            .texture
+            .create_view(&TextureViewDescriptor::default());
+
         // Begin render pass
         let mut render_pass = render_context.begin_render_pass(&RenderPassDescriptor {
             label: Some("Main Render Pass"),
@@ -233,53 +239,53 @@ impl AdvancedRendererExample {
             occlusion_query_set: None,
             timestamp_writes: None,
         });
-        
+
         // Draw triangle
-        if let (Some(pipeline), Some(vb), Some(ib)) = (
-            &self.render_pipeline,
-            &vertex_buffer_res,
-            &index_buffer_res,
-        ) {
+        if let (Some(pipeline), Some(vb), Some(ib)) =
+            (&self.render_pipeline, &vertex_buffer_res, &index_buffer_res)
+        {
             render_pass.set_pipeline(pipeline);
             render_pass.set_vertex_buffer(0, vb.slice(..));
             render_pass.set_index_buffer(ib.slice(..), IndexFormat::Uint16);
             render_pass.draw_indexed(0..3, 0, 0..1);
         }
-        
+
         drop(render_pass);
         render_context.end_render_pass();
-        
+
         // End frame
         self.renderer.end_frame(render_context)?;
-        
+
         // Present
         output.present();
-        
+
         self.frame_count += 1;
-        
+
         // Print stats every 60 frames
         if self.frame_count % 60 == 0 {
             let stats = self.renderer.get_stats();
-            info!("Frame {}: {:.2}ms avg, {}MB memory, {} resources", 
+            info!(
+                "Frame {}: {:.2}ms avg, {}MB memory, {} resources",
                 stats.frame_count,
                 stats.average_frame_time * 1000.0,
                 stats.memory_usage / (1024 * 1024),
                 stats.active_resources
             );
-            
+
             if let Some(report) = self.renderer.get_performance_report() {
                 info!("Performance report: {:#?}", report);
             }
         }
-        
+
         Ok(())
     }
-    
+
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) -> Result<()> {
         if new_size.width > 0 && new_size.height > 0 {
             self.surface_config.width = new_size.width;
             self.surface_config.height = new_size.height;
-            self.surface.configure(&self.renderer.device().device, &self.surface_config);
+            self.surface
+                .configure(&self.renderer.device().device, &self.surface_config);
             self.renderer.resize((new_size.width, new_size.height))?;
         }
         Ok(())
@@ -289,26 +295,26 @@ impl AdvancedRendererExample {
 async fn run() -> Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
-    
+
     info!("Starting advanced renderer example");
-    
+
     // Create event loop and window
     let event_loop = EventLoop::new()?;
     let window = Arc::new(
         WindowBuilder::new()
             .with_title("Advanced wgpu Renderer Example")
             .with_inner_size(winit::dpi::LogicalSize::new(800, 600))
-            .build(&event_loop)?
+            .build(&event_loop)?,
     );
-    
+
     // Create example
     let mut example = AdvancedRendererExample::new(window.clone()).await?;
-    
+
     info!("Starting event loop");
-    
+
     event_loop.run(move |event, elwt| {
         elwt.set_control_flow(ControlFlow::Poll);
-        
+
         match event {
             Event::WindowEvent {
                 ref event,
@@ -336,7 +342,7 @@ async fn run() -> Result<()> {
             _ => {}
         }
     })?;
-    
+
     Ok(())
 }
 
