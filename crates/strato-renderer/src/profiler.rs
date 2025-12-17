@@ -10,15 +10,22 @@
 //! - Historical performance data analysis
 //! - Multi-threaded profiling support
 
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex, atomic::{AtomicU32, AtomicU64, AtomicBool, Ordering}};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use parking_lot::RwLock;
 use anyhow::Result;
-use tracing::{info, warn, debug, instrument};
-use serde::{Serialize, Deserialize};
-use wgpu::{QuerySetDescriptor, QueryType, QuerySet, Buffer, CommandEncoder, BufferDescriptor, BufferUsages, MapMode, Maintain, Features};
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{
+    atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+    Arc, Mutex,
+};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use strato_core::inspector;
 use thread_local::ThreadLocal;
+use tracing::{debug, info, instrument, warn};
+use wgpu::{
+    Buffer, BufferDescriptor, BufferUsages, CommandEncoder, Features, Maintain, MapMode, QuerySet,
+    QuerySetDescriptor, QueryType,
+};
 
 use crate::device::ManagedDevice;
 use crate::resources::ResourceHandle;
@@ -127,12 +134,12 @@ pub struct MemoryProfiler {
     peak_allocated: AtomicU64,
     allocation_count: AtomicU64,
     deallocation_count: AtomicU64,
-    
+
     // Memory tracking by type
     buffer_memory: AtomicU64,
     texture_memory: AtomicU64,
     pipeline_memory: AtomicU64,
-    
+
     // Historical data
     memory_history: RwLock<VecDeque<MemorySample>>,
     leak_detection: RwLock<HashMap<ResourceHandle, AllocationInfo>>,
@@ -273,22 +280,22 @@ pub enum OptimizationCategory {
 /// Main profiler system
 pub struct Profiler {
     device: Arc<ManagedDevice>,
-    
+
     // Sub-profilers
     pub gpu_timer: Option<Arc<GpuTimer>>,
     pub cpu_profiler: Arc<CpuProfiler>,
     pub memory_profiler: Arc<MemoryProfiler>,
     performance_analyzer: Arc<PerformanceAnalyzer>,
-    
+
     // Configuration
     enabled: AtomicBool,
     detailed_profiling: AtomicBool,
     auto_analysis: AtomicBool,
-    
+
     // Current frame tracking
     current_frame: AtomicU64,
     frame_start_time: RwLock<Option<Instant>>,
-    
+
     // Statistics
     total_frames: AtomicU64,
     average_frame_time: RwLock<f64>,
@@ -304,14 +311,14 @@ impl GpuTimer {
             ty: QueryType::Timestamp,
             count: capacity * 2, // Start and end queries
         });
-        
+
         let query_buffer = device.device.create_buffer(&BufferDescriptor {
             label: Some("GpuTimerBuffer"),
             size: (capacity * 2 * 8) as u64, // 8 bytes per timestamp
             usage: BufferUsages::QUERY_RESOLVE | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
-        
+
         Ok(Self {
             device,
             query_set,
@@ -321,63 +328,60 @@ impl GpuTimer {
             pending_queries: RwLock::new(HashMap::new()),
         })
     }
-    
+
     /// Begin GPU timing
     pub fn begin_timing(&self, encoder: &mut CommandEncoder, label: &str) -> Option<u32> {
         let query_id = self.current_query.fetch_add(2, Ordering::Relaxed);
-        
+
         if query_id + 1 >= self.capacity * 2 {
             return None; // Out of queries
         }
-        
+
         encoder.write_timestamp(&self.query_set, query_id);
-        self.pending_queries.write().insert(query_id, label.to_string());
-        
+        self.pending_queries
+            .write()
+            .insert(query_id, label.to_string());
+
         Some(query_id)
     }
-    
+
     /// End GPU timing
     pub fn end_timing(&self, encoder: &mut CommandEncoder, query_id: u32) {
         if query_id + 1 < self.capacity * 2 {
             encoder.write_timestamp(&self.query_set, query_id + 1);
         }
     }
-    
+
     /// Resolve timing queries
     pub fn resolve_queries(&self, encoder: &mut CommandEncoder) {
         let current = self.current_query.load(Ordering::Relaxed);
         if current > 0 {
-            encoder.resolve_query_set(
-                &self.query_set,
-                0..current,
-                &self.query_buffer,
-                0,
-            );
+            encoder.resolve_query_set(&self.query_set, 0..current, &self.query_buffer, 0);
         }
     }
-    
+
     /// Get timing results (async)
     pub async fn get_results(&self) -> Result<HashMap<String, Duration>> {
         let mut results = HashMap::new();
         let current = self.current_query.load(Ordering::Relaxed);
-        
+
         if current == 0 {
             return Ok(results);
         }
-        
+
         let buffer_slice = self.query_buffer.slice(0..(current * 8) as u64);
         let (sender, receiver) = futures::channel::oneshot::channel();
-        
+
         buffer_slice.map_async(MapMode::Read, move |result| {
             sender.send(result).ok();
         });
-        
+
         self.device.device.poll(Maintain::Wait);
         receiver.await??;
-        
+
         let data = buffer_slice.get_mapped_range();
         let timestamps: &[u64] = bytemuck::cast_slice(&data);
-        
+
         let pending = self.pending_queries.read();
         for (&query_id, label) in pending.iter() {
             if query_id + 1 < current {
@@ -387,14 +391,14 @@ impl GpuTimer {
                 results.insert(label.clone(), duration);
             }
         }
-        
+
         drop(data);
         self.query_buffer.unmap();
-        
+
         // Reset for next frame
         self.current_query.store(0, Ordering::Relaxed);
         self.pending_queries.write().clear();
-        
+
         Ok(results)
     }
 }
@@ -410,37 +414,37 @@ impl CpuProfiler {
             thread_local_data: ThreadLocal::new(),
         }
     }
-    
+
     /// Begin timing a section
     pub fn begin_section(&self, name: &str) {
         if !self.enabled.load(Ordering::Relaxed) {
             return;
         }
-        
+
         let thread_data = self.thread_local_data.get_or(|| {
             Mutex::new(ThreadProfileData {
                 thread_id: 0, // Simplified - thread ID tracking removed
                 ..Default::default()
             })
         });
-        
+
         let mut data = thread_data.lock().unwrap();
         data.active_timers.insert(name.to_string(), Instant::now());
     }
-    
+
     /// End timing a section
     pub fn end_section(&self, name: &str) {
         if !self.enabled.load(Ordering::Relaxed) {
             return;
         }
-        
+
         let thread_data = self.thread_local_data.get_or(|| {
             Mutex::new(ThreadProfileData {
                 thread_id: 0, // Simplified - thread ID tracking removed
                 ..Default::default()
             })
         });
-        
+
         let mut data = thread_data.lock().unwrap();
         if let Some(start_time) = data.active_timers.remove(name) {
             let duration = start_time.elapsed();
@@ -454,20 +458,20 @@ impl CpuProfiler {
                 thread_id: data.thread_id,
                 frame_id: 0, // Will be set by profiler
             };
-            
+
             data.samples.push(sample);
         }
     }
-    
+
     /// Collect samples from all threads
     pub fn collect_samples(&self) -> Vec<PerformanceSample> {
         let mut all_samples: Vec<PerformanceSample> = Vec::new();
-        
+
         for thread_data in self.thread_local_data.iter() {
             let mut data = thread_data.lock().unwrap();
             all_samples.extend(data.samples.drain(..));
         }
-        
+
         // Add to global samples
         let mut samples = self.samples.write();
         for sample in &all_samples {
@@ -476,10 +480,10 @@ impl CpuProfiler {
                 samples.pop_front();
             }
         }
-        
+
         all_samples
     }
-    
+
     /// Get average timing for a section
     pub fn get_average_time(&self, _name: &str) -> Option<f64> {
         let samples = self.samples.read();
@@ -488,7 +492,7 @@ impl CpuProfiler {
             .filter(|s| s.metric_type == MetricType::FrameTime)
             .map(|s| s.value)
             .collect();
-        
+
         if matching_samples.is_empty() {
             None
         } else {
@@ -513,31 +517,37 @@ impl MemoryProfiler {
             leak_detection: RwLock::new(HashMap::new()),
         }
     }
-    
+
     /// Record allocation
     pub fn record_allocation(&self, handle: ResourceHandle, size: u64, resource_type: &str) {
         if !self.enabled.load(Ordering::Relaxed) {
             return;
         }
-        
+
         self.total_allocated.fetch_add(size, Ordering::Relaxed);
         self.allocation_count.fetch_add(1, Ordering::Relaxed);
-        
+
         // Update peak
         let current = self.total_allocated.load(Ordering::Relaxed);
         let peak = self.peak_allocated.load(Ordering::Relaxed);
         if current > peak {
             self.peak_allocated.store(current, Ordering::Relaxed);
         }
-        
+
         // Update type-specific counters
         match resource_type {
-            "buffer" => { self.buffer_memory.fetch_add(size, Ordering::Relaxed); }
-            "texture" => { self.texture_memory.fetch_add(size, Ordering::Relaxed); }
-            "pipeline" => { self.pipeline_memory.fetch_add(size, Ordering::Relaxed); }
+            "buffer" => {
+                self.buffer_memory.fetch_add(size, Ordering::Relaxed);
+            }
+            "texture" => {
+                self.texture_memory.fetch_add(size, Ordering::Relaxed);
+            }
+            "pipeline" => {
+                self.pipeline_memory.fetch_add(size, Ordering::Relaxed);
+            }
             _ => {}
         }
-        
+
         // Record for leak detection
         let allocation_info = AllocationInfo {
             size,
@@ -545,35 +555,41 @@ impl MemoryProfiler {
             stack_trace: None, // Could be implemented with backtrace crate
             resource_type: resource_type.to_string(),
         };
-        
+
         self.leak_detection.write().insert(handle, allocation_info);
-        
+
         // Record sample
         self.record_memory_sample();
     }
-    
+
     /// Record deallocation
     pub fn record_deallocation(&self, handle: ResourceHandle) {
         if !self.enabled.load(Ordering::Relaxed) {
             return;
         }
-        
+
         if let Some(info) = self.leak_detection.write().remove(&handle) {
             self.total_allocated.fetch_sub(info.size, Ordering::Relaxed);
             self.deallocation_count.fetch_add(1, Ordering::Relaxed);
-            
+
             // Update type-specific counters
             match info.resource_type.as_str() {
-                "buffer" => { self.buffer_memory.fetch_sub(info.size, Ordering::Relaxed); }
-                "texture" => { self.texture_memory.fetch_sub(info.size, Ordering::Relaxed); }
-                "pipeline" => { self.pipeline_memory.fetch_sub(info.size, Ordering::Relaxed); }
+                "buffer" => {
+                    self.buffer_memory.fetch_sub(info.size, Ordering::Relaxed);
+                }
+                "texture" => {
+                    self.texture_memory.fetch_sub(info.size, Ordering::Relaxed);
+                }
+                "pipeline" => {
+                    self.pipeline_memory.fetch_sub(info.size, Ordering::Relaxed);
+                }
                 _ => {}
             }
         }
-        
+
         self.record_memory_sample();
     }
-    
+
     /// Record memory sample
     fn record_memory_sample(&self) {
         let sample = MemorySample {
@@ -586,36 +602,57 @@ impl MemoryProfiler {
             texture_memory: self.texture_memory.load(Ordering::Relaxed),
             pipeline_memory: self.pipeline_memory.load(Ordering::Relaxed),
         };
-        
+
         let mut history = self.memory_history.write();
         history.push_back(sample);
         if history.len() > 1000 {
             history.pop_front();
         }
     }
-    
+
     /// Detect memory leaks
     pub fn detect_leaks(&self, max_age: Duration) -> Vec<ResourceHandle> {
         let now = Instant::now();
         let leak_detection = self.leak_detection.read();
-        
+
         leak_detection
             .iter()
             .filter(|(_, info)| now.duration_since(info.timestamp) > max_age)
             .map(|(&handle, _)| handle)
             .collect()
     }
-    
+
     /// Get memory statistics
     pub fn get_stats(&self) -> HashMap<String, u64> {
         let mut stats = HashMap::new();
-        stats.insert("total_allocated".to_string(), self.total_allocated.load(Ordering::Relaxed));
-        stats.insert("peak_allocated".to_string(), self.peak_allocated.load(Ordering::Relaxed));
-        stats.insert("allocation_count".to_string(), self.allocation_count.load(Ordering::Relaxed));
-        stats.insert("deallocation_count".to_string(), self.deallocation_count.load(Ordering::Relaxed));
-        stats.insert("buffer_memory".to_string(), self.buffer_memory.load(Ordering::Relaxed));
-        stats.insert("texture_memory".to_string(), self.texture_memory.load(Ordering::Relaxed));
-        stats.insert("pipeline_memory".to_string(), self.pipeline_memory.load(Ordering::Relaxed));
+        stats.insert(
+            "total_allocated".to_string(),
+            self.total_allocated.load(Ordering::Relaxed),
+        );
+        stats.insert(
+            "peak_allocated".to_string(),
+            self.peak_allocated.load(Ordering::Relaxed),
+        );
+        stats.insert(
+            "allocation_count".to_string(),
+            self.allocation_count.load(Ordering::Relaxed),
+        );
+        stats.insert(
+            "deallocation_count".to_string(),
+            self.deallocation_count.load(Ordering::Relaxed),
+        );
+        stats.insert(
+            "buffer_memory".to_string(),
+            self.buffer_memory.load(Ordering::Relaxed),
+        );
+        stats.insert(
+            "texture_memory".to_string(),
+            self.texture_memory.load(Ordering::Relaxed),
+        );
+        stats.insert(
+            "pipeline_memory".to_string(),
+            self.pipeline_memory.load(Ordering::Relaxed),
+        );
         stats
     }
 }
@@ -631,35 +668,36 @@ impl PerformanceAnalyzer {
             analysis_enabled: AtomicBool::new(true),
         }
     }
-    
+
     /// Analyze frame performance
     pub fn analyze_frame(&self, _frame_timing: &FrameTiming) {
         // Placeholder for frame analysis
     }
-    
+
     /// Analyze frame timing
     pub fn analyze_frame_timing(&self, _frame_time: Duration) {
         // Placeholder for frame timing analysis
     }
-    
+
     /// Get detected bottlenecks
     pub fn get_bottlenecks(&self) -> Vec<Bottleneck> {
         self.bottleneck_detector.detected_bottlenecks.read().clone()
     }
-    
+
     /// Get optimization suggestions
     pub fn get_optimization_suggestions(&self) -> Vec<OptimizationSuggestion> {
         self.optimization_suggestions.read().clone()
     }
-    
+
     /// Generate optimization suggestions (moved from duplicate impl)
     fn generate_optimization_suggestions(&self, frame_time: Duration) {
         let frame_time_ms = frame_time.as_secs_f64() * 1000.0;
-        
+
         let mut suggestions = self.optimization_suggestions.write();
         suggestions.clear();
-        
-        if frame_time_ms > 16.67 { // 60 FPS threshold
+
+        if frame_time_ms > 16.67 {
+            // 60 FPS threshold
             suggestions.push(OptimizationSuggestion {
                 title: "Frame time exceeds 60 FPS target".to_string(),
                 description: "Consider reducing draw calls or optimizing shaders".to_string(),
@@ -668,11 +706,13 @@ impl PerformanceAnalyzer {
                 category: OptimizationCategory::Rendering,
             });
         }
-        
-        if frame_time_ms > 33.33 { // 30 FPS threshold
+
+        if frame_time_ms > 33.33 {
+            // 30 FPS threshold
             suggestions.push(OptimizationSuggestion {
                 title: "Critical performance issue detected".to_string(),
-                description: "Frame time is critically high, immediate optimization required".to_string(),
+                description: "Frame time is critically high, immediate optimization required"
+                    .to_string(),
                 impact: OptimizationImpact::Critical,
                 difficulty: OptimizationDifficulty::Hard,
                 category: OptimizationCategory::Rendering,
@@ -684,20 +724,20 @@ impl PerformanceAnalyzer {
 impl BottleneckDetector {
     pub fn new() -> Self {
         Self {
-            cpu_threshold: 16.0, // 16ms
-            gpu_threshold: 16.0, // 16ms
+            cpu_threshold: 16.0,   // 16ms
+            gpu_threshold: 16.0,   // 16ms
             memory_threshold: 0.8, // 80%
             detected_bottlenecks: RwLock::new(Vec::new()),
         }
     }
-    
+
     /// Analyze frame time for bottlenecks
     pub fn analyze_frame_time(&self, frame_time: Duration) {
         let frame_time_ms = frame_time.as_secs_f64() * 1000.0;
-        
+
         let mut bottlenecks = self.detected_bottlenecks.write();
         bottlenecks.clear();
-        
+
         if frame_time_ms > self.cpu_threshold {
             bottlenecks.push(Bottleneck {
                 bottleneck_type: BottleneckType::CpuBound,
@@ -721,14 +761,14 @@ impl RegressionDetector {
             detected_regressions: RwLock::new(Vec::new()),
         }
     }
-    
+
     /// Check for performance regression
     pub fn check_regression(&self, metric_type: MetricType, current_value: f64) {
         let mut baselines = self.baseline_metrics.write();
-        
+
         if let Some(&baseline) = baselines.get(&metric_type) {
             let regression = (current_value - baseline) / baseline;
-            
+
             if regression > self.regression_threshold {
                 let mut regressions = self.detected_regressions.write();
                 regressions.push(PerformanceRegression {
@@ -758,11 +798,11 @@ impl Profiler {
             warn!("Timestamp queries not enabled on device. GPU profiling disabled.");
             None
         };
-        
+
         let cpu_profiler = Arc::new(CpuProfiler::new(10000));
         let memory_profiler = Arc::new(MemoryProfiler::new());
         let performance_analyzer = Arc::new(PerformanceAnalyzer::new());
-        
+
         Ok(Self {
             device,
             gpu_timer,
@@ -780,57 +820,64 @@ impl Profiler {
             max_frame_time: RwLock::new(0.0),
         })
     }
-    
+
     /// Begin frame profiling
     pub fn begin_frame(&self) {
         if !self.enabled.load(Ordering::Relaxed) {
             return;
         }
-        
+
         let frame_id = self.current_frame.fetch_add(1, Ordering::Relaxed);
         *self.frame_start_time.write() = Some(Instant::now());
-        
+
         self.cpu_profiler.begin_section("frame");
-        
+
         debug!("Begin frame {}", frame_id);
     }
-    
+
     /// End frame profiling
     pub fn end_frame(&self) {
         if !self.enabled.load(Ordering::Relaxed) {
             return;
         }
-        
+
         self.cpu_profiler.end_section("frame");
-        
+
         if let Some(start_time) = *self.frame_start_time.read() {
             let frame_time = start_time.elapsed();
             let frame_time_ms = frame_time.as_secs_f64() * 1000.0;
-            
+
             // Update statistics
             self.total_frames.fetch_add(1, Ordering::Relaxed);
-            
+
             let mut avg = self.average_frame_time.write();
             let total = self.total_frames.load(Ordering::Relaxed) as f64;
             *avg = (*avg * (total - 1.0) + frame_time_ms) / total;
-            
+
             let mut min = self.min_frame_time.write();
             if frame_time_ms < *min {
                 *min = frame_time_ms;
             }
-            
+
             let mut max = self.max_frame_time.write();
             if frame_time_ms > *max {
                 *max = frame_time_ms;
             }
-            
+
             // Analyze performance if enabled
             if self.auto_analysis.load(Ordering::Relaxed) {
                 self.performance_analyzer.analyze_frame_timing(frame_time);
             }
+
+            inspector::inspector().record_frame_timeline(
+                self.current_frame.load(Ordering::Relaxed),
+                frame_time,
+                Duration::ZERO,
+                Some("CPU frame end".to_string()),
+            );
         }
     }
-    
+
     /// Begin GPU timing
     pub fn begin_gpu_timing(&self, encoder: &mut CommandEncoder, label: &str) -> Option<u32> {
         if self.enabled.load(Ordering::Relaxed) {
@@ -843,7 +890,7 @@ impl Profiler {
             None
         }
     }
-    
+
     /// End GPU timing
     pub fn end_gpu_timing(&self, encoder: &mut CommandEncoder, query_id: u32) {
         if self.enabled.load(Ordering::Relaxed) {
@@ -852,14 +899,14 @@ impl Profiler {
             }
         }
     }
-    
+
     /// Get comprehensive performance report
     pub fn get_performance_report(&self) -> PerformanceReport {
         let cpu_samples = self.cpu_profiler.collect_samples();
         let memory_stats = self.memory_profiler.get_stats();
         let bottlenecks = self.performance_analyzer.get_bottlenecks();
         let suggestions = self.performance_analyzer.get_optimization_suggestions();
-        
+
         PerformanceReport {
             frame_stats: FrameStats {
                 total_frames: self.total_frames.load(Ordering::Relaxed),
@@ -873,12 +920,12 @@ impl Profiler {
             optimization_suggestions: suggestions,
         }
     }
-    
+
     /// Enable/disable profiling
     pub fn set_enabled(&self, enabled: bool) {
         self.enabled.store(enabled, Ordering::Relaxed);
     }
-    
+
     /// Enable/disable detailed profiling
     pub fn set_detailed_profiling(&self, enabled: bool) {
         self.detailed_profiling.store(enabled, Ordering::Relaxed);

@@ -1,46 +1,49 @@
 //! StratoUI Widgets - A comprehensive widget library for StratoUI
-//! 
+//!
 //! This crate provides a collection of UI widgets built on top of the StratoUI core framework.
 //! All widgets are designed to be composable, reactive, and performant.
 
-pub mod widget;
-pub mod button;
-pub mod text;
-pub mod container;
-pub mod input;
-pub mod layout;
-pub mod theme;
-pub mod wrap;
-pub mod grid;
 pub mod animation;
 pub mod builder;
+pub mod button;
 pub mod checkbox;
-pub mod slider;
+pub mod container;
 pub mod dropdown;
+pub mod grid;
 pub mod image;
-pub mod scroll_view;
+pub mod input;
+pub mod inspector;
+pub mod layout;
 pub mod registry;
+pub mod scroll_view;
+pub mod slider;
+pub mod text;
+pub mod theme;
+pub mod widget;
+pub mod wrap;
 
 pub mod prelude;
 use crate::prelude::*;
 
 // Re-export all widget types for easy access
-pub use strato_macros::view;
-pub use widget::{Widget, WidgetContext, WidgetId};
-pub use button::{Button, ButtonStyle};
-pub use text::{Text, TextStyle};
-pub use container::{Container, ContainerStyle};
-pub use input::{TextInput, InputStyle, InputType};
-pub use layout::{Row, Column, Stack, Flex};
-pub use theme::{Theme};
 pub use builder::WidgetBuilder;
-pub use checkbox::{Checkbox, RadioButton, CheckboxStyle};
-pub use slider::{Slider, ProgressBar, SliderStyle};
+pub use button::{Button, ButtonStyle};
+pub use checkbox::{Checkbox, CheckboxStyle, RadioButton};
+pub use container::{Container, ContainerStyle};
 pub use dropdown::{Dropdown, DropdownOption, DropdownStyle};
-pub use image::{Image, ImageBuilder, ImageFit, ImageSource, ImageData, ImageFormat, ImageFilter, ImageStyle};
-pub use scroll_view::ScrollView;
 pub use grid::{Grid, GridUnit};
-
+pub use image::{
+    Image, ImageBuilder, ImageData, ImageFilter, ImageFit, ImageFormat, ImageSource, ImageStyle,
+};
+pub use input::{InputStyle, InputType, TextInput};
+pub use inspector::InspectorOverlay;
+pub use layout::{Column, Flex, Row, Stack};
+pub use scroll_view::ScrollView;
+pub use slider::{ProgressBar, Slider, SliderStyle};
+pub use strato_macros::view;
+pub use text::{Text, TextStyle};
+pub use theme::Theme;
+pub use widget::{Widget, WidgetContext, WidgetId};
 
 /// Initialize the widgets module
 pub fn init() -> strato_core::Result<()> {
@@ -52,15 +55,11 @@ pub fn init() -> strato_core::Result<()> {
 pub fn example_app() -> impl Widget {
     Container::new()
         .padding(20.0)
-        .child(
-            Column::new()
-                .spacing(10.0)
-                .children(vec![
-                    Box::new(Text::new("Welcome to StratoUI")),
-                    Box::new(Button::new("Click Me")),
-                    Box::new(TextInput::new().placeholder("Enter text...")),
-                ])
-        )
+        .child(Column::new().spacing(10.0).children(vec![
+            Box::new(Text::new("Welcome to StratoUI")),
+            Box::new(Button::new("Click Me")),
+            Box::new(TextInput::new().placeholder("Enter text...")),
+        ]))
 }
 
 #[cfg(test)]
