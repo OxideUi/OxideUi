@@ -3,41 +3,43 @@
 //! This crate provides the fundamental building blocks for the StratoUI framework,
 //! including state management, event handling, and layout calculations.
 
-pub mod event;
-pub mod layout;
-pub mod state;
-pub mod reactive;
-pub mod types;
+pub mod config;
 pub mod error;
+pub mod event;
+pub mod hot_reload;
+pub mod inspector;
+pub mod layout;
+pub mod logging;
+pub mod plugin;
+pub mod reactive;
+pub mod state;
+pub mod text;
+pub mod theme;
+pub mod types;
+pub mod ui_node;
 pub mod vdom;
 pub mod widget;
 pub mod window;
-pub mod hot_reload;
-pub mod theme;
-pub mod plugin;
-pub mod text;
-pub mod logging;
-pub mod config;
-pub mod ui_node;
 
+pub use error::{Result, StratoError, StratoResult};
 pub use event::{Event, EventHandler, EventResult};
-pub use layout::{Constraints, Layout, LayoutEngine, LayoutConstraints, Size};
-pub use state::{Signal, State};
+pub use layout::{Constraints, Layout, LayoutConstraints, LayoutEngine, Size};
+pub use logging::{LogCategory, LogLevel};
 pub use reactive::{Computed, Effect, Reactive};
+pub use state::{Signal, State};
 pub use types::{Color, Point, Rect, Transform};
-pub use error::{StratoError, StratoResult, Result};
-pub use logging::{LogLevel, LogCategory};
 
 /// Re-export commonly used types
 pub mod prelude {
     pub use crate::{
+        error::{Result, StratoError},
         event::{Event, EventHandler, EventResult},
+        inspector::{inspector, InspectorConfig, InspectorSnapshot},
         layout::{Constraints, Layout, Size},
-        state::{Signal, State},
+        logging::LogLevel,
         reactive::{Computed, Effect},
+        state::{Signal, State},
         types::{Color, Point, Rect},
-        error::{StratoError, Result},
-        logging::{LogLevel},
     };
 }
 
@@ -49,12 +51,12 @@ pub fn init() -> Result<()> {
     // Initialize logging system with default config
     let config = config::LoggingConfig::default();
     if let Err(e) = logging::init(&config) {
-        return Err(StratoError::Initialization { 
+        return Err(StratoError::Initialization {
             message: format!("Failed to initialize logging: {}", e),
             context: None,
         });
     }
-    
+
     // Initialize tracing
     tracing::info!("StratoUI Core v{} initialized", VERSION);
     Ok(())

@@ -3,13 +3,13 @@
 //! Provides reactive state primitives with signals, stores, computed values,
 //! effects, and automatic dependency tracking similar to modern reactive frameworks
 
-use std::sync::Arc;
+use dashmap::DashMap;
+use parking_lot::{Mutex, RwLock};
+use smallvec::SmallVec;
 use std::any::Any;
 use std::collections::HashMap;
-use parking_lot::{RwLock, Mutex};
-use dashmap::DashMap;
-use smallvec::SmallVec;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 /// Unique identifier for state values
 pub type StateId = slotmap::DefaultKey;
@@ -69,7 +69,7 @@ impl ReactiveContext {
                 .entry(computation_id)
                 .or_default()
                 .push(state_id);
-            
+
             self.dependents
                 .write()
                 .entry(state_id)
@@ -137,9 +137,9 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
     pub fn with_context(initial: T, context: Arc<ReactiveContext>) -> Self {
         use slotmap::SlotMap;
         use std::sync::OnceLock;
-        
+
         static SLOT_MAP: OnceLock<Mutex<SlotMap<StateId, ()>>> = OnceLock::new();
-        
+
         let slot_map = SLOT_MAP.get_or_init(|| Mutex::new(SlotMap::new()));
         let id = slot_map.lock().insert(());
 
@@ -168,6 +168,19 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
             let mut guard = self.value.write();
             *guard = value.clone();
         }
+        #[cfg(feature = "serde")]
+        {
+            // Record inspector snapshot if available.
+            let detail =
+                serde_json::to_string(&value).unwrap_or_else(|_| "<unserializable>".into());
+            crate::inspector::inspector().record_state_snapshot(self.id, detail);
+        }
+        #[cfg(not(feature = "serde"))]
+        {
+            let type_name = std::any::type_name::<T>();
+            crate::inspector::inspector()
+                .record_state_snapshot(self.id, format!("Updated {}", type_name));
+        }
         self.notify(&value);
         self.context.invalidate_dependents(self.id);
     }
@@ -179,6 +192,18 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
             f(&mut *guard);
             guard.clone()
         };
+        #[cfg(feature = "serde")]
+        {
+            let detail =
+                serde_json::to_string(&value).unwrap_or_else(|_| "<unserializable>".into());
+            crate::inspector::inspector().record_state_snapshot(self.id, detail);
+        }
+        #[cfg(not(feature = "serde"))]
+        {
+            let type_name = std::any::type_name::<T>();
+            crate::inspector::inspector()
+                .record_state_snapshot(self.id, format!("Updated {}", type_name));
+        }
         self.notify(&value);
         self.context.invalidate_dependents(self.id);
     }
@@ -209,20 +234,21 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
     {
         let computation_id = ComputationId::new();
         let computed = Signal::with_context(
-            self.context.run_with_tracking(computation_id, || f(&self.get())),
+            self.context
+                .run_with_tracking(computation_id, || f(&self.get())),
             Arc::clone(&self.context),
         );
-        
+
         let computed_clone = computed.clone();
         let f = Arc::new(f);
-        
+
         self.subscribe(Box::new(move |value: &dyn Any| {
             if let Some(typed_value) = value.downcast_ref::<T>() {
                 let new_value = f(typed_value);
                 computed_clone.set(new_value);
             }
         }));
-        
+
         computed
     }
 
@@ -233,7 +259,7 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
     {
         // Run effect immediately
         f(&self.get());
-        
+
         // Subscribe to future changes
         self.subscribe(Box::new(move |value: &dyn Any| {
             if let Some(typed_value) = value.downcast_ref::<T>() {
@@ -312,15 +338,16 @@ impl Store {
     /// Add a signal to the store
     pub fn add_signal<T: Clone + Send + Sync + 'static>(&self, key: &str, initial: T) -> Signal<T> {
         let signal = Signal::with_context(initial, Arc::clone(&self.context));
-        self.states.insert(key.to_string(), Box::new(signal.clone()));
+        self.states
+            .insert(key.to_string(), Box::new(signal.clone()));
         signal
     }
 
     /// Get a signal from the store
     pub fn get_signal<T: Clone + Send + Sync + 'static>(&self, key: &str) -> Option<Signal<T>> {
-        self.states.get(key).and_then(|entry| {
-            entry.value().downcast_ref::<Signal<T>>().cloned()
-        })
+        self.states
+            .get(key)
+            .and_then(|entry| entry.value().downcast_ref::<Signal<T>>().cloned())
     }
 
     /// Create a computed value that depends on multiple signals in the store
@@ -331,7 +358,7 @@ impl Store {
     {
         let computation_id = ComputationId::new();
         let initial_value = self.context.run_with_tracking(computation_id, || f(self));
-        
+
         Signal::with_context(initial_value, Arc::clone(&self.context))
     }
 
@@ -421,7 +448,7 @@ where
     let computation_id = ComputationId::new();
     let context = global_context();
     let initial_value = context.run_with_tracking(computation_id, f);
-    
+
     Signal::with_context(initial_value, context)
 }
 
@@ -432,9 +459,9 @@ where
 {
     // Run effect immediately
     f();
-    
+
     // Return a disposable that does nothing for now
-    
+
     Disposable::new(|| {})
 }
 
@@ -463,7 +490,7 @@ mod tests {
     fn test_signal_basic() {
         let signal = Signal::new(42);
         assert_eq!(signal.get(), 42);
-        
+
         signal.set(100);
         assert_eq!(signal.get(), 100);
     }
@@ -473,13 +500,13 @@ mod tests {
         let signal = Signal::new(0);
         let counter = Arc::new(AtomicI32::new(0));
         let counter_clone = Arc::clone(&counter);
-        
+
         let _disposable = signal.subscribe(Box::new(move |value: &dyn Any| {
             if let Some(&val) = value.downcast_ref::<i32>() {
                 counter_clone.store(val, Ordering::Relaxed);
             }
         }));
-        
+
         signal.set(42);
         assert_eq!(counter.load(Ordering::Relaxed), 42);
     }
@@ -488,9 +515,9 @@ mod tests {
     fn test_computed_signal() {
         let base = Signal::new(10);
         let doubled = base.computed(|&x| x * 2);
-        
+
         assert_eq!(doubled.get(), 20);
-        
+
         base.set(15);
         assert_eq!(doubled.get(), 30);
     }
@@ -500,10 +527,10 @@ mod tests {
         let store = Store::new();
         let counter = store.add_signal("counter", 0);
         let name = store.add_signal("name", "test".to_string());
-        
+
         assert_eq!(counter.get(), 0);
         assert_eq!(name.get(), "test");
-        
+
         counter.set(42);
         assert_eq!(store.get_signal::<i32>("counter").unwrap().get(), 42);
     }
@@ -512,16 +539,16 @@ mod tests {
     fn test_batch_updates() {
         let signal1 = Signal::new(0);
         let signal2 = Signal::new(0);
-        
+
         let mut batch = Batch::new();
         let s1 = signal1.clone();
         let s2 = signal2.clone();
-        
+
         batch.add(move || s1.set(10));
         batch.add(move || s2.set(20));
-        
+
         batch.execute();
-        
+
         assert_eq!(signal1.get(), 10);
         assert_eq!(signal2.get(), 20);
     }
@@ -530,9 +557,9 @@ mod tests {
     fn test_signal_map() {
         let signal = Signal::new(5);
         let mapped = signal.map(|&x| x.to_string());
-        
+
         assert_eq!(mapped.get(), "5");
-        
+
         signal.set(10);
         assert_eq!(mapped.get(), "10");
     }
@@ -541,9 +568,9 @@ mod tests {
     fn test_signal_filter() {
         let signal = Signal::new(5);
         let filtered = signal.filter(|&x| x > 10);
-        
+
         assert_eq!(filtered.get(), None);
-        
+
         signal.set(15);
         assert_eq!(filtered.get(), Some(15));
     }
