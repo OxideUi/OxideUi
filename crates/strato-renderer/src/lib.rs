@@ -19,7 +19,7 @@ pub mod device;
 pub mod font_config;
 pub mod font_system;
 pub mod glyph_atlas;
-pub mod gpu;  // Modular GPU pipeline
+pub mod gpu; // Modular GPU pipeline
 pub mod memory;
 pub mod pipeline;
 pub mod profiler;
@@ -34,20 +34,17 @@ pub mod backend;
 pub mod integration;
 
 // Re-export commonly used types
-pub use backend::Backend;
 pub use backend::commands::RenderCommand;
+pub use backend::Backend;
 pub use batch::RenderBatch;
-pub use buffer::{BufferManager, DynamicBuffer, BufferPool};
-pub use device::{ManagedDevice, DeviceManager, AdapterInfo};
-pub use integration::{IntegratedRenderer, RendererBuilder, RenderContext, RenderStats};
-pub use memory::{MemoryManager, MemoryPool, AllocationStrategy};
+pub use buffer::{BufferManager, BufferPool, DynamicBuffer};
+pub use device::{AdapterInfo, DeviceManager, ManagedDevice};
+pub use integration::{IntegratedRenderer, RenderContext, RenderStats, RendererBuilder};
+pub use memory::{AllocationStrategy, MemoryManager, MemoryPool};
 pub use pipeline::{PipelineManager, RenderGraph, RenderNode};
-pub use profiler::{Profiler, PerformanceReport, FrameStats};
-pub use resources::{ResourceManager, ResourceHandle, ResourceType};
-pub use shader::{ShaderManager, ShaderSource, CompiledShader};
-
-
-
+pub use profiler::{FrameStats, PerformanceReport, Profiler};
+pub use resources::{ResourceHandle, ResourceManager, ResourceType};
+pub use shader::{CompiledShader, ShaderManager, ShaderSource};
 
 /// Renderer configuration
 #[derive(Debug, Clone)]

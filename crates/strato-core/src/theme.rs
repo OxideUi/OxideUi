@@ -3,10 +3,10 @@
 //! Provides comprehensive theming support including dark/light modes,
 //! custom color schemes, typography, spacing, and component styling
 
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::RwLock;
-use serde::{Serialize, Deserialize};
 
 /// Color representation with alpha channel
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -31,20 +31,29 @@ impl Color {
     /// Create a color from hex string (#RRGGBB or #RRGGBBAA)
     pub fn from_hex(hex: &str) -> Result<Self, &'static str> {
         let hex = hex.trim_start_matches('#');
-        
+
         match hex.len() {
             6 => {
                 let r = u8::from_str_radix(&hex[0..2], 16).map_err(|_| "Invalid hex color")?;
                 let g = u8::from_str_radix(&hex[2..4], 16).map_err(|_| "Invalid hex color")?;
                 let b = u8::from_str_radix(&hex[4..6], 16).map_err(|_| "Invalid hex color")?;
-                Ok(Self::rgb(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0))
+                Ok(Self::rgb(
+                    r as f32 / 255.0,
+                    g as f32 / 255.0,
+                    b as f32 / 255.0,
+                ))
             }
             8 => {
                 let r = u8::from_str_radix(&hex[0..2], 16).map_err(|_| "Invalid hex color")?;
                 let g = u8::from_str_radix(&hex[2..4], 16).map_err(|_| "Invalid hex color")?;
                 let b = u8::from_str_radix(&hex[4..6], 16).map_err(|_| "Invalid hex color")?;
                 let a = u8::from_str_radix(&hex[6..8], 16).map_err(|_| "Invalid hex color")?;
-                Ok(Self::rgba(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0))
+                Ok(Self::rgba(
+                    r as f32 / 255.0,
+                    g as f32 / 255.0,
+                    b as f32 / 255.0,
+                    a as f32 / 255.0,
+                ))
             }
             _ => Err("Invalid hex color length"),
         }
@@ -161,16 +170,16 @@ impl Default for Typography {
         // Use platform-specific default fonts with proper fallbacks
         #[cfg(target_os = "windows")]
         let font_family = "Segoe UI, Tahoma, Arial, sans-serif";
-        
+
         #[cfg(target_os = "macos")]
         let font_family = "SF Pro Display, Helvetica Neue, Arial, sans-serif";
-        
+
         #[cfg(target_os = "linux")]
         let font_family = "Ubuntu, DejaVu Sans, Liberation Sans, Arial, sans-serif";
-        
+
         #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
         let font_family = "Arial, sans-serif";
-        
+
         Self {
             font_family: font_family.to_string(),
             base_size: 14.0,
@@ -302,22 +311,22 @@ pub struct ColorPalette {
     // Primary colors
     pub primary: Color,
     pub primary_variant: Color,
-    
+
     // Secondary colors
     pub secondary: Color,
     pub secondary_variant: Color,
-    
+
     // Background colors
     pub background: Color,
     pub surface: Color,
     pub surface_variant: Color,
-    
+
     // Text colors
     pub on_primary: Color,
     pub on_secondary: Color,
     pub on_background: Color,
     pub on_surface: Color,
-    
+
     // State colors
     pub error: Color,
     pub on_error: Color,
@@ -327,12 +336,12 @@ pub struct ColorPalette {
     pub on_success: Color,
     pub info: Color,
     pub on_info: Color,
-    
+
     // Outline and divider
     pub outline: Color,
     pub outline_variant: Color,
     pub divider: Color,
-    
+
     // Disabled state
     pub disabled: Color,
     pub on_disabled: Color,
@@ -496,7 +505,7 @@ impl ThemeManager {
         let mut themes = HashMap::new();
         let light_theme = Theme::light();
         let dark_theme = Theme::dark();
-        
+
         themes.insert(light_theme.name.clone(), light_theme.clone());
         themes.insert(dark_theme.name.clone(), dark_theme.clone());
 
@@ -516,22 +525,20 @@ impl ThemeManager {
     /// Set the current theme by name
     pub fn set_theme(&self, theme_name: &str) -> Result<(), &'static str> {
         let themes = self.themes.read();
-        let new_theme = themes.get(theme_name)
-            .ok_or("Theme not found")?
-            .clone();
-        
+        let new_theme = themes.get(theme_name).ok_or("Theme not found")?.clone();
+
         let old_theme_name = self.current_theme.read().name.clone();
         let mode_changed = self.current_theme.read().mode != new_theme.mode;
-        
+
         *self.current_theme.write() = new_theme;
-        
+
         // Notify listeners
         let event = ThemeChangeEvent {
             old_theme: old_theme_name,
             new_theme: theme_name.to_string(),
             mode_changed,
         };
-        
+
         self.notify_listeners(&event);
         Ok(())
     }
@@ -574,9 +581,8 @@ impl ThemeManager {
         }
 
         let mut themes = self.themes.write();
-        themes.remove(theme_name)
-            .ok_or("Theme not found")?;
-        
+        themes.remove(theme_name).ok_or("Theme not found")?;
+
         Ok(())
     }
 
@@ -598,7 +604,7 @@ impl ThemeManager {
     /// Update system theme mode (for system theme detection)
     pub fn update_system_theme_mode(&self, mode: ThemeMode) {
         *self.system_theme_mode.write() = mode;
-        
+
         // If current theme is system, update accordingly
         if self.current_theme.read().mode == ThemeMode::System {
             let theme_name = match mode {
@@ -621,9 +627,8 @@ impl ThemeManager {
     /// Export theme to JSON
     pub fn export_theme(&self, theme_name: &str) -> Result<String, Box<dyn std::error::Error>> {
         let themes = self.themes.read();
-        let theme = themes.get(theme_name)
-            .ok_or("Theme not found")?;
-        
+        let theme = themes.get(theme_name).ok_or("Theme not found")?;
+
         Ok(serde_json::to_string_pretty(theme)?)
     }
 
@@ -664,19 +669,31 @@ pub mod utils {
     pub fn contrast_ratio(color1: &Color, color2: &Color) -> f32 {
         let l1 = relative_luminance(color1);
         let l2 = relative_luminance(color2);
-        
+
         let lighter = l1.max(l2);
         let darker = l1.min(l2);
-        
+
         (lighter + 0.05) / (darker + 0.05)
     }
 
     /// Calculate relative luminance of a color
     fn relative_luminance(color: &Color) -> f32 {
-        let r = if color.r <= 0.03928 { color.r / 12.92 } else { ((color.r + 0.055) / 1.055).powf(2.4) };
-        let g = if color.g <= 0.03928 { color.g / 12.92 } else { ((color.g + 0.055) / 1.055).powf(2.4) };
-        let b = if color.b <= 0.03928 { color.b / 12.92 } else { ((color.b + 0.055) / 1.055).powf(2.4) };
-        
+        let r = if color.r <= 0.03928 {
+            color.r / 12.92
+        } else {
+            ((color.r + 0.055) / 1.055).powf(2.4)
+        };
+        let g = if color.g <= 0.03928 {
+            color.g / 12.92
+        } else {
+            ((color.g + 0.055) / 1.055).powf(2.4)
+        };
+        let b = if color.b <= 0.03928 {
+            color.b / 12.92
+        } else {
+            ((color.b + 0.055) / 1.055).powf(2.4)
+        };
+
         0.2126 * r + 0.7152 * g + 0.0722 * b
     }
 
@@ -747,7 +764,7 @@ mod tests {
     fn test_theme_manager() {
         let manager = ThemeManager::new();
         assert_eq!(manager.current_theme().name, "Light");
-        
+
         manager.set_theme("Dark").unwrap();
         assert_eq!(manager.current_theme().name, "Dark");
     }

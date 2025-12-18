@@ -1,8 +1,8 @@
 //! Configuration system for StratoUI framework
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock, OnceLock};
-use serde::{Serialize, Deserialize};
+use std::sync::{Arc, OnceLock, RwLock};
 
 /// Global configuration for StratoUI
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,7 +59,7 @@ pub struct DebugConfig {
 impl Default for StratoConfig {
     fn default() -> Self {
         let mut category_levels = HashMap::new();
-        
+
         // Set default levels for each category
         category_levels.insert("core".to_string(), "info".to_string());
         category_levels.insert("renderer".to_string(), "info".to_string());
@@ -70,7 +70,7 @@ impl Default for StratoConfig {
         category_levels.insert("vulkan".to_string(), "warn".to_string()); // Reduce Vulkan noise
         category_levels.insert("text".to_string(), "error".to_string()); // Disable text debug by default
         category_levels.insert("layout".to_string(), "error".to_string()); // Disable layout debug by default
-        
+
         Self {
             logging: LoggingConfig {
                 category_levels,
@@ -125,38 +125,38 @@ impl ConfigManager {
             config: Arc::new(RwLock::new(StratoConfig::default())),
         }
     }
-    
+
     /// Create a configuration manager with custom config
     pub fn with_config(config: StratoConfig) -> Self {
         Self {
             config: Arc::new(RwLock::new(config)),
         }
     }
-    
+
     /// Get the global configuration manager instance
     pub fn instance() -> Option<&'static ConfigManager> {
         CONFIG_MANAGER.get()
     }
-    
+
     /// Get a copy of the current configuration
     pub fn get_config(&self) -> StratoConfig {
         self.config.read().unwrap().clone()
     }
-    
+
     /// Update the configuration
-    pub fn update_config<F>(&self, updater: F) 
-    where 
+    pub fn update_config<F>(&self, updater: F)
+    where
         F: FnOnce(&mut StratoConfig),
     {
         let mut config = self.config.write().unwrap();
         updater(&mut *config);
     }
-    
+
     /// Get the current logging configuration
     pub fn get_logging_config(&self) -> LoggingConfig {
         self.config.read().unwrap().logging.clone()
     }
-    
+
     /// Update logging configuration
     pub fn update_logging_config<F>(&self, updater: F)
     where
@@ -165,38 +165,48 @@ impl ConfigManager {
         let mut config = self.config.write().unwrap();
         updater(&mut config.logging);
     }
-    
+
     /// Enable or disable text debug logging
     pub fn set_text_debug(&self, enabled: bool) {
         self.update_logging_config(|logging| {
             logging.enable_text_debug = enabled;
             if enabled {
-                logging.category_levels.insert("text".to_string(), "debug".to_string());
+                logging
+                    .category_levels
+                    .insert("text".to_string(), "debug".to_string());
             } else {
-                logging.category_levels.insert("text".to_string(), "error".to_string());
+                logging
+                    .category_levels
+                    .insert("text".to_string(), "error".to_string());
             }
         });
     }
-    
+
     /// Enable or disable layout debug logging
     pub fn set_layout_debug(&self, enabled: bool) {
         self.update_logging_config(|logging| {
             logging.enable_layout_debug = enabled;
             if enabled {
-                logging.category_levels.insert("layout".to_string(), "debug".to_string());
+                logging
+                    .category_levels
+                    .insert("layout".to_string(), "debug".to_string());
             } else {
-                logging.category_levels.insert("layout".to_string(), "error".to_string());
+                logging
+                    .category_levels
+                    .insert("layout".to_string(), "error".to_string());
             }
         });
     }
-    
+
     /// Set log level for a specific category
     pub fn set_category_level(&self, category: &str, level: &str) {
         self.update_logging_config(|logging| {
-            logging.category_levels.insert(category.to_string(), level.to_string());
+            logging
+                .category_levels
+                .insert(category.to_string(), level.to_string());
         });
     }
-    
+
     /// Get log level for a specific category
     pub fn get_category_level(&self, category: &str) -> Option<String> {
         let config = self.config.read().unwrap();
@@ -235,31 +245,49 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = StratoConfig::default();
-        
+
         assert!(!config.logging.enable_text_debug);
         assert!(!config.logging.enable_layout_debug);
-        
+
         // Text and Layout should be disabled by default
-        assert_eq!(config.logging.category_levels.get("text"), Some(&"error".to_string()));
-        assert_eq!(config.logging.category_levels.get("layout"), Some(&"error".to_string()));
-        
+        assert_eq!(
+            config.logging.category_levels.get("text"),
+            Some(&"error".to_string())
+        );
+        assert_eq!(
+            config.logging.category_levels.get("layout"),
+            Some(&"error".to_string())
+        );
+
         // Vulkan should be at Warn level to reduce noise
-        assert_eq!(config.logging.category_levels.get("vulkan"), Some(&"warn".to_string()));
+        assert_eq!(
+            config.logging.category_levels.get("vulkan"),
+            Some(&"warn".to_string())
+        );
     }
-    
+
     #[test]
     fn test_config_manager() {
         let manager = ConfigManager::new();
-        
+
         // Test text debug toggle
         manager.set_text_debug(true);
-        assert_eq!(manager.get_category_level("text"), Some("debug".to_string()));
-        
+        assert_eq!(
+            manager.get_category_level("text"),
+            Some("debug".to_string())
+        );
+
         manager.set_text_debug(false);
-        assert_eq!(manager.get_category_level("text"), Some("error".to_string()));
-        
+        assert_eq!(
+            manager.get_category_level("text"),
+            Some("error".to_string())
+        );
+
         // Test category level setting
         manager.set_category_level("renderer", "trace");
-        assert_eq!(manager.get_category_level("renderer"), Some("trace".to_string()));
+        assert_eq!(
+            manager.get_category_level("renderer"),
+            Some("trace".to_string())
+        );
     }
 }

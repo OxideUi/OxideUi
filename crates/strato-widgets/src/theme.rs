@@ -133,7 +133,7 @@ impl ColorPalette {
     /// High contrast color palette
     pub fn high_contrast() -> Self {
         Self {
-            primary: Color::rgb(0.0, 1.0, 1.0), // Cyan
+            primary: Color::rgb(0.0, 1.0, 1.0),   // Cyan
             secondary: Color::rgb(1.0, 1.0, 0.0), // Yellow
             success: Color::rgb(0.0, 1.0, 0.0),
             warning: Color::rgb(1.0, 0.5, 0.0),
@@ -180,32 +180,84 @@ impl Default for Typography {
         // Use platform-specific default fonts with proper fallbacks
         #[cfg(target_os = "windows")]
         let font_family = "Segoe UI, Tahoma, Arial, sans-serif";
-        
+
         #[cfg(target_os = "macos")]
         let font_family = "SF Pro Display, Helvetica Neue, Arial, sans-serif";
-        
+
         #[cfg(target_os = "linux")]
         let font_family = "Ubuntu, DejaVu Sans, Liberation Sans, Arial, sans-serif";
-        
+
         #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
         let font_family = "Arial, sans-serif";
-        
+
         Self {
             font_family: font_family.to_string(),
             font_family_mono: "Consolas, Monaco, monospace".to_string(),
-            h1: TextStyle { size: 96.0, weight: 300, letter_spacing: -1.5 },
-            h2: TextStyle { size: 60.0, weight: 300, letter_spacing: -0.5 },
-            h3: TextStyle { size: 48.0, weight: 400, letter_spacing: 0.0 },
-            h4: TextStyle { size: 34.0, weight: 400, letter_spacing: 0.25 },
-            h5: TextStyle { size: 24.0, weight: 400, letter_spacing: 0.0 },
-            h6: TextStyle { size: 20.0, weight: 500, letter_spacing: 0.15 },
-            body1: TextStyle { size: 16.0, weight: 400, letter_spacing: 0.5 },
-            body2: TextStyle { size: 14.0, weight: 400, letter_spacing: 0.25 },
-            subtitle1: TextStyle { size: 16.0, weight: 400, letter_spacing: 0.15 },
-            subtitle2: TextStyle { size: 14.0, weight: 500, letter_spacing: 0.1 },
-            button: TextStyle { size: 14.0, weight: 500, letter_spacing: 1.25 },
-            caption: TextStyle { size: 12.0, weight: 400, letter_spacing: 0.4 },
-            overline: TextStyle { size: 10.0, weight: 400, letter_spacing: 1.5 },
+            h1: TextStyle {
+                size: 96.0,
+                weight: 300,
+                letter_spacing: -1.5,
+            },
+            h2: TextStyle {
+                size: 60.0,
+                weight: 300,
+                letter_spacing: -0.5,
+            },
+            h3: TextStyle {
+                size: 48.0,
+                weight: 400,
+                letter_spacing: 0.0,
+            },
+            h4: TextStyle {
+                size: 34.0,
+                weight: 400,
+                letter_spacing: 0.25,
+            },
+            h5: TextStyle {
+                size: 24.0,
+                weight: 400,
+                letter_spacing: 0.0,
+            },
+            h6: TextStyle {
+                size: 20.0,
+                weight: 500,
+                letter_spacing: 0.15,
+            },
+            body1: TextStyle {
+                size: 16.0,
+                weight: 400,
+                letter_spacing: 0.5,
+            },
+            body2: TextStyle {
+                size: 14.0,
+                weight: 400,
+                letter_spacing: 0.25,
+            },
+            subtitle1: TextStyle {
+                size: 16.0,
+                weight: 400,
+                letter_spacing: 0.15,
+            },
+            subtitle2: TextStyle {
+                size: 14.0,
+                weight: 500,
+                letter_spacing: 0.1,
+            },
+            button: TextStyle {
+                size: 14.0,
+                weight: 500,
+                letter_spacing: 1.25,
+            },
+            caption: TextStyle {
+                size: 12.0,
+                weight: 400,
+                letter_spacing: 0.4,
+            },
+            overline: TextStyle {
+                size: 10.0,
+                weight: 400,
+                letter_spacing: 1.5,
+            },
         }
     }
 }
@@ -320,7 +372,10 @@ impl ComponentThemes {
     pub fn light() -> Self {
         let mut button = HashMap::new();
         button.insert("primary".to_string(), crate::button::ButtonStyle::primary());
-        button.insert("secondary".to_string(), crate::button::ButtonStyle::secondary());
+        button.insert(
+            "secondary".to_string(),
+            crate::button::ButtonStyle::secondary(),
+        );
         button.insert("text".to_string(), crate::button::ButtonStyle::ghost());
 
         let mut input = HashMap::new();
@@ -355,7 +410,7 @@ impl ThemeProvider {
         let mut themes = HashMap::new();
         themes.insert("light".to_string(), Theme::light());
         themes.insert("dark".to_string(), Theme::dark());
-        
+
         Self {
             current: theme,
             themes,

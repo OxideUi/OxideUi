@@ -1,8 +1,8 @@
 //! Texture management and atlas
 
-use std::sync::Arc;
 use dashmap::DashMap;
 use image::{DynamicImage, ImageBuffer, Rgba};
+use std::sync::Arc;
 
 /// Texture wrapper
 pub struct Texture {
@@ -17,7 +17,7 @@ impl Texture {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, image: &DynamicImage) -> Self {
         let rgba = image.to_rgba8();
         let size = (image.width(), image.height());
-        
+
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Texture"),
             size: wgpu::Extent3d {
@@ -54,7 +54,7 @@ impl Texture {
         );
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        
+
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -127,9 +127,8 @@ pub struct TexCoords {
 impl TextureAtlas {
     /// Create a new texture atlas
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, size: (u32, u32)) -> Self {
-        let empty_image = ImageBuffer::<Rgba<u8>, _>::from_fn(size.0, size.1, |_, _| {
-            Rgba([0, 0, 0, 0])
-        });
+        let empty_image =
+            ImageBuffer::<Rgba<u8>, _>::from_fn(size.0, size.1, |_, _| Rgba([0, 0, 0, 0]));
         let image = DynamicImage::ImageRgba8(empty_image);
         let texture = Arc::new(Texture::new(device, queue, &image));
 
@@ -150,7 +149,7 @@ impl TextureAtlas {
         image: &DynamicImage,
     ) -> Option<AtlasRegion> {
         let img_size = (image.width(), image.height());
-        
+
         let mut next_pos = self.next_position.lock();
         let mut row_height = self.row_height.lock();
 

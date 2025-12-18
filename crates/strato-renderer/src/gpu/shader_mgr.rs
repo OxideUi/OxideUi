@@ -22,11 +22,7 @@ impl ShaderManager {
     ///
     /// # Errors
     /// Returns error if shader compilation fails
-    pub fn from_wgsl(
-        device: &Device,
-        source: &str,
-        label: Option<&str>,
-    ) -> anyhow::Result<Self> {
+    pub fn from_wgsl(device: &Device, source: &str, label: Option<&str>) -> anyhow::Result<Self> {
         println!("=== SHADER COMPILATION ===");
         println!("Label: {:?}", label);
         println!("Source length: {} bytes", source.len());
@@ -106,7 +102,7 @@ mod tests {
         // This test ensures we get expected behavior (panic on invalid WGSL)
         let invalid_source = "this is not valid WGSL!!!";
         let _result = ShaderManager::from_wgsl(dm.device(), invalid_source, Some("Invalid"));
-        
+
         // Should panic before reaching here
     }
 
@@ -124,4 +120,3 @@ mod tests {
         assert_eq!(shader.fragment_entry(), "fs_main");
     }
 }
-

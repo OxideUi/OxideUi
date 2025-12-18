@@ -3,17 +3,17 @@
 //! Provides a flexible plugin architecture for extending framework functionality
 //! with custom widgets, themes, and behaviors.
 
+use crate::{
+    error::{Result, StratoError},
+    event::{Event, EventHandler, EventResult},
+    theme::Theme,
+    widget::Widget,
+};
+use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
     collections::HashMap,
     sync::{Arc, RwLock},
-};
-use serde::{Deserialize, Serialize};
-use crate::{
-    error::{StratoError, Result},
-    event::{Event, EventHandler, EventResult},
-    widget::Widget,
-    theme::Theme,
 };
 
 /// Plugin metadata
@@ -124,8 +124,8 @@ impl PluginContext {
     }
 
     /// Retrieve plugin data
-    pub fn get_data<T: Any + Send + Sync>(&self, key: &str) -> Option<T> 
-    where 
+    pub fn get_data<T: Any + Send + Sync>(&self, key: &str) -> Option<T>
+    where
         T: Clone,
     {
         let store = self.data_store.read().ok()?;
@@ -265,10 +265,10 @@ impl PluginManager {
     /// Register a plugin
     pub fn register_plugin(&mut self, plugin: Box<dyn Plugin>) -> Result<()> {
         let name = plugin.metadata().name.clone();
-        
+
         // Check for duplicate names
         if self.plugins.contains_key(&name) {
-            return Err(StratoError::PluginError { 
+            return Err(StratoError::PluginError {
                 message: format!("Plugin '{}' is already registered", name),
                 context: None,
             });
@@ -277,7 +277,8 @@ impl PluginManager {
         // Validate dependencies
         self.validate_dependencies(plugin.metadata())?;
 
-        self.plugin_states.insert(name.clone(), PluginState::Unloaded);
+        self.plugin_states
+            .insert(name.clone(), PluginState::Unloaded);
         self.plugins.insert(name.clone(), plugin);
         self.load_order.push(name);
 
@@ -287,7 +288,7 @@ impl PluginManager {
     /// Load a plugin
     pub fn load_plugin(&mut self, name: &str) -> Result<()> {
         if !self.plugins.contains_key(name) {
-            return Err(StratoError::PluginError { 
+            return Err(StratoError::PluginError {
                 message: format!("Plugin '{}' not found", name),
                 context: None,
             });
@@ -300,7 +301,7 @@ impl PluginManager {
                     return Ok(()); // Already loaded
                 }
                 PluginState::Loading => {
-                    return Err(StratoError::PluginError { 
+                    return Err(StratoError::PluginError {
                         message: format!("Plugin '{}' is already loading", name),
                         context: None,
                     });
@@ -310,7 +311,8 @@ impl PluginManager {
         }
 
         // Set loading state
-        self.plugin_states.insert(name.to_string(), PluginState::Loading);
+        self.plugin_states
+            .insert(name.to_string(), PluginState::Loading);
 
         // Load dependencies first
         let dependencies = self.plugins[name].metadata().dependencies.clone();
@@ -320,24 +322,24 @@ impl PluginManager {
 
         // Initialize plugin
         match self.plugins.get_mut(name) {
-            Some(plugin) => {
-                match plugin.initialize(&mut self.context) {
-                    Ok(()) => {
-                        self.plugin_states.insert(name.to_string(), PluginState::Loaded);
-                        tracing::info!("Plugin '{}' loaded successfully", name);
-                    }
-                    Err(e) => {
-                        let error_msg = format!("Failed to initialize plugin '{}': {}", name, e);
-                        self.plugin_states.insert(name.to_string(), PluginState::Error(error_msg.clone()));
-                        return Err(StratoError::PluginError { 
-                            message: error_msg,
-                            context: None,
-                        });
-                    }
+            Some(plugin) => match plugin.initialize(&mut self.context) {
+                Ok(()) => {
+                    self.plugin_states
+                        .insert(name.to_string(), PluginState::Loaded);
+                    tracing::info!("Plugin '{}' loaded successfully", name);
                 }
-            }
+                Err(e) => {
+                    let error_msg = format!("Failed to initialize plugin '{}': {}", name, e);
+                    self.plugin_states
+                        .insert(name.to_string(), PluginState::Error(error_msg.clone()));
+                    return Err(StratoError::PluginError {
+                        message: error_msg,
+                        context: None,
+                    });
+                }
+            },
             None => {
-                return Err(StratoError::PluginError { 
+                return Err(StratoError::PluginError {
                     message: format!("Plugin '{}' not found", name),
                     context: None,
                 });
@@ -359,24 +361,24 @@ impl PluginManager {
 
         // Activate plugin
         match self.plugins.get_mut(name) {
-            Some(plugin) => {
-                match plugin.activate(&mut self.context) {
-                    Ok(()) => {
-                        self.plugin_states.insert(name.to_string(), PluginState::Active);
-                        tracing::info!("Plugin '{}' activated successfully", name);
-                    }
-                    Err(e) => {
-                        let error_msg = format!("Failed to activate plugin '{}': {}", name, e);
-                        self.plugin_states.insert(name.to_string(), PluginState::Error(error_msg.clone()));
-                        return Err(StratoError::PluginError { 
-                            message: error_msg,
-                            context: None,
-                        });
-                    }
+            Some(plugin) => match plugin.activate(&mut self.context) {
+                Ok(()) => {
+                    self.plugin_states
+                        .insert(name.to_string(), PluginState::Active);
+                    tracing::info!("Plugin '{}' activated successfully", name);
                 }
-            }
+                Err(e) => {
+                    let error_msg = format!("Failed to activate plugin '{}': {}", name, e);
+                    self.plugin_states
+                        .insert(name.to_string(), PluginState::Error(error_msg.clone()));
+                    return Err(StratoError::PluginError {
+                        message: error_msg,
+                        context: None,
+                    });
+                }
+            },
             None => {
-                return Err(StratoError::PluginError { 
+                return Err(StratoError::PluginError {
                     message: format!("Plugin '{}' not found", name),
                     context: None,
                 });
@@ -392,11 +394,12 @@ impl PluginManager {
             match self.plugins.get_mut(name) {
                 Some(plugin) => {
                     plugin.deactivate(&mut self.context)?;
-                    self.plugin_states.insert(name.to_string(), PluginState::Loaded);
+                    self.plugin_states
+                        .insert(name.to_string(), PluginState::Loaded);
                     tracing::info!("Plugin '{}' deactivated", name);
                 }
                 None => {
-                    return Err(StratoError::PluginError { 
+                    return Err(StratoError::PluginError {
                         message: format!("Plugin '{}' not found", name),
                         context: None,
                     });
@@ -416,11 +419,12 @@ impl PluginManager {
         match self.plugins.get_mut(name) {
             Some(plugin) => {
                 plugin.cleanup(&mut self.context)?;
-                self.plugin_states.insert(name.to_string(), PluginState::Unloaded);
+                self.plugin_states
+                    .insert(name.to_string(), PluginState::Unloaded);
                 tracing::info!("Plugin '{}' unloaded", name);
             }
             None => {
-                return Err(StratoError::PluginError { 
+                return Err(StratoError::PluginError {
                     message: format!("Plugin '{}' not found", name),
                     context: None,
                 });
@@ -433,7 +437,7 @@ impl PluginManager {
     /// Load all registered plugins
     pub fn load_all_plugins(&mut self) -> Result<()> {
         let plugin_names: Vec<String> = self.load_order.clone();
-        
+
         for name in plugin_names {
             if let Err(e) = self.load_plugin(&name) {
                 tracing::error!("Failed to load plugin '{}': {}", name, e);
@@ -447,7 +451,7 @@ impl PluginManager {
     /// Activate all loaded plugins
     pub fn activate_all_plugins(&mut self) -> Result<()> {
         let plugin_names: Vec<String> = self.load_order.clone();
-        
+
         for name in plugin_names {
             if let Some(PluginState::Loaded) = self.plugin_states.get(&name) {
                 if let Err(e) = self.activate_plugin(&name) {
@@ -488,7 +492,7 @@ impl PluginManager {
     /// Handle event through all active plugins
     pub fn handle_event(&mut self, event: &Event) -> EventResult {
         let plugin_names: Vec<String> = self.plugins.keys().cloned().collect();
-        
+
         for name in plugin_names {
             if let Some(PluginState::Active) = self.plugin_states.get(&name) {
                 if let Some(plugin) = self.plugins.get_mut(&name) {
@@ -507,7 +511,7 @@ impl PluginManager {
     fn validate_dependencies(&self, metadata: &PluginMetadata) -> Result<()> {
         for dep in &metadata.dependencies {
             if !self.plugins.contains_key(dep) {
-                return Err(StratoError::PluginError { 
+                return Err(StratoError::PluginError {
                     message: format!(
                         "Plugin '{}' depends on '{}' which is not registered",
                         metadata.name, dep
@@ -625,7 +629,7 @@ mod tests {
     fn test_plugin_registration() {
         let mut manager = PluginManager::new();
         let plugin = Box::new(TestPlugin::new("test"));
-        
+
         assert!(manager.register_plugin(plugin).is_ok());
         assert_eq!(manager.get_plugin_names().len(), 1);
         assert!(manager.get_plugin_names().contains(&"test".to_string()));
@@ -635,12 +639,12 @@ mod tests {
     fn test_plugin_loading() {
         let mut manager = PluginManager::new();
         let plugin = Box::new(TestPlugin::new("test"));
-        
+
         manager.register_plugin(plugin).unwrap();
         assert!(manager.load_plugin("test").is_ok());
-        
+
         match manager.get_plugin_state("test") {
-            Some(PluginState::Loaded) => {},
+            Some(PluginState::Loaded) => {}
             _ => panic!("Plugin should be loaded"),
         }
     }
@@ -649,12 +653,12 @@ mod tests {
     fn test_plugin_activation() {
         let mut manager = PluginManager::new();
         let plugin = Box::new(TestPlugin::new("test"));
-        
+
         manager.register_plugin(plugin).unwrap();
         assert!(manager.activate_plugin("test").is_ok());
-        
+
         match manager.get_plugin_state("test") {
-            Some(PluginState::Active) => {},
+            Some(PluginState::Active) => {}
             _ => panic!("Plugin should be active"),
         }
     }
@@ -662,13 +666,13 @@ mod tests {
     #[test]
     fn test_widget_registry() {
         let mut registry = WidgetRegistry::new();
-        
+
         // This would normally be a real widget factory
         let factory: WidgetFactory = Box::new(|| {
             // Return a mock widget
             unimplemented!("Mock widget factory")
         });
-        
+
         registry.register("test_widget".to_string(), factory);
         assert!(registry.has_widget("test_widget"));
         assert_eq!(registry.get_widget_names().len(), 1);

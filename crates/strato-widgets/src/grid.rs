@@ -1,11 +1,11 @@
 //! Grid widget for 2D layout
-use crate::widget::{Widget, WidgetId, generate_id};
+use crate::widget::{generate_id, Widget, WidgetId};
+use std::any::Any;
 use strato_core::{
     event::{Event, EventResult},
     layout::{Constraints, Layout, Size},
 };
 use strato_renderer::batch::RenderBatch;
-use std::any::Any;
 
 /// Unit for grid tracks (rows/columns)
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -90,14 +90,14 @@ impl Widget for Grid {
     fn layout(&mut self, constraints: Constraints) -> Size {
         // If no columns defined, default to 1 column auto
         if self.cols.is_empty() {
-             self.cols.push(GridUnit::Auto);
+            self.cols.push(GridUnit::Auto);
         }
         // If no rows defined, we will implicitly add auto rows as needed
-        
+
         let num_cols = self.cols.len();
         let num_children = self.children.len();
         let implicit_rows_needed = (num_children as f32 / num_cols as f32).ceil() as usize;
-        
+
         // Final rows list including implicit ones
         let mut final_rows = self.rows.clone();
         while final_rows.len() < implicit_rows_needed {
@@ -113,7 +113,7 @@ impl Widget for Grid {
         // First pass: Calculate fixed and auto sizes
         let mut col_widths = vec![0.0; num_cols];
         let mut row_heights = vec![0.0; num_rows];
-        
+
         // Helper to get child at (row, col)
         let get_child_idx = |r, c| r * num_cols + c;
 
@@ -121,7 +121,9 @@ impl Widget for Grid {
         for r in 0..num_rows {
             for c in 0..num_cols {
                 let idx = get_child_idx(r, c);
-                if idx >= self.children.len() { continue; }
+                if idx >= self.children.len() {
+                    continue;
+                }
 
                 let is_col_auto = matches!(self.cols[c], GridUnit::Auto);
                 let is_row_auto = matches!(final_rows[r], GridUnit::Auto);
@@ -132,7 +134,7 @@ impl Widget for Grid {
                     // We measure with loose constraints to get content size.
                     let measure_constraints = Constraints::loose(available_width, available_height);
                     let size = self.children[idx].layout(measure_constraints);
-                    
+
                     if is_col_auto {
                         col_widths[c] = f32::max(col_widths[c], size.width);
                     }
@@ -150,16 +152,23 @@ impl Widget for Grid {
             }
         }
         for (r, unit) in final_rows.iter().enumerate() {
-             if let GridUnit::Pixel(px) = unit {
+            if let GridUnit::Pixel(px) = unit {
                 row_heights[r] = *px;
             }
         }
 
         // Measure FRACTION tracks
-        let used_width: f32 = col_widths.iter().sum::<f32>() + (num_cols.saturating_sub(1) as f32 * self.col_gap);
+        let used_width: f32 =
+            col_widths.iter().sum::<f32>() + (num_cols.saturating_sub(1) as f32 * self.col_gap);
         let remaining_width = (available_width - used_width).max(0.0);
-        let total_col_fr: f32 = self.cols.iter().fold(0.0, |acc, u| if let GridUnit::Fraction(fr) = u { acc + fr } else { acc });
-        
+        let total_col_fr: f32 = self.cols.iter().fold(0.0, |acc, u| {
+            if let GridUnit::Fraction(fr) = u {
+                acc + fr
+            } else {
+                acc
+            }
+        });
+
         if total_col_fr > 0.0 {
             for (c, unit) in self.cols.iter().enumerate() {
                 if let GridUnit::Fraction(fr) = unit {
@@ -172,19 +181,26 @@ impl Widget for Grid {
         // If we have infinite height constraint, fractions might resolve to 0 or behave like Auto.
         // Here we assume if height is constrained, we distribute.
         if available_height.is_finite() {
-             let used_height: f32 = row_heights.iter().sum::<f32>() + (num_rows.saturating_sub(1) as f32 * self.row_gap);
-             let remaining_height = (available_height - used_height).max(0.0);
-             let total_row_fr: f32 = final_rows.iter().fold(0.0, |acc, u| if let GridUnit::Fraction(fr) = u { acc + fr } else { acc });
+            let used_height: f32 = row_heights.iter().sum::<f32>()
+                + (num_rows.saturating_sub(1) as f32 * self.row_gap);
+            let remaining_height = (available_height - used_height).max(0.0);
+            let total_row_fr: f32 = final_rows.iter().fold(0.0, |acc, u| {
+                if let GridUnit::Fraction(fr) = u {
+                    acc + fr
+                } else {
+                    acc
+                }
+            });
 
-             if total_row_fr > 0.0 {
+            if total_row_fr > 0.0 {
                 for (r, unit) in final_rows.iter().enumerate() {
                     if let GridUnit::Fraction(fr) = unit {
                         row_heights[r] = (fr / total_row_fr) * remaining_height;
                     }
                 }
-             }
-        } 
-        // If height is infinite, treat fractions as auto or 0? 
+            }
+        }
+        // If height is infinite, treat fractions as auto or 0?
         // For now, let's treat as 0 or maybe min size. In real CSS grid they collapse to content if height is indefinite.
         // We leave them as 0 if not calculated above, unless we implement content-based minimums for fr tracks.
 
@@ -197,34 +213,34 @@ impl Widget for Grid {
         for r in 0..num_rows {
             let mut current_x = 0.0;
             let row_h = row_heights[r];
-            
+
             for c in 0..num_cols {
                 let idx = get_child_idx(r, c);
                 let col_w = col_widths[c];
-                
+
                 if idx < self.children.len() {
                     let cell_x = current_x;
                     let cell_y = current_y;
-                    
+
                     // Re-layout child with exact cell size
                     // We force the child to fit the cell? Or align it?
                     // Typically grid items stretch to fill cell unless aligned.
                     // We'll enforce loose constraints up to cell size, but tight might be better for stretch.
                     // Let's use tight for compatibility with "stretch" default behavior.
-                    let cell_constraints = Constraints::tight(col_w, row_h); 
+                    let cell_constraints = Constraints::tight(col_w, row_h);
                     // Note: If row_h is 0 (e.g. empty fr track), this hides the child.
-                    
+
                     self.children[idx].layout(cell_constraints);
 
                     self.cached_child_layouts.push(Layout::new(
                         glam::Vec2::new(cell_x, cell_y),
-                        Size::new(col_w, row_h)
+                        Size::new(col_w, row_h),
                     ));
                 }
 
                 current_x += col_w + self.col_gap;
             }
-            
+
             total_width = total_width.max(current_x - self.col_gap); // remove last gap
             current_y += row_h + self.row_gap;
         }
@@ -236,10 +252,8 @@ impl Widget for Grid {
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
         for (i, child) in self.children.iter().enumerate() {
             if let Some(child_layout) = self.cached_child_layouts.get(i) {
-                let absolute_layout = Layout::new(
-                    layout.position + child_layout.position,
-                    child_layout.size,
-                );
+                let absolute_layout =
+                    Layout::new(layout.position + child_layout.position, child_layout.size);
                 child.render(batch, absolute_layout);
             }
         }
@@ -274,7 +288,7 @@ impl Widget for Grid {
     }
 
     fn clone_widget(&self) -> Box<dyn Widget> {
-         Box::new(Grid {
+        Box::new(Grid {
             id: generate_id(),
             children: self.children.iter().map(|c| c.clone_widget()).collect(),
             rows: self.rows.clone(),

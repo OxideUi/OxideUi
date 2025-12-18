@@ -1,17 +1,15 @@
 //! Dropdown and Select widgets implementation for StratoUI
 
-use crate::widget::{Widget, WidgetId, generate_id};
+use crate::widget::{generate_id, Widget, WidgetId};
 use strato_core::{
-    event::{Event, EventResult, KeyCode, KeyboardEvent, MouseEvent, MouseButton},
-    layout::{Size, Constraints, Layout},
+    event::{Event, EventResult, KeyCode, KeyboardEvent, MouseButton, MouseEvent},
+    layout::{Constraints, Layout, Size},
     state::Signal,
-    types::{Rect, Color},
     types::Transform,
+    types::{Color, Rect},
     vdom::VNode,
 };
-use strato_renderer::{
-    batch::RenderBatch,
-};
+use strato_renderer::batch::RenderBatch;
 
 /// Dropdown/Select widget for choosing from a list of options
 #[derive(Debug, Clone)]
@@ -62,17 +60,17 @@ impl Default for DropdownStyle {
     fn default() -> Self {
         Self {
             background_color: [1.0, 1.0, 1.0, 1.0], // White
-            border_color: [0.8, 0.8, 0.8, 1.0], // Light gray
+            border_color: [0.8, 0.8, 0.8, 1.0],     // Light gray
             border_width: 1.0,
             border_radius: 4.0,
-            text_color: [0.2, 0.2, 0.2, 1.0], // Dark gray
-            placeholder_color: [0.6, 0.6, 0.6, 1.0], // Medium gray
-            hover_color: [0.95, 0.95, 0.95, 1.0], // Light gray
-            selected_color: [0.2, 0.6, 1.0, 1.0], // Blue
-            disabled_color: [0.9, 0.9, 0.9, 1.0], // Light gray
-            dropdown_background: [1.0, 1.0, 1.0, 1.0], // White
+            text_color: [0.2, 0.2, 0.2, 1.0],            // Dark gray
+            placeholder_color: [0.6, 0.6, 0.6, 1.0],     // Medium gray
+            hover_color: [0.95, 0.95, 0.95, 1.0],        // Light gray
+            selected_color: [0.2, 0.6, 1.0, 1.0],        // Blue
+            disabled_color: [0.9, 0.9, 0.9, 1.0],        // Light gray
+            dropdown_background: [1.0, 1.0, 1.0, 1.0],   // White
             dropdown_border_color: [0.7, 0.7, 0.7, 1.0], // Gray
-            dropdown_shadow: [0.0, 0.0, 0.0, 0.1], // Light shadow
+            dropdown_shadow: [0.0, 0.0, 0.0, 0.1],       // Light shadow
             font_size: 14.0,
             padding: 8.0,
         }
@@ -206,7 +204,8 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Dropdown<T> {
 
     /// Get the selected value
     pub fn get_selected(&self) -> Option<&T> {
-        self.selected_index.get()
+        self.selected_index
+            .get()
             .and_then(|index| self.options.get(index))
             .map(|opt| &opt.value)
     }
@@ -259,7 +258,7 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Dropdown<T> {
     /// Get filtered options based on search
     fn filtered_options(&self) -> Vec<(usize, &DropdownOption<T>)> {
         let search = self.search_text.get().to_lowercase();
-        
+
         if search.is_empty() {
             self.options.iter().enumerate().collect()
         } else {
@@ -283,7 +282,7 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Dropdown<T> {
                 let dropdown_y = bounds.y + self.height;
                 let option_height = self.height;
                 let filtered_options = self.filtered_options();
-                
+
                 if event.position.y >= dropdown_y {
                     let option_index = ((event.position.y - dropdown_y) / option_height) as usize;
                     if let Some((original_index, _)) = filtered_options.get(option_index) {
@@ -291,7 +290,7 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Dropdown<T> {
                         return EventResult::Handled;
                     }
                 }
-                
+
                 // Click outside dropdown - close it
                 self.close();
             } else {
@@ -331,16 +330,17 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Dropdown<T> {
                 if self.is_open() {
                     let filtered = self.filtered_options();
                     let current = self.selected_index.get();
-                    
+
                     let next_index = if let Some(current_idx) = current {
-                        filtered.iter()
+                        filtered
+                            .iter()
                             .position(|(idx, _)| *idx == current_idx)
                             .map(|pos| (pos + 1).min(filtered.len() - 1))
                             .unwrap_or(0)
                     } else {
                         0
                     };
-                    
+
                     if let Some((original_idx, _)) = filtered.get(next_index) {
                         self.selected_index.set(Some(*original_idx));
                     }
@@ -353,16 +353,17 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Dropdown<T> {
                 if self.is_open() {
                     let filtered = self.filtered_options();
                     let current = self.selected_index.get();
-                    
+
                     let prev_index = if let Some(current_idx) = current {
-                        filtered.iter()
+                        filtered
+                            .iter()
                             .position(|(idx, _)| *idx == current_idx)
                             .map(|pos| pos.saturating_sub(1))
                             .unwrap_or(0)
                     } else {
                         filtered.len().saturating_sub(1)
                     };
-                    
+
                     if let Some((original_idx, _)) = filtered.get(prev_index) {
                         self.selected_index.set(Some(*original_idx));
                     }
@@ -396,8 +397,6 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Dropdown<T> {
             }
         }
     }
-
-
 }
 
 impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Default for Dropdown<T> {
@@ -406,7 +405,9 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug> Default for Dro
     }
 }
 
-impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 'static> Widget for Dropdown<T> {
+impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 'static> Widget
+    for Dropdown<T>
+{
     fn id(&self) -> WidgetId {
         self.id
     }
@@ -417,7 +418,12 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
-        let bounds = Rect::new(layout.position.x, layout.position.y, layout.size.width, layout.size.height);
+        let bounds = Rect::new(
+            layout.position.x,
+            layout.position.y,
+            layout.size.width,
+            layout.size.height,
+        );
         self.bounds.set(bounds);
 
         // Background
@@ -426,7 +432,7 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
         } else {
             self.style.background_color
         };
-        
+
         batch.add_rounded_rect(
             bounds,
             Color::rgba(bg_color[0], bg_color[1], bg_color[2], bg_color[3]),
@@ -441,13 +447,14 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
 
         // Text
         let selected_text = if let Some(index) = self.selected_index.get() {
-            self.options.get(index)
+            self.options
+                .get(index)
                 .map(|opt| opt.label.clone())
                 .unwrap_or_else(|| self.placeholder.clone())
         } else {
             self.placeholder.clone()
         };
-        
+
         let text_color = if self.selected_index.get().is_none() {
             self.style.placeholder_color
         } else {
@@ -456,7 +463,10 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
 
         batch.add_text_aligned(
             selected_text,
-            (bounds.x + self.style.padding, bounds.y + bounds.height / 2.0 - self.style.font_size / 2.0),
+            (
+                bounds.x + self.style.padding,
+                bounds.y + bounds.height / 2.0 - self.style.font_size / 2.0,
+            ),
             Color::rgba(text_color[0], text_color[1], text_color[2], text_color[3]),
             self.style.font_size,
             0.0,
@@ -468,14 +478,19 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
         let arrow_x = bounds.x + bounds.width - self.style.padding - 10.0;
         let arrow_y = bounds.y + bounds.height / 2.0;
         let _arrow_size = 5.0;
-        
+
         // Vertices for arrow
         // This requires manual vertex adding or a shape primitive
         // For now, let's skip drawing arrow or use a small rect
         batch.add_rect(
             Rect::new(arrow_x, arrow_y - 2.0, 10.0, 4.0),
-            Color::rgba(arrow_color[0], arrow_color[1], arrow_color[2], arrow_color[3]),
-            Transform::identity()
+            Color::rgba(
+                arrow_color[0],
+                arrow_color[1],
+                arrow_color[2],
+                arrow_color[3],
+            ),
+            Transform::identity(),
         );
 
         // Dropdown List
@@ -483,12 +498,12 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
             let filtered_options = self.filtered_options();
             let option_height = self.height;
             let list_height = (filtered_options.len() as f32 * option_height).min(self.max_height);
-            
+
             let list_bounds = Rect::new(
                 bounds.x,
                 bounds.y + bounds.height,
                 bounds.width,
-                list_height
+                list_height,
             );
 
             // List Background
@@ -528,8 +543,16 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
 
                 batch.add_overlay_text_aligned(
                     option.label.clone(),
-                    (opt_rect.x + self.style.padding, opt_rect.y + opt_rect.height / 2.0 - self.style.font_size / 2.0),
-                    Color::rgba(opt_text_color[0], opt_text_color[1], opt_text_color[2], opt_text_color[3]),
+                    (
+                        opt_rect.x + self.style.padding,
+                        opt_rect.y + opt_rect.height / 2.0 - self.style.font_size / 2.0,
+                    ),
+                    Color::rgba(
+                        opt_text_color[0],
+                        opt_text_color[1],
+                        opt_text_color[2],
+                        opt_text_color[3],
+                    ),
                     self.style.font_size,
                     0.0,
                     strato_core::text::TextAlign::Left,
@@ -545,18 +568,20 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
         match event {
             Event::MouseDown(mouse_event) => {
                 // Check if click is outside
-                let point = strato_core::types::Point::new(mouse_event.position.x, mouse_event.position.y);
-                
+                let point =
+                    strato_core::types::Point::new(mouse_event.position.x, mouse_event.position.y);
+
                 // If open, check if we clicked inside the list
                 if self.is_open.get() {
-                    let list_height = (self.filtered_options().len() as f32 * self.height).min(self.max_height);
+                    let list_height =
+                        (self.filtered_options().len() as f32 * self.height).min(self.max_height);
                     let list_bounds = Rect::new(
                         bounds.x,
                         bounds.y + bounds.height,
                         bounds.width,
-                        list_height
+                        list_height,
                     );
-                    
+
                     if list_bounds.contains(point) {
                         return self.handle_mouse_event(mouse_event, bounds);
                     }
@@ -569,12 +594,12 @@ impl<T: Clone + PartialEq + std::fmt::Display + std::fmt::Debug + Send + Sync + 
                     self.close();
                     return EventResult::Handled;
                 }
-                
+
                 EventResult::Ignored
-            },
+            }
             Event::KeyDown(keyboard_event) | Event::KeyUp(keyboard_event) => {
                 self.handle_keyboard_event(keyboard_event)
-            },
+            }
             _ => EventResult::Ignored,
         }
     }
@@ -609,7 +634,7 @@ mod tests {
             .add_value("Option 1".to_string())
             .add_value("Option 2".to_string())
             .add_option("Option 3".to_string(), "Custom Label".to_string());
-        
+
         assert_eq!(dropdown.options.len(), 3);
         assert_eq!(dropdown.options[2].label, "Custom Label");
     }
@@ -620,7 +645,7 @@ mod tests {
             .add_value("Option 1".to_string())
             .add_value("Option 2".to_string())
             .selected("Option 2".to_string());
-        
+
         assert_eq!(dropdown.get_selected_index(), Some(1));
         assert_eq!(dropdown.get_selected(), Some(&"Option 2".to_string()));
     }
@@ -628,7 +653,7 @@ mod tests {
     #[test]
     fn test_dropdown_toggle() {
         let dropdown: Dropdown<String> = Dropdown::new();
-        
+
         assert!(!dropdown.is_open());
         dropdown.open();
         assert!(dropdown.is_open());

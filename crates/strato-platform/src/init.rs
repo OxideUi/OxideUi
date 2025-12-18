@@ -4,7 +4,7 @@
 //! allowing developers to customize font loading, logging, and other aspects
 //! of the framework initialization.
 
-use std::sync::{Arc, RwLock, OnceLock};
+use std::sync::{Arc, OnceLock, RwLock};
 use strato_core::{Result, StratoError};
 use strato_renderer::text::TextRenderer;
 
@@ -95,14 +95,20 @@ impl InitBuilder {
         }
 
         if self.config.enable_logging {
-            strato_core::strato_trace!(strato_core::logging::LogCategory::Core, "Initializing widgets...");
+            strato_core::strato_trace!(
+                strato_core::logging::LogCategory::Core,
+                "Initializing widgets..."
+            );
         }
 
         strato_widgets::init()?;
         self.widgets_initialized = true;
 
         if self.config.enable_logging {
-            strato_core::strato_trace!(strato_core::logging::LogCategory::Core, "Widgets initialized");
+            strato_core::strato_trace!(
+                strato_core::logging::LogCategory::Core,
+                "Widgets initialized"
+            );
         }
 
         Ok(self)
@@ -119,11 +125,16 @@ impl InitBuilder {
         }
 
         if self.config.enable_logging {
-            strato_core::strato_trace!(strato_core::logging::LogCategory::Platform, "Initializing platform with font optimizations...");
+            strato_core::strato_trace!(
+                strato_core::logging::LogCategory::Platform,
+                "Initializing platform with font optimizations..."
+            );
         }
 
         // Initialize platform with our custom configuration
-        crate::init().map_err(|e| strato_core::StratoError::platform(format!("Platform init failed: {}", e)))?;
+        crate::init().map_err(|e| {
+            strato_core::StratoError::platform(format!("Platform init failed: {}", e))
+        })?;
 
         // Initialize the global text renderer with optimizations
         self.init_optimized_text_renderer()?;
@@ -131,7 +142,10 @@ impl InitBuilder {
         self.platform_initialized = true;
 
         if self.config.enable_logging {
-            strato_core::strato_trace!(strato_core::logging::LogCategory::Platform, "Platform initialized");
+            strato_core::strato_trace!(
+                strato_core::logging::LogCategory::Platform,
+                "Platform initialized"
+            );
         }
 
         Ok(self)
@@ -139,9 +153,7 @@ impl InitBuilder {
 
     /// Initialize all modules at once
     pub fn init_all(&mut self) -> Result<()> {
-        self.init_core()?
-            .init_widgets()?
-            .init_platform()?;
+        self.init_core()?.init_widgets()?.init_platform()?;
         Ok(())
     }
 
@@ -152,10 +164,14 @@ impl InitBuilder {
         }
 
         // Create optimized text renderer
-        strato_core::strato_trace!(strato_core::logging::LogCategory::Platform, "Creating optimized TextRenderer");
+        strato_core::strato_trace!(
+            strato_core::logging::LogCategory::Platform,
+            "Creating optimized TextRenderer"
+        );
         let text_renderer = TextRenderer::new();
 
-        GLOBAL_TEXT_RENDERER.set(Arc::new(RwLock::new(text_renderer)))
+        GLOBAL_TEXT_RENDERER
+            .set(Arc::new(RwLock::new(text_renderer)))
             .map_err(|_| StratoError::platform("Failed to set global text renderer".to_string()))?;
 
         Ok(())
@@ -172,8 +188,6 @@ impl Default for InitBuilder {
 pub fn get_text_renderer() -> Option<Arc<RwLock<TextRenderer>>> {
     GLOBAL_TEXT_RENDERER.get().cloned()
 }
-
-
 
 /// Convenience function for full initialization with default config
 pub fn init_all() -> Result<()> {

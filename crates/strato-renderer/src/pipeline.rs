@@ -10,20 +10,20 @@
 //! - Hot-swappable pipeline configurations
 //! - Cross-platform pipeline optimization
 
+use crate::vertex::Vertex;
+use anyhow::{Context, Result};
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use parking_lot::RwLock;
 use wgpu::{
-    Device, RenderPipeline, ComputePipeline, PipelineLayout, BindGroupLayout, ShaderModule,
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, ShaderStages, BindingType, BufferBindingType,
-    TextureSampleType, TextureViewDimension, PipelineLayoutDescriptor, RenderPipelineDescriptor,
-    VertexState, FragmentState, ColorTargetState, BlendState, ColorWrites, PrimitiveState,
-    MultisampleState, Buffer, BindGroup, BindGroupDescriptor, BindGroupEntry
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingType, BlendState, Buffer, BufferBindingType, ColorTargetState,
+    ColorWrites, ComputePipeline, Device, FragmentState, MultisampleState, PipelineLayout,
+    PipelineLayoutDescriptor, PrimitiveState, RenderPipeline, RenderPipelineDescriptor,
+    ShaderModule, ShaderStages, TextureSampleType, TextureViewDimension, VertexState,
 };
-use anyhow::{Result, Context};
-use serde::{Serialize, Deserialize};
-use crate::vertex::Vertex;
 
 /// Uniform data for the UI shader
 #[repr(C)]
@@ -39,7 +39,7 @@ impl UIUniforms {
     pub fn new(width: f32, height: f32, time: f32) -> Self {
         // Create orthographic projection matrix
         let view_proj = Self::orthographic_projection(0.0, width, height, 0.0, -1.0, 1.0);
-        
+
         Self {
             view_proj,
             screen_size: [width, height],
@@ -64,7 +64,12 @@ impl UIUniforms {
             [2.0 / width, 0.0, 0.0, 0.0],
             [0.0, -2.0 / height, 0.0, 0.0],
             [0.0, 0.0, -1.0 / depth, 0.0],
-            [-(right + left) / width, -(top + bottom) / height, -near / depth, 1.0],
+            [
+                -(right + left) / width,
+                -(top + bottom) / height,
+                -near / depth,
+                1.0,
+            ],
         ]
     }
 }
@@ -191,7 +196,8 @@ impl UIPipeline {
             view_formats: &[],
         });
 
-        let default_texture_view = default_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let default_texture_view =
+            default_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         // Create sampler
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -275,7 +281,6 @@ pub struct TextPipeline {
 impl TextPipeline {
     /// Create a new text render pipeline
     pub fn new(device: &Device, surface_format: wgpu::TextureFormat) -> Self {
-        
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Text Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/ui.wgsl").into()),
@@ -394,17 +399,17 @@ impl RenderGraph {
             execution_order: Vec::new(),
         }
     }
-    
+
     pub fn add_node(&mut self, node: RenderNode) {
         self.nodes.push(node);
         self.update_execution_order();
     }
-    
+
     fn update_execution_order(&mut self) {
         // Simple topological sort for now
         self.execution_order = (0..self.nodes.len()).collect();
     }
-    
+
     pub fn get_execution_order(&self) -> &[usize] {
         &self.execution_order
     }
@@ -414,7 +419,7 @@ impl RenderGraph {
 pub struct PipelineManager {
     pub ui_pipeline: UIPipeline,
     // Text rendering is now handled via UI pipeline or generic sprite batching
-    // pub text_pipeline: TextPipeline, 
+    // pub text_pipeline: TextPipeline,
     render_graph: RenderGraph,
 }
 
@@ -435,13 +440,13 @@ impl PipelineManager {
     pub fn update_uniforms(&self, queue: &wgpu::Queue, uniforms: &UIUniforms) {
         self.ui_pipeline.update_uniforms(queue, uniforms);
     }
-    
+
     /// Initialize the pipeline manager (integration method)
     pub fn initialize(&self) -> anyhow::Result<()> {
         tracing::info!("Pipeline manager initialized");
         Ok(())
     }
-    
+
     /// Create render pipeline (placeholder integration method)
     pub fn create_render_pipeline(&self) -> anyhow::Result<()> {
         // Placeholder - would create additional pipelines as needed
@@ -463,7 +468,7 @@ mod tests {
     #[test]
     fn test_orthographic_projection() {
         let proj = UIUniforms::orthographic_projection(0.0, 800.0, 600.0, 0.0, -1.0, 1.0);
-        
+
         // Check that it's a valid orthographic projection matrix
         assert_eq!(proj[0][0], 2.0 / 800.0); // X scale
         assert_eq!(proj[1][1], -2.0 / 600.0); // Y scale (flipped for screen coordinates)

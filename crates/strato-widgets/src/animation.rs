@@ -19,7 +19,13 @@ impl Curve {
             Curve::Linear => t,
             Curve::EaseIn => t * t,
             Curve::EaseOut => t * (2.0 - t),
-            Curve::EaseInOut => if t < 0.5 { 2.0 * t * t } else { -1.0 + (4.0 - 2.0 * t) * t },
+            Curve::EaseInOut => {
+                if t < 0.5 {
+                    2.0 * t * t
+                } else {
+                    -1.0 + (4.0 - 2.0 * t) * t
+                }
+            }
         }
     }
 }
@@ -76,13 +82,13 @@ impl AnimationController {
 
         let elapsed = start.elapsed().as_secs_f32();
         let duration = self.duration.as_secs_f32();
-        
+
         if duration == 0.0 {
             return 1.0;
         }
 
         let raw_t = elapsed / duration;
-        
+
         let t = if self.is_repeating {
             let cycle = raw_t % 2.0;
             if cycle > 1.0 {
@@ -205,7 +211,7 @@ impl Timeline {
         if self.status == AnimationStatus::Playing {
             if let Some(start) = self.start_time {
                 let current_elapsed = self.elapsed + start.elapsed().mul_f32(self.speed);
-                
+
                 let mut all_finished = true;
                 for anim in &mut self.animations {
                     anim.update(current_elapsed);
@@ -220,7 +226,7 @@ impl Timeline {
             }
         }
     }
-    
+
     pub fn reset(&mut self) {
         self.status = AnimationStatus::Paused;
         self.start_time = None;
@@ -239,8 +245,6 @@ pub trait Animation: std::fmt::Debug {
     fn duration(&self) -> Duration;
 }
 
-
-
 // Re-implementing KeyframeAnimation properly with state for is_finished
 /// Animation that interpolates a value over time using a Signal target
 #[derive(Debug)]
@@ -252,7 +256,7 @@ pub struct KeyframeAnimation<T: Tweenable + 'static + Send + Sync> {
 }
 
 impl<T: Tweenable + std::fmt::Debug + Send + Sync> KeyframeAnimation<T> {
-     pub fn new(duration: Duration, tween: Tween<T>, target: strato_core::state::Signal<T>) -> Self {
+    pub fn new(duration: Duration, tween: Tween<T>, target: strato_core::state::Signal<T>) -> Self {
         Self {
             controller: AnimationController::new(duration),
             tween,
@@ -260,7 +264,7 @@ impl<T: Tweenable + std::fmt::Debug + Send + Sync> KeyframeAnimation<T> {
             finished: false,
         }
     }
-    
+
     pub fn with_curve(mut self, curve: Curve) -> Self {
         self.controller = self.controller.with_curve(curve);
         self
@@ -270,39 +274,38 @@ impl<T: Tweenable + std::fmt::Debug + Send + Sync> KeyframeAnimation<T> {
 impl<T: Tweenable + std::fmt::Debug + Send + Sync> Animation for KeyframeAnimation<T> {
     fn update(&mut self, elapsed: Duration) {
         let d_secs = self.controller.duration.as_secs_f32();
-        if d_secs == 0.0 { 
+        if d_secs == 0.0 {
             self.finished = true;
-            return; 
+            return;
         }
 
         let t_secs = elapsed.as_secs_f32();
         let raw_t = t_secs / d_secs;
-        
+
         self.finished = raw_t >= 1.0;
-        
+
         let t = raw_t.clamp(0.0, 1.0);
         let curved_t = self.controller.curve.transform(t);
         let value = self.tween.transform(curved_t);
-        
+
         self.target.set(value);
     }
-    
+
     fn is_finished(&self) -> bool {
         self.finished
     }
-    
+
     fn reset(&mut self) {
         self.finished = false;
         // Optionally reset value to start?
         // let value = self.tween.transform(0.0);
         // self.target.set(value);
     }
-    
+
     fn duration(&self) -> Duration {
         self.controller.duration
     }
 }
-
 
 /// Run animations in sequence
 #[derive(Debug)]
@@ -312,20 +315,18 @@ pub struct Sequence {
 
 impl Sequence {
     pub fn new(animations: Vec<Box<dyn Animation>>) -> Self {
-        Self {
-            animations,
-        }
+        Self { animations }
     }
 }
 
 impl Animation for Sequence {
     fn update(&mut self, elapsed: Duration) {
         let mut time_so_far = Duration::ZERO;
-        
+
         for anim in &mut self.animations {
             let duration = anim.duration();
             let anim_end_time = time_so_far + duration;
-            
+
             if elapsed >= anim_end_time {
                 // Ensure this animation is in its final state
                 anim.update(duration);
@@ -336,13 +337,12 @@ impl Animation for Sequence {
                 // Future
                 anim.update(Duration::ZERO);
             }
-            
+
             time_so_far += duration;
         }
     }
 
     fn is_finished(&self) -> bool {
-  
         if let Some(last) = self.animations.last() {
             last.is_finished()
         } else {
@@ -369,9 +369,7 @@ pub struct Parallel {
 
 impl Parallel {
     pub fn new(animations: Vec<Box<dyn Animation>>) -> Self {
-        Self {
-            animations
-        }
+        Self { animations }
     }
 }
 
@@ -381,17 +379,17 @@ impl Animation for Parallel {
             anim.update(elapsed);
         }
     }
-    
+
     fn is_finished(&self) -> bool {
         self.animations.iter().all(|a| a.is_finished())
     }
-    
+
     fn reset(&mut self) {
         for anim in &mut self.animations {
             anim.reset();
         }
     }
-    
+
     fn duration(&self) -> Duration {
         self.animations
             .iter()

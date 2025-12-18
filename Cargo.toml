@@ -8,6 +8,7 @@ members = [
     "examples/advanced_renderer",
     "examples/comprehensive_test",
     "examples/modern_dashboard",
+    "examples/control_gallery",
     "crates/strato-core",
     "crates/strato-renderer", 
     "crates/strato-widgets",

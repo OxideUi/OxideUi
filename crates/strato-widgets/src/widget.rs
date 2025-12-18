@@ -1,13 +1,13 @@
 //! Base widget trait and common functionality
 
+use std::any::Any;
+use std::fmt::Debug;
 use strato_core::{
     event::{Event, EventResult},
     layout::{Constraints, Layout, Size},
-    types::{Point}, // Removed unused Color and Rect imports
+    types::Point, // Removed unused Color and Rect imports
 };
 use strato_renderer::batch::RenderBatch;
-use std::any::Any;
-use std::fmt::Debug;
 
 /// Unique widget identifier
 pub type WidgetId = u64;

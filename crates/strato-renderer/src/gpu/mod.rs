@@ -27,11 +27,11 @@ pub mod drawing;
 pub mod texture_mgr;
 
 // Re-exports
-pub use device::DeviceManager;
-pub use surface::SurfaceManager;
-pub use shader_mgr::ShaderManager;
 pub use buffer_mgr::{BufferManager, SimpleVertex};
+pub use device::DeviceManager;
+pub use drawing::DrawingSystem;
 pub use pipeline_mgr::PipelineManager;
 pub use render_pass_mgr::RenderPassManager;
-pub use drawing::DrawingSystem;
-pub use texture_mgr::{TextureManager, TextureAtlas};
+pub use shader_mgr::ShaderManager;
+pub use surface::SurfaceManager;
+pub use texture_mgr::{TextureAtlas, TextureManager};

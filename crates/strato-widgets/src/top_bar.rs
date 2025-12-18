@@ -1,23 +1,23 @@
-use strato_core::{
-    types::{Color, Point},
-    layout::{Constraints, Layout, Size},
-    event::{Event, EventResult},
-};
 use crate::{
-    Widget,
     container::Container,
-    layout::{Row, MainAxisAlignment, CrossAxisAlignment},
-    text::{Text, FontWeight},
-    widget::{WidgetId, WidgetContext, generate_id},
+    layout::{CrossAxisAlignment, MainAxisAlignment, Row},
+    text::{FontWeight, Text},
+    widget::{generate_id, WidgetContext, WidgetId},
+    Widget,
 };
 use std::any::Any;
+use strato_core::{
+    event::{Event, EventResult},
+    layout::{Constraints, Layout, Size},
+    types::{Color, Point},
+};
 
 /// A standardized top bar / header widget
 #[derive(Debug)]
 pub struct TopBar {
     id: WidgetId,
     inner: Option<Box<dyn Widget>>,
-    
+
     // Props
     pub title: String,
     pub leading: Option<Box<dyn Widget>>,
@@ -62,14 +62,16 @@ impl TopBar {
         self.inner = None;
         self
     }
-    
+
     fn ensure_inner(&mut self) {
-        if self.inner.is_some() { return; }
-        
+        if self.inner.is_some() {
+            return;
+        }
+
         // Build the inner widget tree
         let title_widget = Text::new(&self.title)
             .size(16.0)
-            .font_weight(FontWeight::SemiBold) 
+            .font_weight(FontWeight::SemiBold)
             .color(Color::WHITE);
 
         let mut row = Row::new()
@@ -77,7 +79,6 @@ impl TopBar {
             .cross_axis_alignment(CrossAxisAlignment::Center)
             .spacing(16.0);
 
-        
         if let Some(leading) = &self.leading {
             row = row.child(leading.clone_widget());
         }
@@ -87,7 +88,7 @@ impl TopBar {
         if let Some(trailing) = &self.trailing {
             row = row.child(trailing.clone_widget());
         }
-        
+
         let container = Container::new()
             .width(f32::MAX) // Full width
             .height(self.height)
@@ -100,30 +101,32 @@ impl TopBar {
 }
 
 impl Widget for TopBar {
-    fn id(&self) -> WidgetId { self.id }
-    
+    fn id(&self) -> WidgetId {
+        self.id
+    }
+
     fn layout(&mut self, constraints: Constraints) -> Size {
         self.ensure_inner();
         self.inner.as_mut().unwrap().layout(constraints)
     }
-    
+
     fn render(&self, batch: &mut strato_renderer::batch::RenderBatch, layout: Layout) {
         if let Some(inner) = &self.inner {
             inner.render(batch, layout);
         }
     }
-    
+
     fn handle_event(&mut self, event: &Event) -> EventResult {
         self.ensure_inner();
         self.inner.as_mut().unwrap().handle_event(event)
     }
-    
+
     fn update(&mut self, ctx: &WidgetContext) {
         if let Some(inner) = &mut self.inner {
             inner.update(ctx);
         }
     }
-    
+
     fn children(&self) -> Vec<&(dyn Widget + '_)> {
         if let Some(inner) = &self.inner {
             vec![inner.as_ref()]
@@ -131,7 +134,7 @@ impl Widget for TopBar {
             vec![]
         }
     }
-    
+
     fn children_mut(&mut self) -> Vec<&mut (dyn Widget + '_)> {
         if let Some(inner) = &mut self.inner {
             vec![inner.as_mut()]
@@ -139,7 +142,7 @@ impl Widget for TopBar {
             vec![]
         }
     }
-    
+
     fn hit_test(&self, point: Point, layout: Layout) -> bool {
         if let Some(inner) = &self.inner {
             inner.hit_test(point, layout)
@@ -147,14 +150,18 @@ impl Widget for TopBar {
             false
         }
     }
-    
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn clone_widget(&self) -> Box<dyn Widget> {
         Box::new(Self {
             id: generate_id(), // New ID
-            inner: None, // Reset inner to force rebuild/fresh state
+            inner: None,       // Reset inner to force rebuild/fresh state
             title: self.title.clone(),
             leading: self.leading.as_ref().map(|w| w.clone_widget()),
             trailing: self.trailing.as_ref().map(|w| w.clone_widget()),

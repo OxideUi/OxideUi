@@ -1,16 +1,16 @@
 //! Vertex data structures and layouts for wgpu rendering
 
-use wgpu::{VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode, BufferAddress};
+use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 
 /// Vertex data for UI rendering
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
-    pub position: [f32; 2],     // Changed from 3D to 2D to match shader
+    pub position: [f32; 2], // Changed from 3D to 2D to match shader
     pub color: [f32; 4],
-    pub uv: [f32; 2],           // Renamed from tex_coords to match shader
-    pub params: [f32; 4],       // Added params field to match shader
-    pub flags: u32,             // For different rendering modes (solid, textured, etc.)
+    pub uv: [f32; 2],     // Renamed from tex_coords to match shader
+    pub params: [f32; 4], // Added params field to match shader
+    pub flags: u32,       // For different rendering modes (solid, textured, etc.)
 }
 
 impl Vertex {
@@ -100,7 +100,12 @@ pub struct TextVertex {
 
 impl TextVertex {
     /// Create a new text vertex
-    pub fn new(position: [f32; 3], tex_coords: [f32; 2], color: [f32; 4], glyph_index: u32) -> Self {
+    pub fn new(
+        position: [f32; 3],
+        tex_coords: [f32; 2],
+        color: [f32; 4],
+        glyph_index: u32,
+    ) -> Self {
         Self {
             position,
             tex_coords,
@@ -157,10 +162,10 @@ impl VertexBuilder {
         color: [f32; 4],
     ) -> (Vec<Vertex>, Vec<u16>) {
         let vertices = vec![
-            Vertex::solid([x, y], color),                           // Top-left
-            Vertex::solid([x + width, y], color),                   // Top-right
-            Vertex::solid([x + width, y + height], color),          // Bottom-right
-            Vertex::solid([x, y + height], color),                  // Bottom-left
+            Vertex::solid([x, y], color),                  // Top-left
+            Vertex::solid([x + width, y], color),          // Top-right
+            Vertex::solid([x + width, y + height], color), // Bottom-right
+            Vertex::solid([x, y + height], color),         // Bottom-left
         ];
 
         let indices = vec![0, 1, 2, 2, 3, 0];
@@ -177,10 +182,10 @@ impl VertexBuilder {
         color: [f32; 4],
     ) -> (Vec<Vertex>, Vec<u16>) {
         let vertices = vec![
-            Vertex::textured([x, y], [0.0, 0.0], color),                           // Top-left
-            Vertex::textured([x + width, y], [1.0, 0.0], color),                   // Top-right
-            Vertex::textured([x + width, y + height], [1.0, 1.0], color),          // Bottom-right
-            Vertex::textured([x, y + height], [0.0, 1.0], color),                  // Bottom-left
+            Vertex::textured([x, y], [0.0, 0.0], color), // Top-left
+            Vertex::textured([x + width, y], [1.0, 0.0], color), // Top-right
+            Vertex::textured([x + width, y + height], [1.0, 1.0], color), // Bottom-right
+            Vertex::textured([x, y + height], [0.0, 1.0], color), // Bottom-left
         ];
 
         let indices = vec![0, 1, 2, 2, 3, 0];
@@ -237,8 +242,6 @@ impl VertexBuilder {
         // Flag: 3 = FLAG_TYPE_ROUNDED_RECT
         let flags = 3;
 
-   
-        
         vertices.push(Vertex {
             position: [x, y],
             color,
@@ -287,12 +290,15 @@ impl VertexBuilder {
 
         // Create the four border lines
         let half_thickness = thickness / 2.0;
-        
+
         // Top line
         let (top_verts, top_indices) = Self::line(
-            x + radius, y - half_thickness,
-            x + width - radius, y - half_thickness,
-            thickness, color
+            x + radius,
+            y - half_thickness,
+            x + width - radius,
+            y - half_thickness,
+            thickness,
+            color,
         );
         vertices.extend(top_verts);
         indices.extend(top_indices);
@@ -300,9 +306,12 @@ impl VertexBuilder {
         // Right line
         let offset = vertices.len() as u16;
         let (right_verts, right_indices) = Self::line(
-            x + width + half_thickness, y + radius,
-            x + width + half_thickness, y + height - radius,
-            thickness, color
+            x + width + half_thickness,
+            y + radius,
+            x + width + half_thickness,
+            y + height - radius,
+            thickness,
+            color,
         );
         vertices.extend(right_verts);
         indices.extend(right_indices.iter().map(|&i| i + offset));
@@ -310,9 +319,12 @@ impl VertexBuilder {
         // Bottom line
         let offset = vertices.len() as u16;
         let (bottom_verts, bottom_indices) = Self::line(
-            x + width - radius, y + height + half_thickness,
-            x + radius, y + height + half_thickness,
-            thickness, color
+            x + width - radius,
+            y + height + half_thickness,
+            x + radius,
+            y + height + half_thickness,
+            thickness,
+            color,
         );
         vertices.extend(bottom_verts);
         indices.extend(bottom_indices.iter().map(|&i| i + offset));
@@ -320,34 +332,39 @@ impl VertexBuilder {
         // Left line
         let offset = vertices.len() as u16;
         let (left_verts, left_indices) = Self::line(
-            x - half_thickness, y + height - radius,
-            x - half_thickness, y + radius,
-            thickness, color
+            x - half_thickness,
+            y + height - radius,
+            x - half_thickness,
+            y + radius,
+            thickness,
+            color,
         );
         vertices.extend(left_verts);
         indices.extend(left_indices.iter().map(|&i| i + offset));
 
         // Add rounded corners (outline arcs)
         let corners = [
-            (x + radius, y + radius),                           // Top-left
-            (x + width - radius, y + radius),                   // Top-right
-            (x + width - radius, y + height - radius),          // Bottom-right
-            (x + radius, y + height - radius),                  // Bottom-left
+            (x + radius, y + radius),                  // Top-left
+            (x + width - radius, y + radius),          // Top-right
+            (x + width - radius, y + height - radius), // Bottom-right
+            (x + radius, y + height - radius),         // Bottom-left
         ];
 
         for (i, &(cx, cy)) in corners.iter().enumerate() {
             let start_angle = (i as f32) * std::f32::consts::PI / 2.0 + std::f32::consts::PI;
-            
+
             // Create arc outline using multiple line segments
             for j in 0..corner_segments {
-                let angle1 = start_angle + (j as f32) * (std::f32::consts::PI / 2.0) / (corner_segments as f32);
-                let angle2 = start_angle + ((j + 1) as f32) * (std::f32::consts::PI / 2.0) / (corner_segments as f32);
-                
+                let angle1 = start_angle
+                    + (j as f32) * (std::f32::consts::PI / 2.0) / (corner_segments as f32);
+                let angle2 = start_angle
+                    + ((j + 1) as f32) * (std::f32::consts::PI / 2.0) / (corner_segments as f32);
+
                 let x1 = cx + radius * angle1.cos();
                 let y1 = cy + radius * angle1.sin();
                 let x2 = cx + radius * angle2.cos();
                 let y2 = cy + radius * angle2.sin();
-                
+
                 let offset = vertices.len() as u16;
                 let (arc_verts, arc_indices) = Self::line(x1, y1, x2, y2, thickness, color);
                 vertices.extend(arc_verts);
@@ -402,7 +419,7 @@ impl VertexBuilder {
         let dx = end_x - start_x;
         let dy = end_y - start_y;
         let length = (dx * dx + dy * dy).sqrt();
-        
+
         if length == 0.0 {
             return (Vec::new(), Vec::new());
         }
@@ -410,14 +427,26 @@ impl VertexBuilder {
         // Normalize and get perpendicular vector
         let nx = -dy / length;
         let ny = dx / length;
-        
+
         let half_thickness = thickness * 0.5;
-        
+
         let vertices = vec![
-            Vertex::solid([start_x + nx * half_thickness, start_y + ny * half_thickness], color),
-            Vertex::solid([start_x - nx * half_thickness, start_y - ny * half_thickness], color),
-            Vertex::solid([end_x - nx * half_thickness, end_y - ny * half_thickness], color),
-            Vertex::solid([end_x + nx * half_thickness, end_y + ny * half_thickness], color),
+            Vertex::solid(
+                [start_x + nx * half_thickness, start_y + ny * half_thickness],
+                color,
+            ),
+            Vertex::solid(
+                [start_x - nx * half_thickness, start_y - ny * half_thickness],
+                color,
+            ),
+            Vertex::solid(
+                [end_x - nx * half_thickness, end_y - ny * half_thickness],
+                color,
+            ),
+            Vertex::solid(
+                [end_x + nx * half_thickness, end_y + ny * half_thickness],
+                color,
+            ),
         ];
 
         let indices = vec![0, 1, 2, 2, 3, 0];
@@ -454,7 +483,8 @@ mod tests {
 
     #[test]
     fn test_rectangle_builder() {
-        let (vertices, indices) = VertexBuilder::rectangle(0.0, 0.0, 100.0, 50.0, [1.0, 0.0, 0.0, 1.0]);
+        let (vertices, indices) =
+            VertexBuilder::rectangle(0.0, 0.0, 100.0, 50.0, [1.0, 0.0, 0.0, 1.0]);
         assert_eq!(vertices.len(), 4);
         assert_eq!(indices.len(), 6);
         assert_eq!(vertices[0].position, [0.0, 0.0]);
@@ -467,5 +497,4 @@ mod tests {
         assert_eq!(vertices.len(), 9); // Center + 8 segments
         assert_eq!(indices.len(), 24); // 8 triangles * 3 indices
     }
-
 }

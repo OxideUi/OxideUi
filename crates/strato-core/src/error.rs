@@ -1,7 +1,7 @@
 //! Error types for StratoUI framework
 
-use thiserror::Error;
 use std::collections::HashMap;
+use thiserror::Error;
 
 /// Context information for errors to aid in debugging
 #[derive(Debug, Clone)]
@@ -47,7 +47,8 @@ impl ErrorContext {
         ];
 
         if !self.metadata.is_empty() {
-            let metadata_str = self.metadata
+            let metadata_str = self
+                .metadata
                 .iter()
                 .map(|(k, v)| format!("{}={}", k, v))
                 .collect::<Vec<_>>()
@@ -67,64 +68,64 @@ impl ErrorContext {
 #[derive(Debug, Error)]
 pub enum StratoError {
     #[error("Platform error: {message}")]
-    Platform { 
+    Platform {
         message: String,
         context: Option<ErrorContext>,
     },
-    
+
     #[error("Renderer error: {message}")]
-    Renderer { 
+    Renderer {
         message: String,
         context: Option<ErrorContext>,
     },
-    
+
     #[error("Widget error: {message}")]
-    Widget { 
+    Widget {
         message: String,
         context: Option<ErrorContext>,
     },
-    
+
     #[error("State management error: {message}")]
-    State { 
+    State {
         message: String,
         context: Option<ErrorContext>,
     },
-    
+
     #[error("Layout calculation error: {message}")]
-    Layout { 
+    Layout {
         message: String,
         context: Option<ErrorContext>,
     },
-    
+
     #[error("Initialization error: {message}")]
-    Initialization { 
+    Initialization {
         message: String,
         context: Option<ErrorContext>,
     },
-    
+
     #[error("Configuration error: {message}")]
-    Configuration { 
+    Configuration {
         message: String,
         context: Option<ErrorContext>,
     },
-    
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("Not implemented: {message}")]
-    NotImplemented { 
+    NotImplemented {
         message: String,
         context: Option<ErrorContext>,
     },
-    
+
     #[error("Plugin error: {message}")]
-    PluginError { 
+    PluginError {
         message: String,
         context: Option<ErrorContext>,
     },
-    
+
     #[error("Other error: {message}")]
-    Other { 
+    Other {
         message: String,
         context: Option<ErrorContext>,
     },
@@ -133,7 +134,7 @@ pub enum StratoError {
 impl StratoError {
     /// Create a platform error with context
     pub fn platform_with_context<S: Into<String>>(msg: S, context: ErrorContext) -> Self {
-        Self::Platform { 
+        Self::Platform {
             message: msg.into(),
             context: Some(context),
         }
@@ -141,7 +142,7 @@ impl StratoError {
 
     /// Create a renderer error with context
     pub fn renderer_with_context<S: Into<String>>(msg: S, context: ErrorContext) -> Self {
-        Self::Renderer { 
+        Self::Renderer {
             message: msg.into(),
             context: Some(context),
         }
@@ -149,7 +150,7 @@ impl StratoError {
 
     /// Create a widget error with context
     pub fn widget_with_context<S: Into<String>>(msg: S, context: ErrorContext) -> Self {
-        Self::Widget { 
+        Self::Widget {
             message: msg.into(),
             context: Some(context),
         }
@@ -157,7 +158,7 @@ impl StratoError {
 
     /// Create a state error with context
     pub fn state_with_context<S: Into<String>>(msg: S, context: ErrorContext) -> Self {
-        Self::State { 
+        Self::State {
             message: msg.into(),
             context: Some(context),
         }
@@ -165,7 +166,7 @@ impl StratoError {
 
     /// Create a layout error with context
     pub fn layout_with_context<S: Into<String>>(msg: S, context: ErrorContext) -> Self {
-        Self::Layout { 
+        Self::Layout {
             message: msg.into(),
             context: Some(context),
         }
@@ -173,7 +174,7 @@ impl StratoError {
 
     /// Create an initialization error with context
     pub fn initialization_with_context<S: Into<String>>(msg: S, context: ErrorContext) -> Self {
-        Self::Initialization { 
+        Self::Initialization {
             message: msg.into(),
             context: Some(context),
         }
@@ -181,7 +182,7 @@ impl StratoError {
 
     /// Create a configuration error with context
     pub fn configuration_with_context<S: Into<String>>(msg: S, context: ErrorContext) -> Self {
-        Self::Configuration { 
+        Self::Configuration {
             message: msg.into(),
             context: Some(context),
         }
@@ -189,7 +190,7 @@ impl StratoError {
 
     /// Create a plugin error with context
     pub fn plugin_with_context<S: Into<String>>(msg: S, context: ErrorContext) -> Self {
-        Self::PluginError { 
+        Self::PluginError {
             message: msg.into(),
             context: Some(context),
         }
@@ -197,7 +198,7 @@ impl StratoError {
 
     /// Create an other error with context
     pub fn other_with_context<S: Into<String>>(msg: S, context: ErrorContext) -> Self {
-        Self::Other { 
+        Self::Other {
             message: msg.into(),
             context: Some(context),
         }
@@ -205,79 +206,79 @@ impl StratoError {
 
     /// Create a platform error from a string
     pub fn platform<S: Into<String>>(msg: S) -> Self {
-        Self::Platform { 
+        Self::Platform {
             message: msg.into(),
             context: None,
         }
     }
-    
+
     /// Create a renderer error from a string
     pub fn renderer<S: Into<String>>(msg: S) -> Self {
-        Self::Renderer { 
+        Self::Renderer {
             message: msg.into(),
             context: None,
         }
     }
-    
+
     /// Create a widget error from a string
     pub fn widget<S: Into<String>>(msg: S) -> Self {
-        Self::Widget { 
+        Self::Widget {
             message: msg.into(),
             context: None,
         }
     }
-    
+
     /// Create a state error from a string
     pub fn state<S: Into<String>>(msg: S) -> Self {
-        Self::State { 
+        Self::State {
             message: msg.into(),
             context: None,
         }
     }
-    
+
     /// Create a layout error from a string
     pub fn layout<S: Into<String>>(msg: S) -> Self {
-        Self::Layout { 
+        Self::Layout {
             message: msg.into(),
             context: None,
         }
     }
-    
+
     /// Create an initialization error from a string
     pub fn initialization<S: Into<String>>(msg: S) -> Self {
-        Self::Initialization { 
+        Self::Initialization {
             message: msg.into(),
             context: None,
         }
     }
-    
+
     /// Create a configuration error from a string
     pub fn configuration<S: Into<String>>(msg: S) -> Self {
-        Self::Configuration { 
+        Self::Configuration {
             message: msg.into(),
             context: None,
         }
     }
-    
+
     /// Create a not implemented error from a string
     pub fn not_implemented<S: Into<String>>(msg: S) -> Self {
-        Self::NotImplemented { 
+        Self::NotImplemented {
             message: msg.into(),
             context: None,
         }
     }
-    
+
     /// Create a plugin error from a string
     pub fn plugin<S: Into<String>>(msg: S) -> Self {
-        Self::PluginError { 
+        Self::PluginError {
             message: msg.into(),
             context: None,
         }
     }
-    
+
     /// Create an other error from a string
     pub fn other<S: Into<String>>(msg: S) -> Self {
-        Self::Other { 
+        Self::Other {
             message: msg.into(),
             context: None,
         }
@@ -286,16 +287,16 @@ impl StratoError {
     /// Get the error context if available
     pub fn context(&self) -> Option<&ErrorContext> {
         match self {
-            Self::Platform { context, .. } |
-            Self::Renderer { context, .. } |
-            Self::Widget { context, .. } |
-            Self::State { context, .. } |
-            Self::Layout { context, .. } |
-            Self::Initialization { context, .. } |
-            Self::Configuration { context, .. } |
-            Self::NotImplemented { context, .. } |
-            Self::PluginError { context, .. } |
-            Self::Other { context, .. } => context.as_ref(),
+            Self::Platform { context, .. }
+            | Self::Renderer { context, .. }
+            | Self::Widget { context, .. }
+            | Self::State { context, .. }
+            | Self::Layout { context, .. }
+            | Self::Initialization { context, .. }
+            | Self::Configuration { context, .. }
+            | Self::NotImplemented { context, .. }
+            | Self::PluginError { context, .. }
+            | Self::Other { context, .. } => context.as_ref(),
             Self::Io(_) => None,
         }
     }

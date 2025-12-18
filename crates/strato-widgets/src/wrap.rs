@@ -1,14 +1,14 @@
 //! Wrap widget for flow layout
-use crate::widget::{Widget, WidgetId, generate_id};
+use crate::widget::{generate_id, Widget, WidgetId};
+use std::any::Any;
 use strato_core::{
     event::{Event, EventResult},
     layout::{
-        Constraints, Layout, Size, FlexItem, FlexContainer, FlexDirection, 
-        FlexWrap, JustifyContent, AlignItems, AlignContent, Gap,
+        AlignContent, AlignItems, Constraints, FlexContainer, FlexDirection, FlexItem, FlexWrap,
+        Gap, JustifyContent, Layout, Size,
     },
 };
 use strato_renderer::batch::RenderBatch;
-use std::any::Any;
 
 /// Alignment for wrap layout
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -116,7 +116,7 @@ impl Widget for Wrap {
 
     fn layout(&mut self, constraints: Constraints) -> Size {
         let engine = strato_core::layout::LayoutEngine::new();
-        
+
         // Relax constraints for children measurement
         // Wrap children can be any size, they force a wrap if they exceed width
         let child_constraints = Constraints {
@@ -125,21 +125,21 @@ impl Widget for Wrap {
             min_height: 0.0,
             max_height: constraints.max_height,
         };
-        
+
         // Calculate child sizes
         let mut child_data = Vec::new();
         let mut sizes = Vec::with_capacity(self.children.len());
         for child in &mut self.children {
             let child_size = child.layout(child_constraints);
             sizes.push(child_size);
-            
+
             // Wrap treats all items as non-flex by default in terms of growing to fill line
             // But we can support flex basis if needed. For now, we assume simple flow.
             let flex_item = FlexItem::default();
             child_data.push((flex_item, child_size));
         }
         self.cached_child_sizes = sizes;
-        
+
         // Map widget props to core layout props
         let justify_content = match self.alignment {
             WrapAlignment::Start => JustifyContent::FlexStart,
@@ -172,35 +172,39 @@ impl Widget for Wrap {
             align_items,
             align_content,
             gap: Gap {
-                row: self.run_spacing,   // Gap between runs (lines)
-                column: self.spacing,    // Gap between items
+                row: self.run_spacing, // Gap between runs (lines)
+                column: self.spacing,  // Gap between items
             },
             ..Default::default()
         };
 
         let layouts = engine.calculate_flex_layout(&container, &child_data, constraints);
-        
+
         // Calculate total size based on returned layouts
         let mut max_x = 0.0f32;
         let mut max_y = 0.0f32;
         for l in layouts {
-             max_x = max_x.max(l.position.x + l.size.width);
-             max_y = max_y.max(l.position.y + l.size.height);
+            max_x = max_x.max(l.position.x + l.size.width);
+            max_y = max_y.max(l.position.y + l.size.height);
         }
-        
+
         Size::new(max_x, max_y)
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
         let engine = strato_core::layout::LayoutEngine::new();
-        
+
         // Reconstruct child data from cache
         let mut child_data = Vec::new();
         for (i, _) in self.children.iter().enumerate() {
-            let child_size = self.cached_child_sizes.get(i).copied().unwrap_or(Size::zero());
+            let child_size = self
+                .cached_child_sizes
+                .get(i)
+                .copied()
+                .unwrap_or(Size::zero());
             child_data.push((FlexItem::default(), child_size));
         }
-        
+
         // Map props again (should factor this out if it gets complex)
         let justify_content = match self.alignment {
             WrapAlignment::Start => JustifyContent::FlexStart,
@@ -241,17 +245,15 @@ impl Widget for Wrap {
 
         // Recalculate layout inside bounds
         let layouts = engine.calculate_flex_layout(
-            &container, 
-            &child_data, 
-            Constraints::tight(layout.size.width, layout.size.height) // Use actual assigned size
+            &container,
+            &child_data,
+            Constraints::tight(layout.size.width, layout.size.height), // Use actual assigned size
         );
-        
+
         // Render children
         for (child, child_layout) in self.children.iter().zip(layouts.iter()) {
-            let absolute_layout = Layout::new(
-                layout.position + child_layout.position,
-                child_layout.size,
-            );
+            let absolute_layout =
+                Layout::new(layout.position + child_layout.position, child_layout.size);
             child.render(batch, absolute_layout);
         }
     }

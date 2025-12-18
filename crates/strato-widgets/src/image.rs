@@ -2,17 +2,17 @@
 //!
 //! Supports various image formats, scaling modes, and loading states.
 
+use crate::widget::{generate_id, Widget, WidgetContext, WidgetId};
+use std::path::PathBuf;
+use std::sync::Arc;
 use strato_core::{
     event::{Event, EventResult},
-    layout::{Constraints, Size, Layout},
-    types::{Rect, Color, Transform, Point},
+    layout::{Constraints, Layout, Size},
     state::Signal,
+    types::{Color, Point, Rect, Transform},
     vdom::VNode,
 };
 use strato_renderer::batch::RenderBatch;
-use crate::widget::{Widget, WidgetId, WidgetContext, generate_id};
-use std::path::PathBuf;
-use std::sync::Arc;
 
 /// Image scaling modes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,7 +67,11 @@ pub enum ImageSource {
     /// Use embedded data
     Data(ImageData),
     /// Use placeholder
-    Placeholder { width: u32, height: u32, color: Color },
+    Placeholder {
+        width: u32,
+        height: u32,
+        color: Color,
+    },
 }
 
 /// Image widget styling
@@ -198,7 +202,11 @@ impl Image {
 
     /// Create placeholder image
     pub fn placeholder(width: u32, height: u32, color: Color) -> Self {
-        Self::new(ImageSource::Placeholder { width, height, color })
+        Self::new(ImageSource::Placeholder {
+            width,
+            height,
+            color,
+        })
     }
 
     /// Set image fit mode
@@ -292,25 +300,23 @@ impl Image {
     pub fn load_image(&self) {
         let source = self.source.clone();
         let state = self.state.clone();
-        
+
         // Mark as loading
         state.set(ImageState::Loading);
 
         match source {
             ImageSource::File(path) => {
                 let state = state.clone();
-                std::thread::spawn(move || {
-                    match std::fs::read(&path) {
-                        Ok(bytes) => {
-                            if let Ok(data) = decode_image_data_internal(bytes) {
-                                state.set(ImageState::Loaded(data));
-                            } else {
-                                state.set(ImageState::Error("Failed to decode image".to_string()));
-                            }
+                std::thread::spawn(move || match std::fs::read(&path) {
+                    Ok(bytes) => {
+                        if let Ok(data) = decode_image_data_internal(bytes) {
+                            state.set(ImageState::Loaded(data));
+                        } else {
+                            state.set(ImageState::Error("Failed to decode image".to_string()));
                         }
-                        Err(e) => {
-                            state.set(ImageState::Error(format!("Failed to load image: {}", e)));
-                        }
+                    }
+                    Err(e) => {
+                        state.set(ImageState::Error(format!("Failed to load image: {}", e)));
                     }
                 });
             }
@@ -319,25 +325,36 @@ impl Image {
                 std::thread::spawn(move || {
                     // Fetch image data
                     let client = reqwest::blocking::Client::new();
-                    match client.get(&url)
+                    match client
+                        .get(&url)
                         .header("User-Agent", "StratoUI/0.1.0")
-                        .send() {
+                        .send()
+                    {
                         Ok(response) => {
                             if response.status().is_success() {
                                 match response.bytes() {
                                     Ok(bytes) => {
-                                        if let Ok(data) = decode_image_data_internal(bytes.to_vec()) {
+                                        if let Ok(data) = decode_image_data_internal(bytes.to_vec())
+                                        {
                                             state.set(ImageState::Loaded(data));
                                         } else {
-                                            state.set(ImageState::Error("Failed to decode image from URL".to_string()));
+                                            state.set(ImageState::Error(
+                                                "Failed to decode image from URL".to_string(),
+                                            ));
                                         }
                                     }
                                     Err(e) => {
-                                        state.set(ImageState::Error(format!("Failed to read bytes: {}", e)));
+                                        state.set(ImageState::Error(format!(
+                                            "Failed to read bytes: {}",
+                                            e
+                                        )));
                                     }
                                 }
                             } else {
-                                state.set(ImageState::Error(format!("HTTP Error: {}", response.status())));
+                                state.set(ImageState::Error(format!(
+                                    "HTTP Error: {}",
+                                    response.status()
+                                )));
                             }
                         }
                         Err(e) => {
@@ -349,7 +366,11 @@ impl Image {
             ImageSource::Data(data) => {
                 state.set(ImageState::Loaded(data));
             }
-            ImageSource::Placeholder { width, height, color } => {
+            ImageSource::Placeholder {
+                width,
+                height,
+                color,
+            } => {
                 let data = create_placeholder_data_internal(width, height, color);
                 state.set(ImageState::Loaded(data));
             }
@@ -364,7 +385,7 @@ fn decode_image_data_internal(bytes: Vec<u8>) -> Result<ImageData, String> {
             let rgba_image = dynamic_image.to_rgba8();
             let (width, height) = rgba_image.dimensions();
             let data = rgba_image.into_raw();
-            
+
             Ok(ImageData {
                 width,
                 height,
@@ -379,16 +400,16 @@ fn decode_image_data_internal(bytes: Vec<u8>) -> Result<ImageData, String> {
 fn create_placeholder_data_internal(width: u32, height: u32, color: Color) -> ImageData {
     let pixel_count = (width * height) as usize;
     let mut data = Vec::with_capacity(pixel_count * 4);
-    
+
     let r = (color.r * 255.0) as u8;
     let g = (color.g * 255.0) as u8;
     let b = (color.b * 255.0) as u8;
     let a = (color.a * 255.0) as u8;
-    
+
     for _ in 0..pixel_count {
         data.extend_from_slice(&[r, g, b, a]);
     }
-    
+
     ImageData {
         width,
         height,
@@ -397,14 +418,15 @@ fn create_placeholder_data_internal(width: u32, height: u32, color: Color) -> Im
     }
 }
 
-impl Image { // Re-opening impl to fix the struct definition gap if needed, but here we are replacing methods.
-
+impl Image {
+    // Re-opening impl to fix the struct definition gap if needed, but here we are replacing methods.
 
     fn calculate_display_size(&self, container_size: Size, image_size: Size) -> (Size, Rect) {
         match self.style.fit {
-            ImageFit::Fill => {
-                (container_size, Rect::new(0.0, 0.0, container_size.width, container_size.height))
-            }
+            ImageFit::Fill => (
+                container_size,
+                Rect::new(0.0, 0.0, container_size.width, container_size.height),
+            ),
             ImageFit::Contain => {
                 let scale = (container_size.width / image_size.width)
                     .min(container_size.height / image_size.height);
@@ -412,7 +434,10 @@ impl Image { // Re-opening impl to fix the struct definition gap if needed, but 
                 let scaled_height = image_size.height * scale;
                 let x = (container_size.width - scaled_width) / 2.0;
                 let y = (container_size.height - scaled_height) / 2.0;
-                (Size::new(scaled_width, scaled_height), Rect::new(x, y, scaled_width, scaled_height))
+                (
+                    Size::new(scaled_width, scaled_height),
+                    Rect::new(x, y, scaled_width, scaled_height),
+                )
             }
             ImageFit::Cover => {
                 let scale = (container_size.width / image_size.width)
@@ -421,13 +446,21 @@ impl Image { // Re-opening impl to fix the struct definition gap if needed, but 
                 let scaled_height = image_size.height * scale;
                 let x = (container_size.width - scaled_width) / 2.0;
                 let y = (container_size.height - scaled_height) / 2.0;
-                (Size::new(scaled_width, scaled_height), Rect::new(x, y, scaled_width, scaled_height))
+                (
+                    Size::new(scaled_width, scaled_height),
+                    Rect::new(x, y, scaled_width, scaled_height),
+                )
             }
             ImageFit::ScaleDown => {
-                if image_size.width <= container_size.width && image_size.height <= container_size.height {
+                if image_size.width <= container_size.width
+                    && image_size.height <= container_size.height
+                {
                     let x = (container_size.width - image_size.width) / 2.0;
                     let y = (container_size.height - image_size.height) / 2.0;
-                    (image_size, Rect::new(x, y, image_size.width, image_size.height))
+                    (
+                        image_size,
+                        Rect::new(x, y, image_size.width, image_size.height),
+                    )
                 } else {
                     self.calculate_display_size(container_size, image_size) // Use contain logic
                 }
@@ -435,7 +468,10 @@ impl Image { // Re-opening impl to fix the struct definition gap if needed, but 
             ImageFit::None => {
                 let x = (container_size.width - image_size.width) / 2.0;
                 let y = (container_size.height - image_size.height) / 2.0;
-                (image_size, Rect::new(x, y, image_size.width, image_size.height))
+                (
+                    image_size,
+                    Rect::new(x, y, image_size.width, image_size.height),
+                )
             }
         }
     }
@@ -500,12 +536,10 @@ impl Widget for Image {
         );
         self.bounds.set(bounds);
 
-        let mut background_color = self.style.background_color.unwrap_or(Color::rgba(
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-        ));
+        let mut background_color = self
+            .style
+            .background_color
+            .unwrap_or(Color::rgba(0.0, 0.0, 0.0, 0.0));
 
         match self.state.get() {
             ImageState::Loaded(data) => {
@@ -524,26 +558,15 @@ impl Widget for Image {
                     // TODO: Implement proper rounded textured quad in renderer
                     // For now, we render the image as a standard textured quad
                     // and apply border radius to the container background if set
-                    
+
                     // Render background if set
                     if background_color.a > 0.0 {
-                        batch.add_rounded_rect(bounds, background_color, self.style.border_radius, Transform::identity());
-                    }
-                    
-                    // Render Image
-                    batch.add_image(
-                        self.id,
-                        data.data.clone(),
-                        data.width,
-                        data.height,
-                        image_rect,
-                        Color::rgba(1.0, 1.0, 1.0, self.style.opacity)
-                    );
-                    
-                } else {
-                    // Render background if set
-                    if background_color.a > 0.0 {
-                         batch.add_rect(bounds, background_color, Transform::identity());
+                        batch.add_rounded_rect(
+                            bounds,
+                            background_color,
+                            self.style.border_radius,
+                            Transform::identity(),
+                        );
                     }
 
                     // Render Image
@@ -553,7 +576,22 @@ impl Widget for Image {
                         data.width,
                         data.height,
                         image_rect,
-                        Color::rgba(1.0, 1.0, 1.0, self.style.opacity)
+                        Color::rgba(1.0, 1.0, 1.0, self.style.opacity),
+                    );
+                } else {
+                    // Render background if set
+                    if background_color.a > 0.0 {
+                        batch.add_rect(bounds, background_color, Transform::identity());
+                    }
+
+                    // Render Image
+                    batch.add_image(
+                        self.id,
+                        data.data.clone(),
+                        data.width,
+                        data.height,
+                        image_rect,
+                        Color::rgba(1.0, 1.0, 1.0, self.style.opacity),
                     );
                 }
             }
@@ -579,7 +617,7 @@ impl Widget for Image {
             style: self.style.clone(),
             state: self.state.clone(),
             alt_text: self.alt_text.clone(),
-            on_load: None, // Cannot clone function pointers
+            on_load: None,  // Cannot clone function pointers
             on_error: None, // Cannot clone function pointers
             on_click: None, // Cannot clone function pointers
             loading_placeholder: self.loading_placeholder.clone(),
@@ -698,12 +736,14 @@ mod tests {
 
     #[test]
     fn test_image_builder() {
-        let image = ImageBuilder::new(ImageSource::Url("https://example.com/image.png".to_string()))
-            .fit(ImageFit::Cover)
-            .opacity(0.8)
-            .border_radius(10.0)
-            .alt_text("Test image")
-            .build();
+        let image = ImageBuilder::new(ImageSource::Url(
+            "https://example.com/image.png".to_string(),
+        ))
+        .fit(ImageFit::Cover)
+        .opacity(0.8)
+        .border_radius(10.0)
+        .alt_text("Test image")
+        .build();
 
         assert_eq!(image.style.fit, ImageFit::Cover);
         assert_eq!(image.style.opacity, 0.8);
@@ -715,8 +755,13 @@ mod tests {
     fn test_placeholder_image() {
         let color = Color::rgba(1.0, 0.0, 0.0, 1.0); // Red
         let image = Image::placeholder(100, 100, color);
-        
-        if let ImageSource::Placeholder { width, height, color: c } = image.source {
+
+        if let ImageSource::Placeholder {
+            width,
+            height,
+            color: c,
+        } = image.source
+        {
             assert_eq!(width, 100);
             assert_eq!(height, 100);
             assert_eq!(c, color);
@@ -732,7 +777,7 @@ mod tests {
         let image_size = Size::new(100.0, 100.0);
 
         let (display_size, rect) = image.calculate_display_size(container_size, image_size);
-        
+
         // For contain fit, should maintain aspect ratio
         assert!(display_size.width <= container_size.width);
         assert!(display_size.height <= container_size.height);
@@ -740,9 +785,8 @@ mod tests {
 
     #[test]
     fn test_image_filters() {
-        let image = Image::from_file("test.png")
-            .filter(ImageFilter::Blur(5.0));
-        
+        let image = Image::from_file("test.png").filter(ImageFilter::Blur(5.0));
+
         assert!(matches!(image.style.filter, ImageFilter::Blur(5.0)));
     }
 }

@@ -3,18 +3,18 @@
 //! Provides file watching, code reloading, and live preview capabilities
 //! for rapid development and iteration
 
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use serde::{Serialize, Deserialize};
 
 #[cfg(feature = "hot-reload")]
-use notify::{Watcher, RecursiveMode, Event, EventKind, RecommendedWatcher};
+use futures_util::{SinkExt, StreamExt};
+#[cfg(feature = "hot-reload")]
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 #[cfg(feature = "hot-reload")]
 use tokio::sync::mpsc;
 #[cfg(feature = "hot-reload")]
 use tokio_tungstenite::{accept_async, tungstenite::Message};
-#[cfg(feature = "hot-reload")]
-use futures_util::{SinkExt, StreamExt};
 
 /// File change event types
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,10 +76,10 @@ impl Default for HotReloadConfig {
 pub trait HotReloadHandler: Send + Sync {
     /// Handle file changes
     fn handle_change(&self, change: &FileChange) -> Result<(), Box<dyn std::error::Error>>;
-    
+
     /// Handle compilation errors
     fn handle_error(&self, error: &str);
-    
+
     /// Handle successful reload
     fn handle_reload_success(&self);
 }
@@ -126,16 +126,15 @@ impl FileWatcher {
         let watch_extensions = self.config.watch_extensions.clone();
 
         // Create file watcher
-        let mut watcher = notify::recommended_watcher(move |res: Result<Event, notify::Error>| {
-            match res {
+        let mut watcher =
+            notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
                 Ok(event) => {
                     if let Err(e) = tx.blocking_send(event) {
                         eprintln!("Failed to send file event: {}", e);
                     }
                 }
                 Err(e) => eprintln!("File watcher error: {}", e),
-            }
-        })?;
+            })?;
 
         // Watch configured directories
         for dir in &self.config.watch_dirs {
@@ -157,7 +156,8 @@ impl FileWatcher {
                     &debounce_cache,
                     debounce_duration,
                     &watch_extensions,
-                ).await;
+                )
+                .await;
             }
         });
 
@@ -273,13 +273,10 @@ impl LivePreviewServer {
     }
 
     /// Run the WebSocket server
-    async fn run_server(
-        port: u16,
-        clients: Arc<RwLock<Vec<mpsc::UnboundedSender<String>>>>,
-    ) {
+    async fn run_server(port: u16, clients: Arc<RwLock<Vec<mpsc::UnboundedSender<String>>>>) {
+        use futures_util::{SinkExt, StreamExt};
         use tokio::net::TcpListener;
         use tokio_tungstenite::{accept_async, tungstenite::Message};
-        use futures_util::{SinkExt, StreamExt};
 
         let addr = format!("127.0.0.1:{}", port);
         let listener = match TcpListener::bind(&addr).await {
@@ -292,7 +289,7 @@ impl LivePreviewServer {
 
         while let Ok((stream, _)) = listener.accept().await {
             let clients = Arc::clone(&clients);
-            
+
             tokio::spawn(async move {
                 let ws_stream = match accept_async(stream).await {
                     Ok(ws) => ws,
@@ -324,7 +321,7 @@ impl LivePreviewServer {
                             _ => {}
                         }
                     }
-                    
+
                     // Remove client when disconnected
                     clients_clone.write().clear(); // Simplified cleanup
                 });
@@ -539,10 +536,16 @@ mod tests {
     #[test]
     fn test_should_watch_file() {
         let extensions = vec!["rs".to_string(), "toml".to_string()];
-        
+
         assert!(utils::should_watch_file(Path::new("main.rs"), &extensions));
-        assert!(utils::should_watch_file(Path::new("Cargo.toml"), &extensions));
-        assert!(!utils::should_watch_file(Path::new("README.md"), &extensions));
+        assert!(utils::should_watch_file(
+            Path::new("Cargo.toml"),
+            &extensions
+        ));
+        assert!(!utils::should_watch_file(
+            Path::new("README.md"),
+            &extensions
+        ));
     }
 
     #[tokio::test]
@@ -566,7 +569,7 @@ mod tests {
     async fn test_hot_reload_manager() {
         let mut config = HotReloadConfig::default();
         config.enabled = false; // Disable for testing
-        
+
         let manager = HotReloadManager::new(config);
         assert!(manager.is_ok());
     }

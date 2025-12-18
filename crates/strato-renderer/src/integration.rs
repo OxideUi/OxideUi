@@ -12,20 +12,20 @@
 //! The integration layer ensures all systems work together seamlessly and provides
 //! a clean, easy-to-use API for the rest of the framework.
 
-use std::sync::Arc;
-use anyhow::{Result, Context};
-use tracing::{info, warn, debug, instrument};
-use wgpu::*;
+use anyhow::{Context, Result};
 use slotmap::DefaultKey;
+use std::sync::Arc;
+use tracing::{debug, info, instrument, warn};
+use wgpu::*;
 
 use crate::{
-    device::{ManagedDevice, DeviceManager},
-    resources::{ResourceManager, ResourceHandle},
-    memory::{MemoryManager, AllocationStrategy},
-    shader::{ShaderManager, CompiledShader},
-    buffer::{BufferManager},
-    profiler::{Profiler, PerformanceReport},
-    pipeline::{PipelineManager},
+    buffer::BufferManager,
+    device::{DeviceManager, ManagedDevice},
+    memory::{AllocationStrategy, MemoryManager},
+    pipeline::PipelineManager,
+    profiler::{PerformanceReport, Profiler},
+    resources::{ResourceHandle, ResourceManager},
+    shader::{CompiledShader, ShaderManager},
 };
 
 /// Configuration for the integrated renderer system
@@ -72,20 +72,20 @@ pub struct IntegratedRenderer {
     // Core systems
     device_manager: Arc<DeviceManager>,
     device: Arc<ManagedDevice>,
-    
+
     // Management systems
     resource_manager: Arc<ResourceManager>,
     memory_manager: Arc<parking_lot::Mutex<MemoryManager>>,
     shader_manager: Arc<ShaderManager>,
     buffer_manager: Arc<BufferManager>,
     pipeline_manager: Arc<PipelineManager>,
-    
+
     // Monitoring
     profiler: Option<Arc<Profiler>>,
-    
+
     // Configuration
     config: RendererConfig,
-    
+
     // State
     initialized: bool,
     frame_count: u64,
@@ -97,7 +97,7 @@ pub struct RenderContext {
     pub encoder: CommandEncoder,
     pub profiler: Option<Arc<Profiler>>,
     pub frame_id: u64,
-    
+
     // Timing queries
     gpu_timer_id: Option<u32>,
 }
@@ -118,24 +118,30 @@ impl IntegratedRenderer {
     pub async fn new() -> Result<Self> {
         Self::with_config(RendererConfig::default(), None, None).await
     }
-    
+
     /// Create a new integrated renderer with custom configuration
-    pub async fn with_config(config: RendererConfig, instance: Option<Instance>, surface: Option<&Surface<'_>>) -> Result<Self> {
+    pub async fn with_config(
+        config: RendererConfig,
+        instance: Option<Instance>,
+        surface: Option<&Surface<'_>>,
+    ) -> Result<Self> {
         info!("Initializing integrated renderer system");
-        
+
         // Initialize device manager
         let device_manager = Arc::new(DeviceManager::new(instance, surface).await?);
-        
+
         // Configure device selection based on renderer config
         let mut criteria = crate::device::DeviceSelectionCriteria::default();
-        
+
         // Check feature support
-        let has_timestamp = device_manager.adapters().iter().any(|(_, caps)| 
-            caps.supported_features.contains(Features::TIMESTAMP_QUERY)
-        );
-        let has_pipeline_stats = device_manager.adapters().iter().any(|(_, caps)| 
-            caps.supported_features.contains(Features::PIPELINE_STATISTICS_QUERY)
-        );
+        let has_timestamp = device_manager
+            .adapters()
+            .iter()
+            .any(|(_, caps)| caps.supported_features.contains(Features::TIMESTAMP_QUERY));
+        let has_pipeline_stats = device_manager.adapters().iter().any(|(_, caps)| {
+            caps.supported_features
+                .contains(Features::PIPELINE_STATISTICS_QUERY)
+        });
 
         if config.enable_profiling {
             if has_timestamp {
@@ -152,9 +158,9 @@ impl IntegratedRenderer {
                 warn!("Pipeline statistics not supported. Detailed profiling will be disabled.");
             }
         }
-        
+
         // Use preferred adapter config if possible (DeviceSelectionCriteria doesn't directly map PowerPreference yet)
-        
+
         device_manager.update_selection_criteria(criteria);
 
         // Initialize the device before getting it
@@ -164,28 +170,26 @@ impl IntegratedRenderer {
         let device = device_manager
             .get_best_device()
             .context("Failed to get GPU device")?;
-        
+
         info!("Selected GPU device: {}", device.capabilities.device_name);
-        
-        // Initialize management systems  
-        let resource_manager = Arc::new(ResourceManager::new(
-            device.clone(),
-        )?);
+
+        // Initialize management systems
+        let resource_manager = Arc::new(ResourceManager::new(device.clone())?);
         let memory_manager = MemoryManager::new(device.clone());
-        
+
         let shader_manager = Arc::new(ShaderManager::new(device.clone())?);
-        
+
         let memory_manager_shared = Arc::new(parking_lot::Mutex::new(memory_manager));
         let buffer_manager = Arc::new(BufferManager::new(
             device.clone(),
             memory_manager_shared.clone(),
         ));
-        
+
         let pipeline_manager = Arc::new(PipelineManager::new(
             &device.device,
             wgpu::TextureFormat::Bgra8UnormSrgb, // Default surface format
         ));
-        
+
         // Initialize profiler if enabled
         let profiler = if config.enable_profiling {
             let profiler = Arc::new(Profiler::new(device.clone())?);
@@ -194,7 +198,7 @@ impl IntegratedRenderer {
         } else {
             None
         };
-        
+
         Ok(Self {
             device_manager,
             device,
@@ -209,7 +213,7 @@ impl IntegratedRenderer {
             frame_count: 0,
         })
     }
-    
+
     /// Initialize the renderer (call after window creation)
     #[instrument(skip(self))]
     pub async fn initialize(&mut self) -> Result<()> {
@@ -217,43 +221,46 @@ impl IntegratedRenderer {
             warn!("Renderer already initialized");
             return Ok(());
         }
-        
+
         info!("Initializing renderer subsystems");
-        
+
         // Initialize shader manager (load default shaders)
         self.shader_manager.initialize()?;
-        
+
         // Initialize pipeline manager (create default pipelines)
         self.pipeline_manager.initialize()?;
-        
+
         // Initialize buffer manager (create default pools)
         self.buffer_manager.initialize()?;
-        
+
         self.initialized = true;
         info!("Renderer initialization complete");
-        
+
         Ok(())
     }
-    
+
     /// Begin a new frame
     #[instrument(skip(self))]
     pub fn begin_frame(&mut self) -> Result<RenderContext> {
         if !self.initialized {
             return Err(anyhow::anyhow!("Renderer not initialized"));
         }
-        
+
         self.frame_count += 1;
-        
+
         // Begin profiling if enabled
         if let Some(ref profiler) = self.profiler {
             profiler.begin_frame();
         }
-        
+
         // Create command encoder
-        let encoder = self.device.device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some(&format!("Frame {}", self.frame_count)),
-        });
-        
+        let encoder = self
+            .device
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some(&format!("Frame {}", self.frame_count)),
+            });
+
         // Begin GPU timing
         let gpu_timer_id = if let Some(ref _profiler) = self.profiler {
             // Note: encoder is moved, so we need to handle this differently
@@ -261,7 +268,7 @@ impl IntegratedRenderer {
         } else {
             None
         };
-        
+
         Ok(RenderContext {
             device: self.device.clone(),
             encoder,
@@ -270,7 +277,7 @@ impl IntegratedRenderer {
             gpu_timer_id,
         })
     }
-    
+
     /// End the current frame and submit commands
     #[instrument(skip(self, context))]
     pub fn end_frame(&mut self, context: RenderContext) -> Result<()> {
@@ -278,40 +285,41 @@ impl IntegratedRenderer {
         if let (Some(_profiler), Some(_timer_id)) = (&context.profiler, context.gpu_timer_id) {
             // profiler.end_gpu_timing(&mut context.encoder, timer_id);
         }
-        
+
         // Submit command buffer
         let command_buffer = context.encoder.finish();
         self.device.queue.submit(std::iter::once(command_buffer));
-        
+
         // End profiling if enabled
         if let Some(ref profiler) = self.profiler {
             profiler.end_frame();
         }
-        
+
         // Perform maintenance tasks periodically
         if self.frame_count % 60 == 0 {
             self.perform_maintenance()?;
         }
-        
+
         Ok(())
     }
-    
+
     /// Get render statistics
     pub fn get_stats(&self) -> RenderStats {
         let memory_usage = self.memory_manager.lock().get_total_allocated();
         let active_resources = self.resource_manager.get_active_count();
-        
-        let (average_frame_time, shader_reloads, pipeline_switches) = if let Some(ref profiler) = self.profiler {
-            let report = profiler.get_performance_report();
-            (
-                report.frame_stats.average_frame_time,
-                0, // Would need to track in shader manager
-                0, // Would need to track in pipeline manager
-            )
-        } else {
-            (0.0, 0, 0)
-        };
-        
+
+        let (average_frame_time, shader_reloads, pipeline_switches) =
+            if let Some(ref profiler) = self.profiler {
+                let report = profiler.get_performance_report();
+                (
+                    report.frame_stats.average_frame_time,
+                    0, // Would need to track in shader manager
+                    0, // Would need to track in pipeline manager
+                )
+            } else {
+                (0.0, 0, 0)
+            };
+
         RenderStats {
             frame_count: self.frame_count,
             average_frame_time,
@@ -321,12 +329,12 @@ impl IntegratedRenderer {
             pipeline_switches,
         }
     }
-    
+
     /// Get performance report (if profiling is enabled)
     pub fn get_performance_report(&self) -> Option<PerformanceReport> {
         self.profiler.as_ref().map(|p| p.get_performance_report())
     }
-    
+
     /// Create a buffer with automatic management
     pub fn create_buffer(&self, size: u64, usage: BufferUsages) -> Result<ResourceHandle> {
         let config = crate::buffer::BufferConfig {
@@ -341,7 +349,7 @@ impl IntegratedRenderer {
         };
         self.buffer_manager.create_buffer(&config)
     }
-    
+
     /// Get a buffer by handle
     pub fn get_buffer(&self, handle: ResourceHandle) -> Option<Arc<Buffer>> {
         self.buffer_manager.get_buffer(handle)
@@ -351,17 +359,22 @@ impl IntegratedRenderer {
     pub fn create_texture(&self, descriptor: &TextureDescriptor) -> DefaultKey {
         self.resource_manager.create_texture(descriptor)
     }
-    
+
     /// Load and compile a shader
-    pub fn load_shader(&self, path: &std::path::Path, stage: crate::shader::ShaderStage, variant: crate::shader::ShaderVariant) -> Result<Arc<crate::shader::CompiledShader>> {
+    pub fn load_shader(
+        &self,
+        path: &std::path::Path,
+        stage: crate::shader::ShaderStage,
+        variant: crate::shader::ShaderVariant,
+    ) -> Result<Arc<crate::shader::CompiledShader>> {
         self.shader_manager.load_shader(path, stage, variant)
     }
-    
+
     /// Create a render pipeline
     pub fn create_render_pipeline(&self) -> Result<()> {
         self.pipeline_manager.create_render_pipeline()
     }
-    
+
     /// Get the device manager
     pub fn device_manager(&self) -> &Arc<DeviceManager> {
         &self.device_manager
@@ -376,7 +389,7 @@ impl IntegratedRenderer {
     pub fn get_device_info(&self) -> &crate::device::GpuCapabilities {
         &self.device.capabilities
     }
-    
+
     /// Get the managed device
     pub fn device(&self) -> &ManagedDevice {
         &self.device
@@ -384,57 +397,60 @@ impl IntegratedRenderer {
 
     /// Check if a feature is supported
     pub fn supports_feature(&self, feature: Features) -> bool {
-        self.device.capabilities.supported_features.contains(feature)
+        self.device
+            .capabilities
+            .supported_features
+            .contains(feature)
     }
-    
+
     /// Perform maintenance tasks
     #[instrument(skip(self))]
     fn perform_maintenance(&mut self) -> Result<()> {
         debug!("Performing maintenance tasks");
-        
+
         // Clean up unused resources
         self.resource_manager.cleanup_unused();
-        
+
         // Defragment memory pools
         let _ = self.memory_manager.lock().defragment();
-        
+
         // Check for shader hot-reloads
         if self.config.enable_shader_hot_reload {
             if let Err(e) = self.shader_manager.check_for_reloads() {
                 warn!("Shader hot-reload check failed: {}", e);
             }
         }
-        
+
         // Collect garbage in buffer pools
         self.buffer_manager.collect_garbage();
-        
+
         Ok(())
     }
-    
+
     /// Resize surface (call when window is resized)
     pub fn resize(&mut self, new_size: (u32, u32)) -> Result<()> {
         info!("Resizing renderer to {}x{}", new_size.0, new_size.1);
-        
+
         // Update any size-dependent resources
         // This would typically involve recreating swap chain, depth buffers, etc.
-        
+
         Ok(())
     }
-    
+
     /// Shutdown the renderer gracefully
     #[instrument(skip(self))]
     pub fn shutdown(&mut self) {
         info!("Shutting down integrated renderer");
-        
+
         if let Some(ref profiler) = self.profiler {
             let report = profiler.get_performance_report();
             info!("Final performance report: {:#?}", report);
         }
-        
+
         // Cleanup resources
         self.resource_manager.cleanup_all();
         self.memory_manager.lock().cleanup();
-        
+
         self.initialized = false;
         info!("Renderer shutdown complete");
     }
@@ -450,31 +466,37 @@ impl Drop for IntegratedRenderer {
 
 impl RenderContext {
     /// Begin a render pass with profiling
-    pub fn begin_render_pass<'a>(&'a mut self, descriptor: &RenderPassDescriptor<'a, '_>) -> RenderPass<'a> {
+    pub fn begin_render_pass<'a>(
+        &'a mut self,
+        descriptor: &RenderPassDescriptor<'a, '_>,
+    ) -> RenderPass<'a> {
         // Begin CPU timing if profiler is available
         if let Some(ref profiler) = self.profiler {
             profiler.cpu_profiler.begin_section("render_pass");
         }
-        
+
         self.encoder.begin_render_pass(descriptor)
     }
-    
+
     /// End render pass timing
     pub fn end_render_pass(&self) {
         if let Some(ref profiler) = self.profiler {
             profiler.cpu_profiler.end_section("render_pass");
         }
     }
-    
+
     /// Begin compute pass with profiling
-    pub fn begin_compute_pass<'a>(&'a mut self, descriptor: &ComputePassDescriptor<'a>) -> ComputePass<'a> {
+    pub fn begin_compute_pass<'a>(
+        &'a mut self,
+        descriptor: &ComputePassDescriptor<'a>,
+    ) -> ComputePass<'a> {
         if let Some(ref profiler) = self.profiler {
             profiler.cpu_profiler.begin_section("compute_pass");
         }
-        
+
         self.encoder.begin_compute_pass(descriptor)
     }
-    
+
     /// End compute pass timing
     pub fn end_compute_pass(&self) {
         if let Some(ref profiler) = self.profiler {
@@ -499,55 +521,55 @@ impl<'a> RendererBuilder<'a> {
             surface: None,
         }
     }
-    
+
     /// Set the surface for compatibility checking
     pub fn with_surface(mut self, surface: &'a Surface<'a>) -> Self {
         self.surface = Some(surface);
         self
     }
-    
+
     /// Set the wgpu Instance to use
     pub fn with_instance(mut self, instance: Instance) -> Self {
         self.instance = Some(instance);
         self
     }
-    
+
     /// Enable or disable profiling
     pub fn with_profiling(mut self, enabled: bool) -> Self {
         self.config.enable_profiling = enabled;
         self
     }
-    
+
     /// Enable or disable detailed profiling
     pub fn with_detailed_profiling(mut self, enabled: bool) -> Self {
         self.config.detailed_profiling = enabled;
         self
     }
-    
+
     /// Set memory allocation strategy
     pub fn with_memory_strategy(mut self, strategy: AllocationStrategy) -> Self {
         self.config.memory_strategy = strategy;
         self
     }
-    
+
     /// Set maximum memory pool size
     pub fn with_max_memory_pool_size(mut self, size: u64) -> Self {
         self.config.max_memory_pool_size = size;
         self
     }
-    
+
     /// Set preferred GPU adapter
     pub fn with_preferred_adapter(mut self, preference: PowerPreference) -> Self {
         self.config.preferred_adapter = Some(preference);
         self
     }
-    
+
     /// Enable or disable validation layers
     pub fn with_validation(mut self, enabled: bool) -> Self {
         self.config.enable_validation = enabled;
         self
     }
-    
+
     /// Build the integrated renderer
     pub async fn build(self) -> Result<IntegratedRenderer> {
         IntegratedRenderer::with_config(self.config, self.instance, self.surface).await
@@ -571,7 +593,7 @@ macro_rules! create_renderer {
             .build()
             .await
     };
-    
+
     (release) => {
         RendererBuilder::new()
             .with_profiling(false)
@@ -579,7 +601,7 @@ macro_rules! create_renderer {
             .build()
             .await
     };
-    
+
     (performance) => {
         RendererBuilder::new()
             .with_profiling(true)

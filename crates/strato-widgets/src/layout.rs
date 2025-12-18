@@ -1,12 +1,15 @@
 //! Layout widgets for arranging child widgets
 
-use crate::widget::{Widget, WidgetId, generate_id};
+use crate::widget::{generate_id, Widget, WidgetId};
+use std::any::Any;
 use strato_core::{
     event::{Event, EventResult},
-    layout::{Constraints, Layout, Size, FlexItem, FlexContainer, FlexDirection, JustifyContent, AlignItems},
+    layout::{
+        AlignItems, Constraints, FlexContainer, FlexDirection, FlexItem, JustifyContent, Layout,
+        Size,
+    },
 };
 use strato_renderer::batch::RenderBatch;
-use std::any::Any;
 
 /// Main axis alignment for flex layouts
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -92,7 +95,7 @@ impl Widget for Row {
 
     fn layout(&mut self, constraints: Constraints) -> Size {
         let engine = strato_core::layout::LayoutEngine::new();
-        
+
         // Relax constraints for children measurement
         let child_constraints = Constraints {
             min_width: 0.0,
@@ -100,14 +103,14 @@ impl Widget for Row {
             min_height: 0.0,
             max_height: constraints.max_height,
         };
-        
+
         // Calculate child sizes
         let mut child_data = Vec::new();
         let mut sizes = Vec::with_capacity(self.children.len());
         for child in &mut self.children {
             let child_size = child.layout(child_constraints);
             sizes.push(child_size);
-            
+
             let mut flex_item = FlexItem::default();
             if let Some(flex) = child.as_any().downcast_ref::<Flex>() {
                 flex_item = FlexItem::grow(flex.flex);
@@ -116,7 +119,7 @@ impl Widget for Row {
         }
         // Cache sizes for use during render()
         self.cached_child_sizes = sizes;
-        
+
         // Calculate layout
         let container = FlexContainer {
             direction: FlexDirection::Row,
@@ -138,23 +141,25 @@ impl Widget for Row {
             ..Default::default()
         };
         let layouts = engine.calculate_flex_layout(&container, &child_data, constraints);
-        
+
         // Calculate total size
-        let width = layouts.iter()
+        let width = layouts
+            .iter()
             .map(|l| l.position.x + l.size.width)
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(0.0);
-        let height = layouts.iter()
+        let height = layouts
+            .iter()
             .map(|l| l.size.height)
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(0.0);
-        
+
         Size::new(width, height)
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
         let engine = strato_core::layout::LayoutEngine::new();
-        
+
         // Calculate child layouts using cached sizes measured in layout()
         let mut child_data = Vec::new();
         for (i, child) in self.children.iter().enumerate() {
@@ -163,14 +168,14 @@ impl Widget for Row {
                 .get(i)
                 .copied()
                 .unwrap_or_else(|| Size::new(100.0, 50.0));
-                
+
             let mut flex_item = FlexItem::default();
             if let Some(flex) = child.as_any().downcast_ref::<Flex>() {
                 flex_item = FlexItem::grow(flex.flex);
             }
             child_data.push((flex_item, child_size));
         }
-        
+
         let container = FlexContainer {
             direction: FlexDirection::Row,
             justify_content: match self.main_axis_alignment {
@@ -190,14 +195,16 @@ impl Widget for Row {
             },
             ..Default::default()
         };
-        let layouts = engine.calculate_flex_layout(&container, &child_data, Constraints::loose(layout.size.width, layout.size.height));
-        
+        let layouts = engine.calculate_flex_layout(
+            &container,
+            &child_data,
+            Constraints::loose(layout.size.width, layout.size.height),
+        );
+
         // Render children
         for (child, child_layout) in self.children.iter().zip(layouts.iter()) {
-            let absolute_layout = Layout::new(
-                layout.position + child_layout.position,
-                child_layout.size,
-            );
+            let absolute_layout =
+                Layout::new(layout.position + child_layout.position, child_layout.size);
             child.render(batch, absolute_layout);
         }
     }
@@ -305,7 +312,7 @@ impl Widget for Column {
 
     fn layout(&mut self, constraints: Constraints) -> Size {
         let engine = strato_core::layout::LayoutEngine::new();
-        
+
         // Relax constraints for children measurement
         let child_constraints = Constraints {
             min_width: 0.0,
@@ -313,14 +320,14 @@ impl Widget for Column {
             min_height: 0.0,
             max_height: constraints.max_height,
         };
-        
+
         // Calculate child sizes
         let mut child_data = Vec::new();
         let mut sizes = Vec::with_capacity(self.children.len());
         for child in &mut self.children {
             let child_size = child.layout(child_constraints);
             sizes.push(child_size);
-            
+
             let mut flex_item = FlexItem::default();
             if let Some(flex) = child.as_any().downcast_ref::<Flex>() {
                 flex_item = FlexItem::grow(flex.flex);
@@ -329,7 +336,7 @@ impl Widget for Column {
         }
         // Cache sizes for render()
         self.cached_child_sizes = sizes;
-        
+
         // Calculate layout
         let container = FlexContainer {
             direction: FlexDirection::Column,
@@ -351,23 +358,25 @@ impl Widget for Column {
             ..Default::default()
         };
         let layouts = engine.calculate_flex_layout(&container, &child_data, constraints);
-        
+
         // Calculate total size
-        let width = layouts.iter()
+        let width = layouts
+            .iter()
             .map(|l| l.size.width)
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(0.0);
-        let height = layouts.iter()
+        let height = layouts
+            .iter()
             .map(|l| l.position.y + l.size.height)
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(0.0);
-        
+
         Size::new(width, height)
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
         let engine = strato_core::layout::LayoutEngine::new();
-        
+
         // Calculate child layouts using cached sizes computed during layout()
         let mut child_data = Vec::new();
         for (i, child) in self.children.iter().enumerate() {
@@ -376,14 +385,14 @@ impl Widget for Column {
                 .get(i)
                 .copied()
                 .unwrap_or_else(|| Size::new(100.0, 50.0));
-                
+
             let mut flex_item = FlexItem::default();
             if let Some(flex) = child.as_any().downcast_ref::<Flex>() {
                 flex_item = FlexItem::grow(flex.flex);
             }
             child_data.push((flex_item, child_size));
         }
-        
+
         let container = FlexContainer {
             direction: FlexDirection::Column,
             justify_content: match self.main_axis_alignment {
@@ -403,14 +412,16 @@ impl Widget for Column {
             },
             ..Default::default()
         };
-        let layouts = engine.calculate_flex_layout(&container, &child_data, Constraints::loose(layout.size.width, layout.size.height));
-        
+        let layouts = engine.calculate_flex_layout(
+            &container,
+            &child_data,
+            Constraints::loose(layout.size.width, layout.size.height),
+        );
+
         // Render children
         for (child, child_layout) in self.children.iter().zip(layouts.iter()) {
-            let absolute_layout = Layout::new(
-                layout.position + child_layout.position,
-                child_layout.size,
-            );
+            let absolute_layout =
+                Layout::new(layout.position + child_layout.position, child_layout.size);
             child.render(batch, absolute_layout);
         }
     }
@@ -492,13 +503,13 @@ impl Widget for Stack {
     fn layout(&mut self, constraints: Constraints) -> Size {
         let mut max_width: f32 = 0.0;
         let mut max_height: f32 = 0.0;
-        
+
         for child in &mut self.children {
             let size = child.layout(constraints);
             max_width = max_width.max(size.width);
             max_height = max_height.max(size.height);
         }
-        
+
         Size::new(max_width, max_height)
     }
 

@@ -8,6 +8,7 @@ pub mod builder;
 pub mod button;
 pub mod checkbox;
 pub mod container;
+pub mod control;
 pub mod dropdown;
 pub mod grid;
 pub mod image;
@@ -19,9 +20,9 @@ pub mod scroll_view;
 pub mod slider;
 pub mod text;
 pub mod theme;
+pub mod top_bar;
 pub mod widget;
 pub mod wrap;
-pub mod top_bar;
 
 pub mod prelude;
 use crate::prelude::*;
@@ -31,6 +32,7 @@ pub use builder::WidgetBuilder;
 pub use button::{Button, ButtonStyle};
 pub use checkbox::{Checkbox, CheckboxStyle, RadioButton};
 pub use container::{Container, ContainerStyle};
+pub use control::{ControlRole, ControlSemantics, ControlState};
 pub use dropdown::{Dropdown, DropdownOption, DropdownStyle};
 pub use grid::{Grid, GridUnit};
 pub use image::{
@@ -44,8 +46,8 @@ pub use slider::{ProgressBar, Slider, SliderStyle};
 pub use strato_macros::view;
 pub use text::{Text, TextStyle};
 pub use theme::Theme;
-pub use widget::{Widget, WidgetContext, WidgetId};
 pub use top_bar::TopBar;
+pub use widget::{Widget, WidgetContext, WidgetId};
 
 /// Initialize the widgets module
 pub fn init() -> strato_core::Result<()> {

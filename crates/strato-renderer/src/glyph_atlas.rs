@@ -4,12 +4,12 @@
 //! for efficient GPU rendering. It uses cosmic-text for glyph rasterization and manages
 //! texture space allocation using a simple bin-packing algorithm.
 
+use crate::font_config::create_safe_font_system;
+use crate::text::Font;
+use cosmic_text::{CacheKey, FontSystem, SwashCache};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use cosmic_text::{CacheKey, FontSystem, SwashCache};
-use crate::font_config::create_safe_font_system;
 use strato_core::types::Color;
-use crate::text::Font;
 
 /// Represents a glyph in the atlas
 #[derive(Debug, Clone, Copy)]
@@ -55,14 +55,21 @@ impl GlyphAtlas {
     }
 
     /// Add a glyph to the atlas
-    pub fn add_glyph(&mut self, cache_key: CacheKey, glyph_bitmap: &[u8], size: (u32, u32), bearing: (i32, i32), advance: f32) -> Option<GlyphInfo> {
+    pub fn add_glyph(
+        &mut self,
+        cache_key: CacheKey,
+        glyph_bitmap: &[u8],
+        size: (u32, u32),
+        bearing: (i32, i32),
+        advance: f32,
+    ) -> Option<GlyphInfo> {
         let (glyph_width, glyph_height) = size;
-        
+
         // Check if glyph is already in atlas
         if let Some(info) = self.glyph_map.get(&cache_key) {
             return Some(*info);
         }
-        
+
         // Check if we have space in current row
         if self.current_x + glyph_width > self.dimensions.0 {
             // Move to next row
@@ -70,17 +77,17 @@ impl GlyphAtlas {
             self.current_x = 0;
             self.current_row_height = 0;
         }
-        
+
         // Check if we have vertical space
         if self.current_row_y + glyph_height > self.dimensions.1 {
             // Atlas is full
             return None;
         }
-        
+
         // Copy glyph data to atlas
         let atlas_x = self.current_x;
         let atlas_y = self.current_row_y;
-        
+
         for y in 0..glyph_height {
             for x in 0..glyph_width {
                 let src_idx = (y * glyph_width + x) as usize;
@@ -90,26 +97,26 @@ impl GlyphAtlas {
                 }
             }
         }
-        
+
         // Calculate UV coordinates
         let u_min = atlas_x as f32 / self.dimensions.0 as f32;
         let v_min = atlas_y as f32 / self.dimensions.1 as f32;
         let u_max = (atlas_x + glyph_width) as f32 / self.dimensions.0 as f32;
         let v_max = (atlas_y + glyph_height) as f32 / self.dimensions.1 as f32;
-        
+
         let glyph_info = GlyphInfo {
             uv_rect: (u_min, v_min, u_max, v_max),
             size,
             bearing,
             advance,
         };
-        
+
         // Update atlas state
         self.current_x += glyph_width;
         self.current_row_height = self.current_row_height.max(glyph_height);
         self.glyph_map.insert(cache_key, glyph_info);
         self.dirty = true;
-        
+
         Some(glyph_info)
     }
 
@@ -174,10 +181,10 @@ impl GlyphAtlasManager {
 
     /// Get or create a glyph in an atlas
     pub fn get_or_create_glyph(
-        &mut self, 
+        &mut self,
         font_system: &mut FontSystem,
         swash_cache: &mut SwashCache,
-        cache_key: CacheKey
+        cache_key: CacheKey,
     ) -> Option<(usize, GlyphInfo)> {
         // Check existing atlases first
         for (atlas_idx, atlas) in self.atlases.iter().enumerate() {
@@ -188,41 +195,44 @@ impl GlyphAtlasManager {
 
         // Need to rasterize the glyph
         // Rasterize using swash
-        let image = swash_cache.get_image(font_system, cache_key).as_ref().cloned()?;
-        
+        let image = swash_cache
+            .get_image(font_system, cache_key)
+            .as_ref()
+            .cloned()?;
+
         let glyph_width = image.placement.width;
         let glyph_height = image.placement.height;
         let bearing_x = image.placement.left;
         let bearing_y = image.placement.top;
-        
+
         // Convert content to alpha mask (if it's not already?)
         // swash_cache.get_image returns image data. cosmic-text uses Format::Alpha usually?
         // Let's check image.content.
-        
+
         let glyph_bitmap = match image.content {
             cosmic_text::SwashContent::Mask => image.data,
             cosmic_text::SwashContent::SubpixelMask => {
-                 // Convert subpixel to standard alpha? Or just use it?
-                 // For now assume we handle it as alpha or it's handled by shader
-                 // We'll take every 3rd byte or average?
-                 // For simplicity, let's just take it as is, but it might be 3x wider?
-                 // No, cosmic-text handles this.
-                 image.data
+                // Convert subpixel to standard alpha? Or just use it?
+                // For now assume we handle it as alpha or it's handled by shader
+                // We'll take every 3rd byte or average?
+                // For simplicity, let's just take it as is, but it might be 3x wider?
+                // No, cosmic-text handles this.
+                image.data
             }
             cosmic_text::SwashContent::Color => {
                 // Color emoji etc. Not supported in our simple atlas yet (grayscale).
-                return None; 
+                return None;
             }
         };
 
         // Try to add to existing atlases
         for (atlas_idx, atlas) in self.atlases.iter_mut().enumerate() {
             if let Some(info) = atlas.add_glyph(
-                cache_key, 
-                &glyph_bitmap, 
+                cache_key,
+                &glyph_bitmap,
                 (glyph_width, glyph_height),
                 (bearing_x, bearing_y),
-                0.0 // Advance is handled by layout run, we store 0 or don't use it in vertex gen
+                0.0, // Advance is handled by layout run, we store 0 or don't use it in vertex gen
             ) {
                 return Some((atlas_idx, info));
             }
@@ -231,11 +241,11 @@ impl GlyphAtlasManager {
         // Create new atlas if needed
         let mut new_atlas = GlyphAtlas::new(self.atlas_size.0, self.atlas_size.1);
         if let Some(info) = new_atlas.add_glyph(
-            cache_key, 
-            &glyph_bitmap, 
+            cache_key,
+            &glyph_bitmap,
             (glyph_width, glyph_height),
             (bearing_x, bearing_y),
-            0.0
+            0.0,
         ) {
             let atlas_idx = self.atlases.len();
             self.atlases.push(new_atlas);
@@ -331,7 +341,12 @@ mod tests {
         let info = info.unwrap();
         assert_eq!(
             info.uv_rect,
-            (0.0, 0.0, glyph_width as f32 / 256.0, glyph_height as f32 / 256.0)
+            (
+                0.0,
+                0.0,
+                glyph_width as f32 / 256.0,
+                glyph_height as f32 / 256.0
+            )
         );
     }
 

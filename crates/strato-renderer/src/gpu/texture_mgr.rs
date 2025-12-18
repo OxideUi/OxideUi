@@ -3,12 +3,12 @@
 //! BLOCCO 8: Texture Management
 //! Handles texture atlas creation, glyph caching, and texture binding
 
-use wgpu::{
-    Device, Queue, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    TextureView, Sampler, SamplerDescriptor, AddressMode, FilterMode, Extent3d,
-};
 use anyhow::Result;
 use std::collections::HashMap;
+use wgpu::{
+    AddressMode, Device, Extent3d, FilterMode, Queue, Sampler, SamplerDescriptor, Texture,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+};
 
 /// Glyph metrics for positioning and layout
 #[derive(Debug, Clone, Copy)]
@@ -24,14 +24,14 @@ pub struct GlyphMetrics {
 #[derive(Debug, Clone)]
 pub struct CachedGlyph {
     pub metrics: GlyphMetrics,
-    pub uv_rect: (f32, f32, f32, f32), // (u0, v0, u1, v1)
+    pub uv_rect: (f32, f32, f32, f32),      // (u0, v0, u1, v1)
     pub atlas_region: (u32, u32, u32, u32), // (x, y, w, h)
 }
 
 /// Cached image with atlas location and UV coordinates
 #[derive(Debug, Clone)]
 pub struct CachedImage {
-    pub uv_rect: (f32, f32, f32, f32), // (u0, v0, u1, v1)
+    pub uv_rect: (f32, f32, f32, f32),      // (u0, v0, u1, v1)
     pub atlas_region: (u32, u32, u32, u32), // (x, y, w, h)
 }
 
@@ -81,14 +81,12 @@ impl GlyphRasterizer {
     pub fn new() -> Result<Self> {
         // Embed Segoe UI Italic font (path from crates/strato-renderer/src/gpu/ to root/font/)
         const FONT_DATA: &[u8] = include_bytes!("../../../../font/segoeuithis.ttf");
-        
-        let font = fontdue::Font::from_bytes(
-            FONT_DATA,
-            fontdue::FontSettings::default()
-        ).map_err(|e| anyhow::anyhow!("Failed to load font: {}", e))?;
+
+        let font = fontdue::Font::from_bytes(FONT_DATA, fontdue::FontSettings::default())
+            .map_err(|e| anyhow::anyhow!("Failed to load font: {}", e))?;
 
         println!("=== GLYPH RASTERIZER INITIALIZED ===");
-        
+
         Ok(Self { font })
     }
 
@@ -261,7 +259,7 @@ impl TextureAtlas {
         let white_pixel = [255u8, 255, 255, 255];
         self.upload_region(queue, &white_pixel, 0, 0, 1, 1)
             .expect("Failed to upload white pixel");
-        
+
         // Advance allocator to skip this pixel
         // We'll just advance by a small amount to keep it simple, e.g., move to x=1
         // effectively reserving the first pixel of the first row
@@ -315,11 +313,11 @@ impl TextureManager {
     pub fn new_with_font(device: &Device, queue: &Queue) -> Self {
         // Increase atlas size to 2048x2048 to support images
         let mut atlas = TextureAtlas::new(device, 2048, 2048);
-        
+
         // IMPORTANT: Reserve white pixel at (0,0) for solid color rendering
         // The shader samples (0,0) when rendering non-textured shapes
         atlas.reserve_white_pixel(queue);
-        
+
         Self {
             atlas,
             glyph_cache: GlyphCache::new(),
@@ -335,7 +333,10 @@ impl TextureManager {
         character: char,
         font_size: u32,
     ) -> Option<&CachedGlyph> {
-        let key = GlyphKey { character, font_size };
+        let key = GlyphKey {
+            character,
+            font_size,
+        };
 
         // Check cache first
         if self.glyph_cache.get(&key).is_some() {
@@ -347,14 +348,11 @@ impl TextureManager {
             // Allocate space in atlas
             if let Some((x, y)) = self.atlas.allocate_region(metrics.width, metrics.height) {
                 // Upload to GPU
-                if self.atlas.upload_region(
-                    queue,
-                    &rgba_data,
-                    x,
-                    y,
-                    metrics.width,
-                    metrics.height,
-                ).is_ok() {
+                if self
+                    .atlas
+                    .upload_region(queue, &rgba_data, x, y, metrics.width, metrics.height)
+                    .is_ok()
+                {
                     // Calculate UV coordinates
                     let atlas_size = self.atlas.size();
                     let u0 = x as f32 / atlas_size.0 as f32;
@@ -394,14 +392,11 @@ impl TextureManager {
         // Allocate space in atlas
         if let Some((x, y)) = self.atlas.allocate_region(width, height) {
             // Upload to GPU
-            if self.atlas.upload_region(
-                queue,
-                data,
-                x,
-                y,
-                width,
-                height,
-            ).is_ok() {
+            if self
+                .atlas
+                .upload_region(queue, data, x, y, width, height)
+                .is_ok()
+            {
                 // Calculate UV coordinates
                 let atlas_size = self.atlas.size();
                 let u0 = x as f32 / atlas_size.0 as f32;
@@ -420,7 +415,10 @@ impl TextureManager {
                 println!("Failed to upload image region");
             }
         } else {
-            println!("Failed to allocate atlas region for image: {}x{}", width, height);
+            println!(
+                "Failed to allocate atlas region for image: {}x{}",
+                width, height
+            );
         }
 
         None
@@ -449,9 +447,18 @@ mod tests {
 
     #[test]
     fn test_glyph_key() {
-        let key1 = GlyphKey { character: 'A', font_size: 24 };
-        let key2 = GlyphKey { character: 'A', font_size: 24 };
-        let key3 = GlyphKey { character: 'B', font_size: 24 };
+        let key1 = GlyphKey {
+            character: 'A',
+            font_size: 24,
+        };
+        let key2 = GlyphKey {
+            character: 'A',
+            font_size: 24,
+        };
+        let key3 = GlyphKey {
+            character: 'B',
+            font_size: 24,
+        };
 
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
@@ -460,8 +467,11 @@ mod tests {
     #[test]
     fn test_glyph_cache() {
         let mut cache = GlyphCache::new();
-        
-        let key = GlyphKey { character: 'A', font_size: 24 };
+
+        let key = GlyphKey {
+            character: 'A',
+            font_size: 24,
+        };
         let glyph = CachedGlyph {
             metrics: GlyphMetrics {
                 width: 10,
@@ -482,7 +492,7 @@ mod tests {
     #[test]
     fn test_glyph_rasterizer() {
         let rasterizer = GlyphRasterizer::new().unwrap();
-        
+
         let result = rasterizer.rasterize('A', 24.0);
         assert!(result.is_some());
 
@@ -510,7 +520,7 @@ mod tests {
         // Test allocation that should succeed (fits in atlas)
         let region3 = atlas.allocate_region(100, 20);
         assert!(region3.is_some());
-        
+
         // Test allocation that's too wide for the atlas
         let region_fail = atlas.allocate_region(300, 20);
         assert_eq!(region_fail, None);
@@ -537,7 +547,7 @@ mod tests {
     async fn test_texture_atlas_creation() {
         let dm = DeviceManager::new(Backends::all()).await.unwrap();
         let atlas = TextureAtlas::new(dm.device(), 256, 256);
-        
+
         assert_eq!(atlas.size(), (256, 256));
     }
 
@@ -545,7 +555,7 @@ mod tests {
     async fn test_default_white_texture() {
         let dm = DeviceManager::new(Backends::all()).await.unwrap();
         let atlas = TextureAtlas::create_default_white(dm.device(), dm.queue());
-        
+
         assert_eq!(atlas.size(), (1, 1));
     }
 }

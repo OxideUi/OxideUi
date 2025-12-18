@@ -1,8 +1,8 @@
 //! Reactive programming primitives for StratoUI
 
-use std::sync::Arc;
 use parking_lot::RwLock;
 use smallvec::SmallVec;
+use std::sync::Arc;
 // Removed unused std::fmt::Debug import
 use std::marker::PhantomData;
 
@@ -13,7 +13,7 @@ pub type EffectFn = Box<dyn Fn() + Send + Sync>;
 pub trait Reactive: Send + Sync {
     /// Track this reactive value as a dependency
     fn track(&self);
-    
+
     /// Trigger updates for all dependents
     fn trigger(&self);
 }
@@ -86,10 +86,10 @@ impl Effect {
             dependencies: Arc::new(RwLock::new(SmallVec::new())),
             active: Arc::new(RwLock::new(true)),
         };
-        
+
         // Run the effect immediately
         effect.run();
-        
+
         effect
     }
 
@@ -234,13 +234,11 @@ mod tests {
     fn test_computed() {
         let counter = Arc::new(RwLock::new(0));
         let counter_clone = counter.clone();
-        
-        let computed = Computed::new(move || {
-            *counter_clone.read() * 2
-        });
-        
+
+        let computed = Computed::new(move || *counter_clone.read() * 2);
+
         assert_eq!(computed.get(), 0);
-        
+
         *counter.write() = 5;
         computed.invalidate();
         assert_eq!(computed.get(), 10);
@@ -249,15 +247,15 @@ mod tests {
     #[test]
     fn test_watch() {
         use std::sync::atomic::{AtomicI32, Ordering};
-        
+
         let watch = Watch::new(0);
         let received = Arc::new(AtomicI32::new(0));
         let received_clone = received.clone();
-        
+
         watch.on_change(move |value| {
             received_clone.store(*value, Ordering::SeqCst);
         });
-        
+
         watch.set(42);
         assert_eq!(received.load(Ordering::SeqCst), 42);
     }
@@ -266,16 +264,16 @@ mod tests {
     fn test_memo() {
         let call_count = Arc::new(RwLock::new(0));
         let call_count_clone = call_count.clone();
-        
+
         let memo = Memo::new(move || {
             *call_count_clone.write() += 1;
             42
         });
-        
+
         assert_eq!(memo.get(), 42);
         assert_eq!(memo.get(), 42); // Should not recompute
         assert_eq!(*call_count.read(), 1);
-        
+
         memo.clear();
         assert_eq!(memo.get(), 42); // Recomputes after clear
         assert_eq!(*call_count.read(), 2);

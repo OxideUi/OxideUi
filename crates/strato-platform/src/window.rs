@@ -1,7 +1,7 @@
 //! Window management
 
-use strato_core::{Size, types::Point};
 use std::sync::Arc;
+use strato_core::{types::Point, Size};
 
 /// Window identifier
 pub type WindowId = u64;
@@ -34,9 +34,7 @@ impl Window {
                 Size::new(size.width as f32, size.height as f32)
             }
             #[cfg(target_arch = "wasm32")]
-            WindowInner::Web(canvas) => {
-                Size::new(canvas.width() as f32, canvas.height() as f32)
-            }
+            WindowInner::Web(canvas) => Size::new(canvas.width() as f32, canvas.height() as f32),
         }
     }
 
@@ -45,10 +43,8 @@ impl Window {
         match &self.inner {
             #[cfg(not(target_arch = "wasm32"))]
             WindowInner::Desktop(window) => {
-                let _ = window.request_inner_size(winit::dpi::LogicalSize::new(
-                    size.width,
-                    size.height,
-                ));
+                let _ = window
+                    .request_inner_size(winit::dpi::LogicalSize::new(size.width, size.height));
             }
             #[cfg(target_arch = "wasm32")]
             WindowInner::Web(canvas) => {
@@ -62,11 +58,10 @@ impl Window {
     pub fn position(&self) -> Point {
         match &self.inner {
             #[cfg(not(target_arch = "wasm32"))]
-            WindowInner::Desktop(window) => {
-                window.outer_position()
-                    .map(|pos| Point::new(pos.x as f32, pos.y as f32))
-                    .unwrap_or(Point::zero())
-            }
+            WindowInner::Desktop(window) => window
+                .outer_position()
+                .map(|pos| Point::new(pos.x as f32, pos.y as f32))
+                .unwrap_or(Point::zero()),
             #[cfg(target_arch = "wasm32")]
             WindowInner::Web(_) => Point::zero(),
         }
@@ -186,25 +181,37 @@ impl WindowBuilder {
 
     /// Build winit window
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn build_winit(&self, event_loop: &winit::event_loop::EventLoopWindowTarget<crate::event_loop::CustomEvent>) -> Result<winit::window::Window, winit::error::OsError> {
+    pub(crate) fn build_winit(
+        &self,
+        event_loop: &winit::event_loop::EventLoopWindowTarget<crate::event_loop::CustomEvent>,
+    ) -> Result<winit::window::Window, winit::error::OsError> {
         let mut builder = winit::window::WindowBuilder::new()
             .with_title(&self.title)
-            .with_inner_size(winit::dpi::LogicalSize::new(self.size.width, self.size.height))
+            .with_inner_size(winit::dpi::LogicalSize::new(
+                self.size.width,
+                self.size.height,
+            ))
             .with_resizable(self.resizable)
             .with_decorations(self.decorations)
             .with_transparent(self.transparent)
-            .with_window_level(if self.always_on_top { winit::window::WindowLevel::AlwaysOnTop } else { winit::window::WindowLevel::Normal });
+            .with_window_level(if self.always_on_top {
+                winit::window::WindowLevel::AlwaysOnTop
+            } else {
+                winit::window::WindowLevel::Normal
+            });
 
         if let Some(pos) = self.position {
             builder = builder.with_position(winit::dpi::LogicalPosition::new(pos.x, pos.y));
         }
 
         if let Some(min) = self.min_size {
-            builder = builder.with_min_inner_size(winit::dpi::LogicalSize::new(min.width, min.height));
+            builder =
+                builder.with_min_inner_size(winit::dpi::LogicalSize::new(min.width, min.height));
         }
 
         if let Some(max) = self.max_size {
-            builder = builder.with_max_inner_size(winit::dpi::LogicalSize::new(max.width, max.height));
+            builder =
+                builder.with_max_inner_size(winit::dpi::LogicalSize::new(max.width, max.height));
         }
 
         if self.fullscreen {

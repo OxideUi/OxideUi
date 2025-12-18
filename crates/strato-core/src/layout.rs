@@ -1,5 +1,5 @@
 //! Flexbox-based layout engine for StratoUI
-//! 
+//!
 //! This module provides a comprehensive flexbox layout system that supports
 //! all major flexbox properties including direction, wrap, alignment, and gaps.
 
@@ -59,8 +59,10 @@ impl Constraints {
 
     /// Check if a size satisfies these constraints
     pub fn is_satisfied_by(&self, size: Size) -> bool {
-        size.width >= self.min_width && size.width <= self.max_width &&
-        size.height >= self.min_height && size.height <= self.max_height
+        size.width >= self.min_width
+            && size.width <= self.max_width
+            && size.height >= self.min_height
+            && size.height <= self.max_height
     }
 }
 
@@ -116,7 +118,10 @@ impl FlexDirection {
 
     /// Check if this is reversed
     pub fn is_reverse(&self) -> bool {
-        matches!(self, FlexDirection::RowReverse | FlexDirection::ColumnReverse)
+        matches!(
+            self,
+            FlexDirection::RowReverse | FlexDirection::ColumnReverse
+        )
     }
 }
 
@@ -324,13 +329,20 @@ impl Layout {
 
     /// Get the bounds as (x, y, width, height)
     pub fn bounds(&self) -> (f32, f32, f32, f32) {
-        (self.position.x, self.position.y, self.size.width, self.size.height)
+        (
+            self.position.x,
+            self.position.y,
+            self.size.width,
+            self.size.height,
+        )
     }
 
     /// Check if a point is within this layout
     pub fn contains(&self, point: Vec2) -> bool {
-        point.x >= self.position.x && point.x <= self.position.x + self.size.width &&
-        point.y >= self.position.y && point.y <= self.position.y + self.size.height
+        point.x >= self.position.x
+            && point.x <= self.position.x + self.size.width
+            && point.y >= self.position.y
+            && point.y <= self.position.y + self.size.height
     }
 }
 
@@ -378,26 +390,27 @@ impl LayoutEngine {
 
         // Determine main and cross axis dimensions
         let (main_size, cross_size) = if container.direction.is_row() {
-            (content_constraints.max_width, content_constraints.max_height)
+            (
+                content_constraints.max_width,
+                content_constraints.max_height,
+            )
         } else {
-            (content_constraints.max_height, content_constraints.max_width)
+            (
+                content_constraints.max_height,
+                content_constraints.max_width,
+            )
         };
 
         // Create flex lines
         let lines = self.create_flex_lines(container, children, main_size);
-        
+
         // Calculate layouts for each line
         let mut layouts = Vec::with_capacity(children.len());
         let mut cross_position = container.padding.top;
 
         for line in &lines {
-            let line_layouts = self.calculate_line_layout(
-                container,
-                children,
-                line,
-                main_size,
-                cross_position,
-            );
+            let line_layouts =
+                self.calculate_line_layout(container, children, line, main_size, cross_position);
             layouts.extend(line_layouts);
             cross_position += line.cross_size + container.gap.row;
         }
@@ -438,9 +451,9 @@ impl LayoutEngine {
             };
 
             // Check if we need to wrap
-            let needs_wrap = container.wrap != FlexWrap::NoWrap &&
-                !current_line.items.is_empty() &&
-                current_line.main_size + item_main_size + container.gap.column > main_size;
+            let needs_wrap = container.wrap != FlexWrap::NoWrap
+                && !current_line.items.is_empty()
+                && current_line.main_size + item_main_size + container.gap.column > main_size;
 
             if needs_wrap {
                 lines.push(current_line);
@@ -476,15 +489,11 @@ impl LayoutEngine {
         cross_position: f32,
     ) -> Vec<Layout> {
         let mut layouts = Vec::new();
-        
+
         // Calculate flex grow/shrink
-        let total_flex_grow: f32 = line.items.iter()
-            .map(|&i| children[i].0.flex_grow)
-            .sum();
-        
-        let total_flex_shrink: f32 = line.items.iter()
-            .map(|&i| children[i].0.flex_shrink)
-            .sum();
+        let total_flex_grow: f32 = line.items.iter().map(|&i| children[i].0.flex_grow).sum();
+
+        let total_flex_shrink: f32 = line.items.iter().map(|&i| children[i].0.flex_shrink).sum();
 
         // Calculate available space
         let used_space = line.main_size - container.gap.column * (line.items.len() - 1) as f32;
@@ -492,7 +501,7 @@ impl LayoutEngine {
 
         // Distribute free space
         let mut main_position = container.padding.left;
-        
+
         // Apply justify-content
         match container.justify_content {
             JustifyContent::FlexEnd => main_position += free_space,
@@ -513,7 +522,7 @@ impl LayoutEngine {
 
         for (idx, &item_idx) in line.items.iter().enumerate() {
             let (item, size) = &children[item_idx];
-            
+
             // Calculate item main size with flex
             let mut item_main_size = if container.direction.is_row() {
                 size.width
@@ -549,11 +558,32 @@ impl LayoutEngine {
 
             let mut item_cross_position = cross_position;
             match align {
-                AlignItems::FlexEnd => item_cross_position += line.cross_size - (item_cross_size + if container.direction.is_row() { item.margin.vertical() } else { item.margin.horizontal() }),
-                AlignItems::Center => item_cross_position += (line.cross_size - (item_cross_size + if container.direction.is_row() { item.margin.vertical() } else { item.margin.horizontal() })) / 2.0,
+                AlignItems::FlexEnd => {
+                    item_cross_position += line.cross_size
+                        - (item_cross_size
+                            + if container.direction.is_row() {
+                                item.margin.vertical()
+                            } else {
+                                item.margin.horizontal()
+                            })
+                }
+                AlignItems::Center => {
+                    item_cross_position += (line.cross_size
+                        - (item_cross_size
+                            + if container.direction.is_row() {
+                                item.margin.vertical()
+                            } else {
+                                item.margin.horizontal()
+                            }))
+                        / 2.0
+                }
                 AlignItems::Stretch => {
                     // Stretch to fill cross axis
-                    let margin = if container.direction.is_row() { item.margin.vertical() } else { item.margin.horizontal() };
+                    let margin = if container.direction.is_row() {
+                        item.margin.vertical()
+                    } else {
+                        item.margin.horizontal()
+                    };
                     item_cross_size = (line.cross_size - margin).max(0.0);
                 }
                 _ => {}
@@ -562,12 +592,18 @@ impl LayoutEngine {
             // Create layout based on direction
             let layout = if container.direction.is_row() {
                 Layout::new(
-                    Vec2::new(main_position + item.margin.left, item_cross_position + item.margin.top),
+                    Vec2::new(
+                        main_position + item.margin.left,
+                        item_cross_position + item.margin.top,
+                    ),
                     Size::new(item_main_size, item_cross_size),
                 )
             } else {
                 Layout::new(
-                    Vec2::new(item_cross_position + item.margin.left, main_position + item.margin.top),
+                    Vec2::new(
+                        item_cross_position + item.margin.left,
+                        main_position + item.margin.top,
+                    ),
                     Size::new(item_cross_size, item_main_size),
                 )
             };
@@ -576,10 +612,12 @@ impl LayoutEngine {
 
             // Update position for next item
             main_position += item_main_size + item.margin.horizontal() + container.gap.column;
-            
+
             // Apply justify-content spacing
             match container.justify_content {
-                JustifyContent::SpaceBetween if line.items.len() > 1 && idx < line.items.len() - 1 => {
+                JustifyContent::SpaceBetween
+                    if line.items.len() > 1 && idx < line.items.len() - 1 =>
+                {
                     main_position += free_space / (line.items.len() - 1) as f32;
                 }
                 JustifyContent::SpaceAround => {
@@ -635,9 +673,7 @@ impl LayoutEngine {
                 AlignContent::SpaceAround => {
                     cross_offset + (free_cross_space / lines.len() as f32) * line_idx as f32
                 }
-                AlignContent::SpaceEvenly => {
-                    cross_offset * (line_idx + 1) as f32
-                }
+                AlignContent::SpaceEvenly => cross_offset * (line_idx + 1) as f32,
                 _ => cross_offset,
             };
 
@@ -684,20 +720,17 @@ mod tests {
             (FlexItem::grow(1.0), Size::new(0.0, 50.0)),
             (FlexItem::grow(2.0), Size::new(0.0, 50.0)),
         ];
-        
+
         let container = FlexContainer {
             direction: FlexDirection::Row,
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::FlexStart,
             ..Default::default()
         };
-        
-        let layouts = engine.calculate_flex_layout(
-            &container,
-            &children,
-            Constraints::loose(300.0, 100.0),
-        );
-        
+
+        let layouts =
+            engine.calculate_flex_layout(&container, &children, Constraints::loose(300.0, 100.0));
+
         assert_eq!(layouts.len(), 2);
         assert_eq!(layouts[0].size.width, 100.0);
         assert_eq!(layouts[1].size.width, 200.0);

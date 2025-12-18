@@ -1,5 +1,5 @@
 //! Advanced font management system for StratoUI
-//! 
+//!
 //! This module provides a comprehensive font management system with:
 //! - Font registration and identification via FontId
 //! - Glyph atlas for efficient rendering
@@ -7,15 +7,15 @@
 //! - High-performance text rendering with caching
 
 use cosmic_text::{
-    Attrs, Buffer, Family, Metrics, Shaping, SwashCache, Wrap, FontSystem as CosmicFontSystem,
+    Attrs, Buffer, Family, FontSystem as CosmicFontSystem, Metrics, Shaping, SwashCache, Wrap,
 };
 use dashmap::DashMap;
-use strato_core::types::{Color, Point};
-use strato_core::layout::Size;
 use parking_lot::RwLock;
-use std::sync::Arc;
 use std::collections::HashMap;
-use wgpu::{Device, Texture, TextureView, Sampler};
+use std::sync::Arc;
+use strato_core::layout::Size;
+use strato_core::types::{Color, Point};
+use wgpu::{Device, Sampler, Texture, TextureView};
 
 /// Unique identifier for registered fonts
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -121,7 +121,7 @@ impl GlyphAtlas {
         });
 
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        
+
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Glyph Atlas Sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -180,7 +180,7 @@ impl GlyphAtlas {
         let pos = (self.current_x, self.current_y);
         self.current_x += width;
         self.row_height = self.row_height.max(height);
-        
+
         Some(pos)
     }
 }
@@ -188,7 +188,7 @@ impl GlyphAtlas {
 /// Advanced font management system
 /// Creates a safe font system that loads only specific fonts to avoid problematic system fonts
 /// This function has been moved to font_config.rs for centralized configuration
-/// 
+///
 /// FontSystem implementation with advanced text rendering capabilities
 
 pub struct FontSystem {
@@ -204,10 +204,10 @@ pub struct FontSystem {
 impl FontSystem {
     pub fn new(device: &Device) -> Self {
         let font_system = crate::font_config::create_safe_font_system();
-        
+
         // Register default fonts
         let mut fonts = HashMap::new();
-        
+
         // Default system font with platform-specific fallbacks
         #[cfg(target_os = "windows")]
         let default_font_chain = vec![
@@ -217,7 +217,7 @@ impl FontSystem {
             "Arial".to_string(),
             "sans-serif".to_string(),
         ];
-        
+
         #[cfg(target_os = "macos")]
         let default_font_chain = vec![
             "SF Pro Display".to_string(),
@@ -226,7 +226,7 @@ impl FontSystem {
             "Arial".to_string(),
             "sans-serif".to_string(),
         ];
-        
+
         #[cfg(target_os = "linux")]
         let default_font_chain = vec![
             "Ubuntu".to_string(),
@@ -236,20 +236,20 @@ impl FontSystem {
             "Arial".to_string(),
             "sans-serif".to_string(),
         ];
-        
-        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-        let default_font_chain = vec![
-            "Arial".to_string(),
-            "sans-serif".to_string(),
-        ];
 
-        fonts.insert(FontId::DEFAULT, FontInfo {
-            id: FontId::DEFAULT,
-            family: default_font_chain[0].clone(),
-            fallback_chain: default_font_chain.clone(),
-            supports_cjk: false,
-            supports_emoji: true,
-        });
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        let default_font_chain = vec!["Arial".to_string(), "sans-serif".to_string()];
+
+        fonts.insert(
+            FontId::DEFAULT,
+            FontInfo {
+                id: FontId::DEFAULT,
+                family: default_font_chain[0].clone(),
+                fallback_chain: default_font_chain.clone(),
+                supports_cjk: false,
+                supports_emoji: true,
+            },
+        );
 
         // System font with CJK support
         #[cfg(target_os = "windows")]
@@ -262,7 +262,7 @@ impl FontSystem {
             "Arial".to_string(),
             "sans-serif".to_string(),
         ];
-        
+
         #[cfg(target_os = "macos")]
         let system_font_chain = vec![
             "SF Pro Display".to_string(),
@@ -273,7 +273,7 @@ impl FontSystem {
             "Arial".to_string(),
             "sans-serif".to_string(),
         ];
-        
+
         #[cfg(target_os = "linux")]
         let system_font_chain = vec![
             "Ubuntu".to_string(),
@@ -284,34 +284,37 @@ impl FontSystem {
             "Arial".to_string(),
             "sans-serif".to_string(),
         ];
-        
-        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-        let system_font_chain = vec![
-            "Arial".to_string(),
-            "sans-serif".to_string(),
-        ];
 
-        fonts.insert(FontId::SYSTEM, FontInfo {
-            id: FontId::SYSTEM,
-            family: system_font_chain[0].clone(),
-            fallback_chain: system_font_chain,
-            supports_cjk: true,
-            supports_emoji: true,
-        });
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+        let system_font_chain = vec!["Arial".to_string(), "sans-serif".to_string()];
+
+        fonts.insert(
+            FontId::SYSTEM,
+            FontInfo {
+                id: FontId::SYSTEM,
+                family: system_font_chain[0].clone(),
+                fallback_chain: system_font_chain,
+                supports_cjk: true,
+                supports_emoji: true,
+            },
+        );
 
         // Monospace font
-        fonts.insert(FontId::MONOSPACE, FontInfo {
-            id: FontId::MONOSPACE,
-            family: "monospace".to_string(),
-            fallback_chain: vec![
-                "Consolas".to_string(),
-                "Monaco".to_string(),
-                "Courier New".to_string(),
-                "monospace".to_string(),
-            ],
-            supports_cjk: false,
-            supports_emoji: false,
-        });
+        fonts.insert(
+            FontId::MONOSPACE,
+            FontInfo {
+                id: FontId::MONOSPACE,
+                family: "monospace".to_string(),
+                fallback_chain: vec![
+                    "Consolas".to_string(),
+                    "Monaco".to_string(),
+                    "Courier New".to_string(),
+                    "monospace".to_string(),
+                ],
+                supports_cjk: false,
+                supports_emoji: false,
+            },
+        );
 
         Self {
             font_system: Arc::new(RwLock::new(font_system)),
@@ -347,7 +350,9 @@ impl FontSystem {
 
     /// Create text attributes for rendering
     fn create_attrs<'a>(&'a self, style: &'a TextStyle) -> Attrs<'a> {
-        let font_info = self.fonts.get(&style.font)
+        let font_info = self
+            .fonts
+            .get(&style.font)
             .unwrap_or_else(|| &self.fonts[&FontId::DEFAULT]);
 
         Attrs::new()
@@ -363,57 +368,63 @@ impl FontSystem {
     /// Measure text dimensions
     pub fn measure_text(&self, text: &str, style: &TextStyle, max_width: Option<f32>) -> Size {
         let mut font_system = self.font_system.write();
-        
+
         let metrics = Metrics::new(style.size, style.size * style.line_height);
         let mut buffer = Buffer::new(&mut font_system, metrics);
-        
+
         let attrs = self.create_attrs(style);
         buffer.set_text(&mut font_system, text, attrs, Shaping::Advanced);
-        
+
         if let Some(width) = max_width {
             buffer.set_wrap(&mut font_system, Wrap::Word);
             buffer.set_size(&mut font_system, Some(width), Some(f32::MAX));
         }
-        
+
         buffer.shape_until_scroll(&mut font_system, false);
-        
+
         let mut max_width: f32 = 0.0;
         let mut total_height = 0.0;
-        
+
         for run in buffer.layout_runs() {
             let line_width = run.glyphs.iter().map(|g| g.w).sum::<f32>();
             max_width = max_width.max(line_width);
             total_height += run.line_height;
         }
-        
+
         Size::new(max_width, total_height)
     }
 
     /// Render text and return vertex data
-    pub fn render_text(&self, text: &str, style: &TextStyle, position: Point, max_width: Option<f32>) -> Vec<TextVertex> {
+    pub fn render_text(
+        &self,
+        text: &str,
+        style: &TextStyle,
+        position: Point,
+        max_width: Option<f32>,
+    ) -> Vec<TextVertex> {
         let mut vertices = Vec::new();
         let mut font_system = self.font_system.write();
-        
+
         let metrics = Metrics::new(style.size, style.size * style.line_height);
         let mut buffer = Buffer::new(&mut font_system, metrics);
-        
+
         let attrs = self.create_attrs(style);
         buffer.set_text(&mut font_system, text, attrs, Shaping::Advanced);
-        
+
         if let Some(width) = max_width {
             buffer.set_wrap(&mut font_system, Wrap::Word);
             buffer.set_size(&mut font_system, Some(width), Some(f32::MAX));
         }
-        
+
         buffer.shape_until_scroll(&mut font_system, false);
-        
+
         // Process glyphs and add to atlas if needed
         for run in buffer.layout_runs() {
             for glyph in run.glyphs {
                 let physical_glyph = glyph.physical((position.x, position.y), 1.0);
                 // Add glyph to atlas and create vertex
                 let tex_coords = self.ensure_glyph_in_atlas(&physical_glyph);
-                
+
                 vertices.push(TextVertex {
                     position: [physical_glyph.x as f32, physical_glyph.y as f32],
                     color: [style.color.r, style.color.g, style.color.b, style.color.a],
@@ -421,7 +432,7 @@ impl FontSystem {
                 });
             }
         }
-        
+
         vertices
     }
 

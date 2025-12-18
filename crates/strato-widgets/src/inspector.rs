@@ -192,14 +192,14 @@ impl Widget for InspectorOverlay {
 
     fn clone_widget(&self) -> Box<dyn Widget> {
         // Since we can't easily clone the boxed child trait object without more bounds,
-        // and InspectorOverlay is likely a singleton/special widget, 
-        // we might need a specific strategy. 
+        // and InspectorOverlay is likely a singleton/special widget,
+        // we might need a specific strategy.
         // For now, assuming `InspectorOverlay` needs to be Clone but `child` is `Box<dyn Widget>`.
         // `Box<dyn Widget>` isn't automatically cloneable unless `Widget` has `clone_widget`.
         // We can use the child's `clone_widget` method.
         Box::new(Self {
-            id: generate_id(), // Generate new ID on clone? Or copy? Usually clone implies new ID for widgets or copy? 
-                             // BaseWidget generates new ID.
+            id: generate_id(), // Generate new ID on clone? Or copy? Usually clone implies new ID for widgets or copy?
+            // BaseWidget generates new ID.
             child: self.child.clone_widget(),
             shortcut: self.shortcut,
             visible: self.visible,

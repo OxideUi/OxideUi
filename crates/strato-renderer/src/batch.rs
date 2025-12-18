@@ -1,10 +1,10 @@
 //! Render batching system for efficient GPU rendering
 
-use std::collections::HashMap;
-use strato_core::types::{Color, Rect, Transform};
-use crate::vertex::Vertex;
 use crate::text::TextRenderer;
+use crate::vertex::Vertex;
+use std::collections::HashMap;
 use std::ops::Range;
+use strato_core::types::{Color, Rect, Transform};
 
 use strato_core::text::TextAlign;
 
@@ -128,10 +128,10 @@ impl RenderBatch {
         let start_index = self.indices.len() as u32;
         self.batch_rect(rect, color, transform);
         let end_index = self.indices.len() as u32;
-        
-        let command = DrawCommand::Rect { 
-            rect, 
-            color, 
+
+        let command = DrawCommand::Rect {
+            rect,
+            color,
             transform,
             index_range: start_index..end_index,
         };
@@ -149,18 +149,51 @@ impl RenderBatch {
     }
 
     /// Add a rounded rectangle to the batch
-    pub fn add_rounded_rect(&mut self, rect: Rect, color: Color, radius: f32, transform: Transform) {
-        let command = DrawCommand::RoundedRect { rect, color, radius, transform };
+    pub fn add_rounded_rect(
+        &mut self,
+        rect: Rect,
+        color: Color,
+        radius: f32,
+        transform: Transform,
+    ) {
+        let command = DrawCommand::RoundedRect {
+            rect,
+            color,
+            radius,
+            transform,
+        };
         self.commands.push(command);
     }
 
     /// Add text to the batch
-    pub fn add_text(&mut self, text: String, position: (f32, f32), color: Color, font_size: f32, letter_spacing: f32) {
-        self.add_text_aligned(text, position, color, font_size, letter_spacing, TextAlign::Left);
+    pub fn add_text(
+        &mut self,
+        text: String,
+        position: (f32, f32),
+        color: Color,
+        font_size: f32,
+        letter_spacing: f32,
+    ) {
+        self.add_text_aligned(
+            text,
+            position,
+            color,
+            font_size,
+            letter_spacing,
+            TextAlign::Left,
+        );
     }
 
     /// Add aligned text to the batch
-    pub fn add_text_aligned(&mut self, text: String, position: (f32, f32), color: Color, font_size: f32, letter_spacing: f32, align: TextAlign) {
+    pub fn add_text_aligned(
+        &mut self,
+        text: String,
+        position: (f32, f32),
+        color: Color,
+        font_size: f32,
+        letter_spacing: f32,
+        align: TextAlign,
+    ) {
         let command = DrawCommand::Text {
             text: text.clone(),
             position,
@@ -174,19 +207,25 @@ impl RenderBatch {
 
     /// Add a rectangle to the overlay layer (drawn last)
     pub fn add_overlay_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
-
-        let command = DrawCommand::Rect { 
-            rect, 
-            color, 
+        let command = DrawCommand::Rect {
+            rect,
+            color,
             transform,
-            index_range: 0..0 
+            index_range: 0..0,
         };
         self.overlay_commands.push(command);
-        
     }
 
     /// Add aligned text to the overlay layer (drawn last)
-    pub fn add_overlay_text_aligned(&mut self, text: String, position: (f32, f32), color: Color, font_size: f32, letter_spacing: f32, align: TextAlign) {
+    pub fn add_overlay_text_aligned(
+        &mut self,
+        text: String,
+        position: (f32, f32),
+        color: Color,
+        font_size: f32,
+        letter_spacing: f32,
+        align: TextAlign,
+    ) {
         let command = DrawCommand::Text {
             text: text.clone(),
             position,
@@ -245,12 +284,26 @@ impl RenderBatch {
     }
 
     /// Add a circle to the batch
-    pub fn add_circle(&mut self, center: (f32, f32), radius: f32, color: Color, segments: u32, transform: Transform) {
+    pub fn add_circle(
+        &mut self,
+        center: (f32, f32),
+        radius: f32,
+        color: Color,
+        segments: u32,
+        transform: Transform,
+    ) {
         let start_index = self.indices.len() as u32;
         self.batch_circle(center, radius, color, segments, transform);
         let end_index = self.indices.len() as u32;
 
-        let command = DrawCommand::Circle { center, radius, color, segments, transform, index_range: start_index..end_index };
+        let command = DrawCommand::Circle {
+            center,
+            radius,
+            color,
+            segments,
+            transform,
+            index_range: start_index..end_index,
+        };
         self.commands.push(command);
     }
 
@@ -259,28 +312,34 @@ impl RenderBatch {
         let start_index = self.indices.len() as u32;
         self.batch_line(start, end, color, thickness);
         let end_index = self.indices.len() as u32;
-        
-        let command = DrawCommand::Line { start, end, color, thickness, index_range: start_index..end_index };
+
+        let command = DrawCommand::Line {
+            start,
+            end,
+            color,
+            thickness,
+            index_range: start_index..end_index,
+        };
         self.commands.push(command);
     }
 
     /// Add raw vertices and indices to the batch
     pub fn add_vertices(&mut self, vertices: &[Vertex], indices: &[u16]) {
         let vertex_offset = self.vertices.len() as u16;
-        
+
         // Add vertices
         self.vertices.extend_from_slice(vertices);
-        
+
         // Add indices with offset
         for &index in indices {
             self.indices.push(vertex_offset + index);
         }
-        
+
         self.vertex_count += vertices.len() as u16;
     }
-    
+
     /// Batch text with real GPU glyph rendering (requires TextureManager access)
-    /// 
+    ///
     /// This is the full implementation that renders actual glyphs from the font atlas
     #[allow(dead_code)]
     fn batch_text_gpu(
@@ -294,40 +353,53 @@ impl RenderBatch {
     ) {
         let (mut x, y) = position;
         let color_arr = [color.r, color.g, color.b, color.a];
-        
+
         for ch in text.chars() {
             if let Some(glyph) = texture_mgr.get_or_cache_glyph(queue, ch, font_size) {
                 // Calculate glyph position with bearing
                 let glyph_x = x + glyph.metrics.bearing_x as f32;
                 let glyph_y = y - glyph.metrics.bearing_y as f32;
-                
+
                 // Glyph dimensions
                 let w = glyph.metrics.width as f32;
                 let h = glyph.metrics.height as f32;
-                
+
                 // UV coordinates from atlas
                 let (u0, v0, u1, v1) = glyph.uv_rect;
-                
+
                 // Create textured quad for this glyph
                 let base_idx = self.vertex_count;
-                
+
                 // Add 4 vertices for the quad
-                self.vertices.push(Vertex::textured([glyph_x, glyph_y], [u0, v0], color_arr));
-                self.vertices.push(Vertex::textured([glyph_x + w, glyph_y], [u1, v0], color_arr));
-                self.vertices.push(Vertex::textured([glyph_x + w, glyph_y + h], [u1, v1], color_arr));
-                self.vertices.push(Vertex::textured([glyph_x, glyph_y + h], [u0, v1], color_arr));
-                
+                self.vertices
+                    .push(Vertex::textured([glyph_x, glyph_y], [u0, v0], color_arr));
+                self.vertices.push(Vertex::textured(
+                    [glyph_x + w, glyph_y],
+                    [u1, v0],
+                    color_arr,
+                ));
+                self.vertices.push(Vertex::textured(
+                    [glyph_x + w, glyph_y + h],
+                    [u1, v1],
+                    color_arr,
+                ));
+                self.vertices.push(Vertex::textured(
+                    [glyph_x, glyph_y + h],
+                    [u0, v1],
+                    color_arr,
+                ));
+
                 // Add 2 triangles (6 indices)
                 self.indices.push(base_idx);
                 self.indices.push(base_idx + 1);
                 self.indices.push(base_idx + 2);
-                
+
                 self.indices.push(base_idx);
                 self.indices.push(base_idx + 2);
                 self.indices.push(base_idx + 3);
-                
+
                 self.vertex_count += 4;
-                
+
                 // Advance to next character position
                 x += glyph.metrics.advance;
             } else {
@@ -340,7 +412,7 @@ impl RenderBatch {
     /// Batch a rectangle into vertices and indices
     fn batch_rect(&mut self, rect: Rect, color: Color, transform: Transform) {
         let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
-        
+
         // Apply transform to vertices
         let positions = [
             self.apply_transform([x, y], transform),
@@ -386,19 +458,23 @@ impl RenderBatch {
 
         // Add indices for two triangles
         let base = self.vertex_count;
-        self.indices.extend_from_slice(&[
-            base, base + 1, base + 2,
-            base, base + 2, base + 3,
-        ]);
+        self.indices
+            .extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
 
         self.vertex_count += 4;
     }
 
     /// Batch a textured quad
-    fn batch_textured_quad(&mut self, rect: Rect, uv_rect: Rect, color: Color, transform: Transform) {
+    fn batch_textured_quad(
+        &mut self,
+        rect: Rect,
+        uv_rect: Rect,
+        color: Color,
+        transform: Transform,
+    ) {
         let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
         let (u, v, uw, vh) = (uv_rect.x, uv_rect.y, uv_rect.width, uv_rect.height);
-        
+
         // Apply transform to vertices
         let positions = [
             self.apply_transform([x, y], transform),
@@ -442,18 +518,23 @@ impl RenderBatch {
         self.vertices.extend_from_slice(&vertices);
 
         let base = self.vertex_count;
-        self.indices.extend_from_slice(&[
-            base, base + 1, base + 2,
-            base, base + 2, base + 3,
-        ]);
+        self.indices
+            .extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
 
         self.vertex_count += 4;
     }
 
     /// Batch a circle
-    fn batch_circle(&mut self, center: (f32, f32), radius: f32, color: Color, segments: u32, transform: Transform) {
+    fn batch_circle(
+        &mut self,
+        center: (f32, f32),
+        radius: f32,
+        color: Color,
+        segments: u32,
+        transform: Transform,
+    ) {
         let (cx, cy) = center;
-        
+
         // Center vertex
         self.vertices.push(Vertex {
             position: self.apply_transform([cx, cy], transform),
@@ -471,7 +552,7 @@ impl RenderBatch {
             let angle = (i as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
             let x = cx + radius * angle.cos();
             let y = cy + radius * angle.sin();
-            
+
             self.vertices.push(Vertex {
                 position: self.apply_transform([x, y], transform),
                 uv: [0.5 + 0.5 * angle.cos(), 0.5 + 0.5 * angle.sin()],
@@ -496,16 +577,16 @@ impl RenderBatch {
     fn batch_line(&mut self, start: (f32, f32), end: (f32, f32), color: Color, thickness: f32) {
         let (x1, y1) = start;
         let (x2, y2) = end;
-        
+
         // Calculate line direction and perpendicular
         let dx = x2 - x1;
         let dy = y2 - y1;
         let length = (dx * dx + dy * dy).sqrt();
-        
+
         if length == 0.0 {
             return;
         }
-        
+
         let nx = -dy / length * thickness * 0.5;
         let ny = dx / length * thickness * 0.5;
 
@@ -544,10 +625,8 @@ impl RenderBatch {
         self.vertices.extend_from_slice(&vertices);
 
         let base = self.vertex_count;
-        self.indices.extend_from_slice(&[
-            base, base + 1, base + 2,
-            base, base + 2, base + 3,
-        ]);
+        self.indices
+            .extend_from_slice(&[base, base + 1, base + 2, base, base + 2, base + 3]);
 
         self.vertex_count += 4;
     }
@@ -576,8 +655,21 @@ impl RenderBatch {
     }
 
     /// Register a texture in the atlas
-    pub fn register_texture(&mut self, id: u32, width: u32, height: u32, format: wgpu::TextureFormat) {
-        self.texture_atlas.insert(id, TextureInfo { width, height, format });
+    pub fn register_texture(
+        &mut self,
+        id: u32,
+        width: u32,
+        height: u32,
+        format: wgpu::TextureFormat,
+    ) {
+        self.texture_atlas.insert(
+            id,
+            TextureInfo {
+                width,
+                height,
+                format,
+            },
+        );
     }
 
     /// Get texture info
@@ -595,8 +687,8 @@ impl Default for RenderBatch {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use strato_core::types::Color;
     use glam::Vec2;
+    use strato_core::types::Color;
 
     #[test]
     fn test_batch_rect() {

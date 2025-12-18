@@ -23,8 +23,7 @@ impl WebPlatform {
 
     /// Get the web window
     fn web_window() -> Result<WebWindow, PlatformError> {
-        web_sys::window()
-            .ok_or_else(|| PlatformError::Wasm("Failed to get window".to_string()))
+        web_sys::window().ok_or_else(|| PlatformError::Wasm("Failed to get window".to_string()))
     }
 
     /// Get the document
@@ -37,7 +36,7 @@ impl WebPlatform {
     /// Create a canvas element
     fn create_canvas(builder: &WindowBuilder) -> Result<HtmlCanvasElement, PlatformError> {
         let document = Self::document()?;
-        
+
         let canvas = document
             .create_element("canvas")
             .map_err(|e| PlatformError::Wasm(format!("Failed to create canvas: {:?}", e)))?
@@ -52,7 +51,7 @@ impl WebPlatform {
         let style = canvas.style();
         style.set_property("display", "block").ok();
         style.set_property("margin", "0 auto").ok();
-        
+
         // Append to body
         document
             .body()
@@ -66,7 +65,7 @@ impl WebPlatform {
     /// Setup event listeners
     fn setup_event_listeners(canvas: &HtmlCanvasElement) -> Result<(), PlatformError> {
         let canvas_clone = canvas.clone();
-        
+
         // Mouse move
         let mouse_move = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
             // Handle mouse move
@@ -74,9 +73,12 @@ impl WebPlatform {
             let _y = event.offset_y();
             // TODO: Dispatch to event handler
         }) as Box<dyn FnMut(_)>);
-        
-        canvas.add_event_listener_with_callback("mousemove", mouse_move.as_ref().unchecked_ref())
-            .map_err(|e| PlatformError::Wasm(format!("Failed to add mousemove listener: {:?}", e)))?;
+
+        canvas
+            .add_event_listener_with_callback("mousemove", mouse_move.as_ref().unchecked_ref())
+            .map_err(|e| {
+                PlatformError::Wasm(format!("Failed to add mousemove listener: {:?}", e))
+            })?;
         mouse_move.forget();
 
         // Mouse down
@@ -85,9 +87,12 @@ impl WebPlatform {
             let _button = event.button();
             // TODO: Dispatch to event handler
         }) as Box<dyn FnMut(_)>);
-        
-        canvas.add_event_listener_with_callback("mousedown", mouse_down.as_ref().unchecked_ref())
-            .map_err(|e| PlatformError::Wasm(format!("Failed to add mousedown listener: {:?}", e)))?;
+
+        canvas
+            .add_event_listener_with_callback("mousedown", mouse_down.as_ref().unchecked_ref())
+            .map_err(|e| {
+                PlatformError::Wasm(format!("Failed to add mousedown listener: {:?}", e))
+            })?;
         mouse_down.forget();
 
         // Mouse up
@@ -96,8 +101,9 @@ impl WebPlatform {
             let _button = event.button();
             // TODO: Dispatch to event handler
         }) as Box<dyn FnMut(_)>);
-        
-        canvas.add_event_listener_with_callback("mouseup", mouse_up.as_ref().unchecked_ref())
+
+        canvas
+            .add_event_listener_with_callback("mouseup", mouse_up.as_ref().unchecked_ref())
             .map_err(|e| PlatformError::Wasm(format!("Failed to add mouseup listener: {:?}", e)))?;
         mouse_up.forget();
 
@@ -107,7 +113,7 @@ impl WebPlatform {
             let _key = event.key();
             // TODO: Dispatch to event handler
         }) as Box<dyn FnMut(_)>);
-        
+
         Self::document()?
             .add_event_listener_with_callback("keydown", keydown.as_ref().unchecked_ref())
             .map_err(|e| PlatformError::Wasm(format!("Failed to add keydown listener: {:?}", e)))?;
@@ -118,7 +124,7 @@ impl WebPlatform {
             let _key = event.key();
             // TODO: Dispatch to event handler
         }) as Box<dyn FnMut(_)>);
-        
+
         Self::document()?
             .add_event_listener_with_callback("keyup", keyup.as_ref().unchecked_ref())
             .map_err(|e| PlatformError::Wasm(format!("Failed to add keyup listener: {:?}", e)))?;
@@ -129,7 +135,7 @@ impl WebPlatform {
             // Handle resize
             // TODO: Dispatch resize event
         }) as Box<dyn FnMut()>);
-        
+
         Self::web_window()?
             .add_event_listener_with_callback("resize", resize.as_ref().unchecked_ref())
             .map_err(|e| PlatformError::Wasm(format!("Failed to add resize listener: {:?}", e)))?;
@@ -143,7 +149,7 @@ impl Platform for WebPlatform {
     fn init() -> Result<Self, PlatformError> {
         // Set panic hook for better error messages
         console_error_panic_hook::set_once();
-        
+
         Ok(Self::new())
     }
 
@@ -161,7 +167,7 @@ impl Platform for WebPlatform {
 
         let window_id = self.window_id;
         self.window_id += 1;
-        
+
         self.canvas = Some(canvas.clone());
 
         Ok(Window {
@@ -176,24 +182,24 @@ impl Platform for WebPlatform {
     {
         // In web, the event loop is handled by the browser
         // We use requestAnimationFrame for the render loop
-        
+
         let window = Self::web_window()?;
         let callback = std::rc::Rc::new(std::cell::RefCell::new(callback));
-        
+
         // Animation frame loop
         let f = std::rc::Rc::new(std::cell::RefCell::new(None));
         let g = f.clone();
-        
+
         *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
             // Request next frame
             request_animation_frame(f.borrow().as_ref().unwrap());
-            
+
             // Handle frame update
             // TODO: Dispatch update event
         }) as Box<dyn FnMut()>));
-        
+
         request_animation_frame(g.borrow().as_ref().unwrap());
-        
+
         Ok(())
     }
 

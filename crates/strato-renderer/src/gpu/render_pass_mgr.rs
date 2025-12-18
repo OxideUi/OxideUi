@@ -45,7 +45,7 @@ impl RenderPassManager {
         // - Color attachment with clear color
         // - LoadOp::Clear, StoreOp::Store
         // - No depth/stencil
-        
+
         encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("Main Render Pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn test_default_clear_color() {
         let render_pass_mgr = RenderPassManager::new();
-        
+
         // Default dark gray
         assert_eq!(render_pass_mgr.clear_color.r, 0.23);
         assert_eq!(render_pass_mgr.clear_color.g, 0.23);
@@ -87,16 +87,16 @@ mod tests {
     #[test]
     fn test_set_clear_color() {
         let mut render_pass_mgr = RenderPassManager::new();
-        
+
         let new_color = wgpu::Color {
             r: 1.0,
             g: 0.0,
             b: 0.0,
             a: 1.0,
         };
-        
+
         render_pass_mgr.set_clear_color(new_color);
-        
+
         assert_eq!(render_pass_mgr.clear_color.r, 1.0);
         assert_eq!(render_pass_mgr.clear_color.g, 0.0);
     }

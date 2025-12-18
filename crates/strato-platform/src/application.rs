@@ -1,9 +1,9 @@
 //! Application management
 
+use crate::{EventLoop, Window, WindowBuilder};
+use std::collections::HashMap;
 use strato_core::event::Event;
 use strato_widgets::widget::Widget;
-use crate::{Window, WindowBuilder, EventLoop};
-use std::collections::HashMap;
 
 /// Application builder
 pub struct ApplicationBuilder {
@@ -96,12 +96,11 @@ impl Application {
         self.windows.get_mut(&id)
     }
 
-
     /// Render the application with a simple approach (no actual GPU rendering)
     pub fn render_simple(&mut self, window_width: f32, window_height: f32) -> anyhow::Result<()> {
         if let Some(root_widget) = self.root_widget.as_mut() {
             let mut batch = strato_renderer::RenderBatch::new();
-            
+
             // Compute layout constraints using actual window size
             let constraints = strato_core::layout::Constraints {
                 min_width: window_width,
@@ -109,20 +108,14 @@ impl Application {
                 min_height: window_height,
                 max_height: window_height,
             };
-            
 
-            
             // Layout and render the root widget
             let size = root_widget.layout(constraints);
-            let layout = strato_core::layout::Layout::new(
-                glam::Vec2::new(0.0, 0.0),
-                size
-            );
+            let layout = strato_core::layout::Layout::new(glam::Vec2::new(0.0, 0.0), size);
             root_widget.render(&mut batch, layout);
-            
-            
+
             tracing::info!("Rendered {} vertices in batch", batch.vertices.len());
-            
+
             // Return the batch for actual rendering
             self.render_batch = Some(batch);
         } else {
@@ -130,7 +123,7 @@ impl Application {
         }
         Ok(())
     }
-    
+
     /// Get the current render batch
     pub fn get_render_batch(&mut self) -> Option<strato_renderer::RenderBatch> {
         self.render_batch.take()
@@ -166,7 +159,7 @@ impl Application {
                 }
             }
         }
-        
+
         #[cfg(target_arch = "wasm32")]
         {
             panic!("WebAssembly platform not fully implemented");
@@ -185,7 +178,7 @@ impl Application {
             Event::Window(strato_core::event::WindowEvent::Close) => {
                 // Handle window close - for now, just log it
                 // The application will continue running
-                use strato_core::{strato_info, logging::LogCategory};
+                use strato_core::{logging::LogCategory, strato_info};
                 strato_info!(LogCategory::Platform, "Window close requested");
             }
             _ => {}

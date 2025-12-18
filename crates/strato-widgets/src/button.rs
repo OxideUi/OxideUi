@@ -1,31 +1,22 @@
 //! Button widget implementation
-//! 
+//!
 //! Provides interactive button components with various styles, states, and event handling.
 
+use crate::control::{ControlRole, ControlState};
+use crate::widget::{generate_id, Widget, WidgetContext, WidgetId, WidgetState};
+use std::{any::Any, sync::Arc};
 use strato_core::{
-    layout::{Size, Constraints, Layout},
-    types::Rect,
-    state::Signal,
-    theme::{Theme, Color},
-    types::{Point, Transform},
     event::{Event, EventResult},
+    layout::{Constraints, Layout, Size},
+    state::Signal,
+    theme::{Color, Theme},
+    types::Rect,
+    types::{Point, Transform},
 };
-use strato_renderer::{
-    vertex::VertexBuilder,
-    batch::RenderBatch,
-};
-use crate::widget::{Widget, WidgetId, generate_id};
-use std::{sync::Arc, any::Any};
+use strato_renderer::{batch::RenderBatch, vertex::VertexBuilder};
 
-/// Button widget state
-#[derive(Debug, Clone, PartialEq)]
-pub enum ButtonState {
-    Normal,
-    Hovered,
-    Pressed,
-    Disabled,
-    Focused,
-}
+/// Button state is kept in sync with the shared widget state enum.
+pub type ButtonState = WidgetState;
 
 /// Button style configuration
 #[derive(Debug, Clone)]
@@ -133,12 +124,22 @@ impl ButtonStyle {
     }
 }
 
+fn blend_colors(from: Color, to: Color, t: f32) -> Color {
+    let mix = |a: f32, b: f32| a + (b - a) * t;
+    Color::rgba(
+        mix(from.r, to.r),
+        mix(from.g, to.g),
+        mix(from.b, to.b),
+        mix(from.a, to.a),
+    )
+}
+
 /// Button widget
 pub struct Button {
     id: WidgetId,
     text: String,
     style: ButtonStyle,
-    state: Signal<ButtonState>,
+    control: ControlState,
     bounds: Signal<Rect>,
     enabled: Signal<bool>,
     visible: Signal<bool>,
@@ -153,12 +154,18 @@ impl std::fmt::Debug for Button {
             .field("id", &self.id)
             .field("text", &self.text)
             .field("style", &self.style)
-            .field("state", &self.state)
+            .field("state", &self.control)
             .field("bounds", &self.bounds)
             .field("enabled", &self.enabled)
             .field("visible", &self.visible)
-            .field("on_click", &self.on_click.as_ref().map(|_| "Fn() + Send + Sync"))
-            .field("on_hover", &self.on_hover.as_ref().map(|_| "Fn(bool) + Send + Sync"))
+            .field(
+                "on_click",
+                &self.on_click.as_ref().map(|_| "Fn() + Send + Sync"),
+            )
+            .field(
+                "on_hover",
+                &self.on_hover.as_ref().map(|_| "Fn(bool) + Send + Sync"),
+            )
             .field("theme", &self.theme)
             .finish()
     }
@@ -167,11 +174,14 @@ impl std::fmt::Debug for Button {
 impl Button {
     /// Create a new button with text
     pub fn new(text: impl Into<String>) -> Self {
+        let text_value = text.into();
+        let mut control = ControlState::new(ControlRole::Button);
+        control.set_label(text_value.clone());
         Self {
             id: generate_id(),
-            text: text.into(),
+            text: text_value,
             style: ButtonStyle::default(),
-            state: Signal::new(ButtonState::Normal),
+            control,
             bounds: Signal::new(Rect::new(0.0, 0.0, 0.0, 0.0)),
             enabled: Signal::new(true),
             visible: Signal::new(true),
@@ -238,6 +248,7 @@ impl Button {
     /// Set enabled state
     pub fn enabled(self, enabled: bool) -> Self {
         self.enabled.set(enabled);
+        self.control.set_disabled(!enabled);
         self
     }
 
@@ -272,22 +283,36 @@ impl Button {
 
     /// Set button text
     pub fn set_text(&mut self, text: impl Into<String>) {
-        self.text = text.into();
+        let text = text.into();
+        self.text = text.clone();
+        self.control.set_label(text);
+    }
+
+    /// Override the accessibility label without changing the visible text.
+    pub fn accessibility_label(mut self, label: impl Into<String>) -> Self {
+        self.control.set_label(label);
+        self
+    }
+
+    /// Provide an accessibility hint/description for assistive technologies.
+    pub fn accessibility_hint(mut self, hint: impl Into<String>) -> Self {
+        self.control.set_hint(hint);
+        self
     }
 
     /// Get current state
     pub fn get_state(&self) -> ButtonState {
-        self.state.get()
+        self.control.state()
     }
 
     /// Set button state
     pub fn set_state(&self, state: ButtonState) {
-        self.state.set(state);
+        self.control.set_state(state);
     }
 
     /// Check if button is enabled
     pub fn is_enabled(&self) -> bool {
-        self.enabled.get()
+        self.enabled.get() && self.control.state() != ButtonState::Disabled
     }
 
     /// Check if button is visible
@@ -298,7 +323,7 @@ impl Button {
     /// Handle mouse enter event
     pub fn on_mouse_enter(&self) {
         if self.is_enabled() && self.get_state() != ButtonState::Pressed {
-            self.set_state(ButtonState::Hovered);
+            self.control.hover(true);
             if let Some(ref handler) = self.on_hover {
                 handler(true);
             }
@@ -308,7 +333,7 @@ impl Button {
     /// Handle mouse leave event
     pub fn on_mouse_leave(&self) {
         if self.is_enabled() {
-            self.set_state(ButtonState::Normal);
+            self.control.hover(false);
             if let Some(ref handler) = self.on_hover {
                 handler(false);
             }
@@ -322,11 +347,7 @@ impl Button {
         }
 
         let bounds = self.bounds.get();
-        if bounds.contains(point) {
-            self.set_state(ButtonState::Pressed);
-            return true;
-        }
-        false
+        self.control.press(point, bounds)
     }
 
     /// Handle mouse release event
@@ -336,8 +357,7 @@ impl Button {
         }
 
         let bounds = self.bounds.get();
-        if bounds.contains(point) && self.get_state() == ButtonState::Pressed {
-            self.set_state(ButtonState::Hovered);
+        if self.control.release(point, bounds) {
             if let Some(ref handler) = self.on_click {
                 handler();
             }
@@ -365,7 +385,6 @@ impl Button {
     pub fn layout(&self, bounds: Rect) {
         self.bounds.set(bounds);
     }
-
 
     /// Apply theme to button
     pub fn apply_theme(&mut self, theme: &Theme) {
@@ -480,21 +499,27 @@ mod tests {
         let primary = Button::new("Primary").primary();
         let secondary = Button::new("Secondary").secondary();
         let danger = Button::new("Danger").danger();
-        
+
         // Styles should be different
-        assert_ne!(primary.style.background_color, secondary.style.background_color);
-        assert_ne!(secondary.style.background_color, danger.style.background_color);
+        assert_ne!(
+            primary.style.background_color,
+            secondary.style.background_color
+        );
+        assert_ne!(
+            secondary.style.background_color,
+            danger.style.background_color
+        );
     }
 
     #[test]
     fn test_button_state_changes() {
         let button = Button::new("Test");
-        
+
         assert_eq!(button.get_state(), ButtonState::Normal);
-        
+
         button.on_mouse_enter();
         assert_eq!(button.get_state(), ButtonState::Hovered);
-        
+
         button.on_mouse_leave();
         assert_eq!(button.get_state(), ButtonState::Normal);
     }
@@ -505,7 +530,7 @@ mod tests {
             .primary()
             .enabled(true)
             .build();
-            
+
         assert_eq!(button.text(), "Builder Test");
         assert!(button.is_enabled());
     }
@@ -515,7 +540,7 @@ mod tests {
         let button = Button::new("Test");
         let available = Size::new(200.0, 100.0);
         let size = button.calculate_size(available);
-        
+
         assert!(size.width >= button.style.min_width);
         assert!(size.height >= button.style.min_height);
         assert!(size.width <= available.width);
@@ -532,35 +557,53 @@ impl Widget for Button {
     fn layout(&mut self, constraints: Constraints) -> Size {
         let text_width = crate::text::measure_text_width(&self.text, self.style.font_size, 0.0);
         let text_height = self.style.font_size;
-        
+
         let content_width = text_width + self.style.padding * 2.0;
         let content_height = text_height + self.style.padding * 2.0;
-        
+
         let width = content_width.max(self.style.min_width);
         let height = content_height.max(self.style.min_height);
-        
+
         // Respect constraints
         let width = width.min(constraints.max_width).max(constraints.min_width);
-        let height = height.min(constraints.max_height).max(constraints.min_height);
-        
+        let height = height
+            .min(constraints.max_height)
+            .max(constraints.min_height);
+
         Size::new(width, height)
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
-        let bounds = Rect::new(layout.position.x, layout.position.y, layout.size.width, layout.size.height);
+        let bounds = Rect::new(
+            layout.position.x,
+            layout.position.y,
+            layout.size.width,
+            layout.size.height,
+        );
         self.bounds.set(bounds);
-        
+
         if !self.is_visible() {
             return;
         }
 
         let state = self.get_state();
-        let background_color = match state {
+        let target_color = match state {
             ButtonState::Normal => self.style.background_color,
             ButtonState::Hovered => self.style.hover_color,
             ButtonState::Pressed => self.style.pressed_color,
             ButtonState::Disabled => self.style.disabled_color,
-            ButtonState::Focused => self.style.hover_color,
+            ButtonState::Focused => {
+                blend_colors(self.style.background_color, self.style.hover_color, 0.35)
+            }
+        };
+        let background_color = if matches!(state, ButtonState::Disabled) {
+            self.style.disabled_color
+        } else {
+            blend_colors(
+                self.style.background_color,
+                target_color,
+                self.control.interaction_factor(),
+            )
         };
 
         // Apply a subtle offset when pressed to give physical feedback
@@ -604,110 +647,57 @@ impl Widget for Button {
         // Render text
         let text_x = draw_bounds.x + draw_bounds.width / 2.0;
         let text_y = draw_bounds.y + draw_bounds.height / 2.0 - self.style.font_size / 2.0;
-        
+        let mut text_color = self.style.text_color;
+        if matches!(state, ButtonState::Disabled) {
+            text_color.a *= 0.35;
+        }
+
         batch.add_text_aligned(
             self.text.clone(),
             (text_x, text_y),
-            self.style.text_color.to_types_color(),
+            text_color.to_types_color(),
             self.style.font_size,
             0.0, // Default letter spacing
             strato_core::text::TextAlign::Center,
         );
     }
 
-    fn handle_event(&mut self, event: &Event) -> EventResult {
-        // println!("Button '{}' handling event: {:?}", self.text, event);
-        match event {
-            Event::MouseMove(mouse_event) => {
-                let bounds = self.bounds.get();
-                let point = strato_core::types::Point::new(mouse_event.position.x, mouse_event.position.y);
-                let is_hovered = bounds.contains(point);
-                
-                // Debug log for hover issues
-                if self.text == "Action" || self.text.contains("Button") { 
-                     // tracing::trace!("Button '{}' bounds: {:?}, mouse: {:?}, hovered: {}", self.text, bounds, point, is_hovered);
-                     // println!("Button '{}' bounds: {:?}, mouse: {:?}, hovered: {}", self.text, bounds, point, is_hovered);
-                }
+    fn update(&mut self, ctx: &WidgetContext) {
+        self.control.update(ctx.delta_time);
+    }
 
-                if is_hovered {
-                    if self.get_state() != ButtonState::Pressed {
-                        self.state.set(ButtonState::Hovered);
-                    }
-                    if let Some(handler) = &self.on_hover {
-                        handler(true);
-                    }
-                    return EventResult::Handled;
-                } else {
-                    if self.get_state() == ButtonState::Hovered || self.get_state() == ButtonState::Pressed {
-                        self.state.set(ButtonState::Normal);
-                        if let Some(handler) = &self.on_hover {
-                            handler(false);
-                        }
-                    }
+    fn handle_event(&mut self, event: &Event) -> EventResult {
+        let previous_state = self.get_state();
+        let bounds = self.bounds.get();
+
+        // Pointer interactions and hover callbacks
+        if let EventResult::Handled = self.control.handle_pointer_event(event, bounds) {
+            if matches!(event, Event::MouseUp(_)) && matches!(previous_state, ButtonState::Pressed)
+            {
+                if let Some(handler) = &self.on_click {
+                    handler();
                 }
             }
-            Event::MouseDown(mouse_event) => {
-                if mouse_event.button == Some(strato_core::event::MouseButton::Left) {
-                    let bounds = self.bounds.get();
-                    let point = strato_core::types::Point::new(mouse_event.position.x, mouse_event.position.y);
-                    if bounds.contains(point) {
-                        self.state.set(ButtonState::Pressed);
-                        return EventResult::Handled;
-                    }
+            if let Event::MouseMove(mouse_event) = event {
+                let is_hovered =
+                    bounds.contains(Point::new(mouse_event.position.x, mouse_event.position.y));
+                if let Some(handler) = &self.on_hover {
+                    handler(is_hovered);
                 }
             }
-            Event::MouseUp(mouse_event) => {
-                if mouse_event.button == Some(strato_core::event::MouseButton::Left) {
-                    if self.get_state() == ButtonState::Pressed {
-                        // Check if we are still hovered to decide state
-                        let bounds = self.bounds.get();
-                        let point = strato_core::types::Point::new(mouse_event.position.x, mouse_event.position.y);
-                        let is_hovered = bounds.contains(point);
-                        
-                        if is_hovered {
-                            self.state.set(ButtonState::Hovered);
-                            if let Some(handler) = &self.on_click {
-                                handler();
-                            }
-                        } else {
-                            self.state.set(ButtonState::Normal);
-                        }
-                        return EventResult::Handled;
-                    }
-                }
-            }
-            Event::KeyDown(key_event) => {
-                // Simple focus check: if state is Focused or just handle if we decide to support implicit focus
-                // For now, let's assume if we receive the event, we might want to handle it if focused.
-                // But without focus system, we can't really know. 
-                // However, users might want to trigger buttons with keys.
-                
-                if self.get_state() == ButtonState::Focused {
-                    match key_event.key_code {
-                        strato_core::event::KeyCode::Enter | strato_core::event::KeyCode::Space => {
-                            self.state.set(ButtonState::Pressed);
-                            return EventResult::Handled;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            Event::KeyUp(key_event) => {
-                if self.get_state() == ButtonState::Pressed {
-                    match key_event.key_code {
-                        strato_core::event::KeyCode::Enter | strato_core::event::KeyCode::Space => {
-                            self.state.set(ButtonState::Focused);
-                            if let Some(handler) = &self.on_click {
-                                handler();
-                            }
-                            return EventResult::Handled;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            _ => {}
+            return EventResult::Handled;
         }
+
+        // Keyboard accessibility
+        if let EventResult::Handled = self.control.handle_keyboard_activation(event) {
+            if matches!(event, Event::KeyUp(_)) {
+                if let Some(handler) = &self.on_click {
+                    handler();
+                }
+            }
+            return EventResult::Handled;
+        }
+
         EventResult::Ignored
     }
 
@@ -724,7 +714,7 @@ impl Widget for Button {
             id: generate_id(),
             text: self.text.clone(),
             style: self.style.clone(),
-            state: Signal::new(self.state.get()),
+            control: self.control.clone(),
             bounds: Signal::new(self.bounds.get()),
             enabled: Signal::new(self.enabled.get()),
             visible: Signal::new(self.visible.get()),
@@ -734,4 +724,3 @@ impl Widget for Button {
         })
     }
 }
-

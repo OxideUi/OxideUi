@@ -4,9 +4,9 @@
 //! capabilities. It handles window lifecycle, events, and properties.
 
 use crate::{
+    error::{StratoError, StratoResult},
     event::Event,
-    types::{Size, Point, Rect},
-    error::{StratoResult, StratoError},
+    types::{Point, Rect, Size},
 };
 use std::collections::HashMap;
 
@@ -141,22 +141,22 @@ impl Default for WindowProperties {
 pub trait WindowEventHandler: Send + Sync {
     /// Handle window close request
     fn on_close_requested(&mut self, window_id: WindowId) -> bool;
-    
+
     /// Handle window resize
     fn on_resize(&mut self, window_id: WindowId, size: Size);
-    
+
     /// Handle window move
     fn on_move(&mut self, window_id: WindowId, position: Point);
-    
+
     /// Handle window focus change
     fn on_focus_changed(&mut self, window_id: WindowId, focused: bool);
-    
+
     /// Handle window state change
     fn on_state_changed(&mut self, window_id: WindowId, state: WindowState);
-    
+
     /// Handle window theme change
     fn on_theme_changed(&mut self, window_id: WindowId, theme: WindowTheme);
-    
+
     /// Handle generic window event
     fn on_event(&mut self, window_id: WindowId, event: &Event);
 }
@@ -169,17 +169,17 @@ impl WindowEventHandler for DefaultWindowEventHandler {
     fn on_close_requested(&mut self, _window_id: WindowId) -> bool {
         true // Allow close by default
     }
-    
+
     fn on_resize(&mut self, _window_id: WindowId, _size: Size) {}
-    
+
     fn on_move(&mut self, _window_id: WindowId, _position: Point) {}
-    
+
     fn on_focus_changed(&mut self, _window_id: WindowId, _focused: bool) {}
-    
+
     fn on_state_changed(&mut self, _window_id: WindowId, _state: WindowState) {}
-    
+
     fn on_theme_changed(&mut self, _window_id: WindowId, _theme: WindowTheme) {}
-    
+
     fn on_event(&mut self, _window_id: WindowId, _event: &Event) {}
 }
 
@@ -187,52 +187,52 @@ impl WindowEventHandler for DefaultWindowEventHandler {
 pub trait Window: Send + Sync {
     /// Get the window ID
     fn id(&self) -> WindowId;
-    
+
     /// Get window properties
     fn properties(&self) -> &WindowProperties;
-    
+
     /// Set window title
     fn set_title(&mut self, title: &str) -> StratoResult<()>;
-    
+
     /// Set window size
     fn set_size(&mut self, size: Size) -> StratoResult<()>;
-    
+
     /// Set window position
     fn set_position(&mut self, position: Point) -> StratoResult<()>;
-    
+
     /// Set window state
     fn set_state(&mut self, state: WindowState) -> StratoResult<()>;
-    
+
     /// Set window visibility
     fn set_visible(&mut self, visible: bool) -> StratoResult<()>;
-    
+
     /// Focus the window
     fn focus(&mut self) -> StratoResult<()>;
-    
+
     /// Close the window
     fn close(&mut self) -> StratoResult<()>;
-    
+
     /// Check if the window should close
     fn should_close(&self) -> bool;
-    
+
     /// Get the window's content area
     fn content_area(&self) -> Rect;
-    
+
     /// Get the window's scale factor
     fn scale_factor(&self) -> f32;
-    
+
     /// Request a redraw
     fn request_redraw(&mut self);
-    
+
     /// Set the window theme
     fn set_theme(&mut self, theme: WindowTheme) -> StratoResult<()>;
-    
+
     /// Get the current cursor position relative to the window
     fn cursor_position(&self) -> Option<Point>;
-    
+
     /// Set the cursor icon
     fn set_cursor_icon(&mut self, icon: CursorIcon) -> StratoResult<()>;
-    
+
     /// Set the cursor visibility
     fn set_cursor_visible(&mut self, visible: bool) -> StratoResult<()>;
 }
@@ -282,83 +282,83 @@ impl WindowBuilder {
             event_handler: None,
         }
     }
-    
+
     /// Set the window title
     pub fn title<S: Into<String>>(mut self, title: S) -> Self {
         self.config.title = title.into();
         self
     }
-    
+
     /// Set the window size
     pub fn size(mut self, size: Size) -> Self {
         self.config.size = size;
         self
     }
-    
+
     /// Set the window position
     pub fn position(mut self, position: Point) -> Self {
         self.config.position = Some(position);
         self
     }
-    
+
     /// Set whether the window is resizable
     pub fn resizable(mut self, resizable: bool) -> Self {
         self.config.resizable = resizable;
         self
     }
-    
+
     /// Set whether the window has decorations
     pub fn decorated(mut self, decorated: bool) -> Self {
         self.config.decorated = decorated;
         self
     }
-    
+
     /// Set whether the window is always on top
     pub fn always_on_top(mut self, always_on_top: bool) -> Self {
         self.config.always_on_top = always_on_top;
         self
     }
-    
+
     /// Set whether the window starts maximized
     pub fn maximized(mut self, maximized: bool) -> Self {
         self.config.maximized = maximized;
         self
     }
-    
+
     /// Set whether the window starts visible
     pub fn visible(mut self, visible: bool) -> Self {
         self.config.visible = visible;
         self
     }
-    
+
     /// Set whether the window is transparent
     pub fn transparent(mut self, transparent: bool) -> Self {
         self.config.transparent = transparent;
         self
     }
-    
+
     /// Set the minimum window size
     pub fn min_size(mut self, min_size: Size) -> Self {
         self.config.min_size = Some(min_size);
         self
     }
-    
+
     /// Set the maximum window size
     pub fn max_size(mut self, max_size: Size) -> Self {
         self.config.max_size = Some(max_size);
         self
     }
-    
+
     /// Set the event handler
     pub fn event_handler<H: WindowEventHandler + 'static>(mut self, handler: H) -> Self {
         self.event_handler = Some(Box::new(handler));
         self
     }
-    
+
     /// Build the window
     pub fn build(self) -> StratoResult<Box<dyn Window>> {
         // This would be implemented by the platform-specific backend
-        Err(StratoError::NotImplemented { 
+        Err(StratoError::NotImplemented {
             message: "Window creation not implemented".to_string(),
             context: None,
         })
@@ -387,48 +387,48 @@ impl WindowManager {
             active_window: None,
         }
     }
-    
+
     /// Create a new window
     pub fn create_window(&mut self, builder: WindowBuilder) -> StratoResult<WindowId> {
         let window = builder.build()?;
         let id = window.id();
         self.windows.insert(id, window);
-        
+
         if self.active_window.is_none() {
             self.active_window = Some(id);
         }
-        
+
         Ok(id)
     }
-    
+
     /// Get a window by ID
     pub fn get_window(&self, id: WindowId) -> Option<&dyn Window> {
         self.windows.get(&id).map(|w| w.as_ref())
     }
-    
+
     /// Get a mutable window by ID
     pub fn get_window_mut(&mut self, id: WindowId) -> Option<&mut Box<dyn Window>> {
         self.windows.get_mut(&id)
     }
-    
+
     /// Close a window
     pub fn close_window(&mut self, id: WindowId) -> StratoResult<()> {
         if let Some(mut window) = self.windows.remove(&id) {
             window.close()?;
             self.event_handlers.remove(&id);
-            
+
             if self.active_window == Some(id) {
                 self.active_window = self.windows.keys().next().copied();
             }
         }
         Ok(())
     }
-    
+
     /// Get the active window ID
     pub fn active_window(&self) -> Option<WindowId> {
         self.active_window
     }
-    
+
     /// Set the active window
     pub fn set_active_window(&mut self, id: WindowId) -> StratoResult<()> {
         if self.windows.contains_key(&id) {
@@ -439,12 +439,12 @@ impl WindowManager {
         }
         Ok(())
     }
-    
+
     /// Get all window IDs
     pub fn window_ids(&self) -> Vec<WindowId> {
         self.windows.keys().copied().collect()
     }
-    
+
     /// Handle an event for a specific window
     pub fn handle_event(&mut self, window_id: WindowId, event: &Event) -> StratoResult<()> {
         if let Some(handler) = self.event_handlers.get_mut(&window_id) {
@@ -452,7 +452,7 @@ impl WindowManager {
         }
         Ok(())
     }
-    
+
     /// Update all windows
     pub fn update(&mut self) -> StratoResult<()> {
         // Process window events and updates
@@ -467,7 +467,7 @@ impl WindowManager {
                 }
             }
         }
-        
+
         // Remove windows that should be closed
         let mut to_remove = Vec::new();
         for (id, window) in &self.windows {
@@ -475,14 +475,14 @@ impl WindowManager {
                 to_remove.push(*id);
             }
         }
-        
+
         for id in to_remove {
             self.close_window(id)?;
         }
-        
+
         Ok(())
     }
-    
+
     /// Check if there are any open windows
     pub fn has_windows(&self) -> bool {
         !self.windows.is_empty()
@@ -523,7 +523,7 @@ mod tests {
             .size(Size::new(1024.0, 768.0))
             .resizable(false)
             .decorated(true);
-        
+
         assert_eq!(builder.config.title, "Test Window");
         assert_eq!(builder.config.size, Size::new(1024.0, 768.0));
         assert!(!builder.config.resizable);
@@ -565,7 +565,7 @@ mod tests {
             CursorIcon::Help,
             CursorIcon::Progress,
         ];
-        
+
         // Test that all variants are distinct
         for (i, icon1) in icons.iter().enumerate() {
             for (j, icon2) in icons.iter().enumerate() {

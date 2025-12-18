@@ -6,12 +6,16 @@
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState,
-    ColorWrites, Device, Face, FragmentState, FrontFace, MultisampleState, PipelineLayoutDescriptor,
-    PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipeline, RenderPipelineDescriptor,
-    ShaderStages, TextureFormat, VertexState,
+    ColorWrites, Device, Face, FragmentState, FrontFace, MultisampleState,
+    PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipeline,
+    RenderPipelineDescriptor, ShaderStages, TextureFormat, VertexState,
 };
 
-use super::{buffer_mgr::{BufferManager, SimpleVertex}, shader_mgr::ShaderManager, texture_mgr::TextureManager};
+use super::{
+    buffer_mgr::{BufferManager, SimpleVertex},
+    shader_mgr::ShaderManager,
+    texture_mgr::TextureManager,
+};
 
 /// Manages render pipeline and bind groups
 pub struct PipelineManager {
@@ -37,7 +41,7 @@ impl PipelineManager {
         surface_format: TextureFormat,
     ) -> anyhow::Result<Self> {
         println!("=== PIPELINE CREATION ===");
-        
+
         // Create bind group layout for uniform buffer + texture + sampler
         let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("Bind Group Layout"),
@@ -171,10 +175,10 @@ impl PipelineManager {
 mod tests {
     use super::*;
     use crate::gpu::{DeviceManager, SurfaceManager, TextureManager};
+    use std::sync::Arc;
     use wgpu::Backends;
     use winit::dpi::PhysicalSize;
     use winit::event_loop::EventLoop;
-    use std::sync::Arc;
 
     #[tokio::test]
     async fn test_pipeline_creation() {
@@ -191,7 +195,8 @@ mod tests {
         // Use a common format for testing
         let format = TextureFormat::Bgra8UnormSrgb;
 
-        let pipeline_mgr = PipelineManager::new(dm.device(), &shader, &buffer_mgr, &texture_mgr, format);
+        let pipeline_mgr =
+            PipelineManager::new(dm.device(), &shader, &buffer_mgr, &texture_mgr, format);
 
         assert!(pipeline_mgr.is_ok());
     }
@@ -209,7 +214,8 @@ mod tests {
         let texture_mgr = TextureManager::new(dm.device(), dm.queue());
 
         let format = TextureFormat::Bgra8UnormSrgb;
-        let pipeline_mgr = PipelineManager::new(dm.device(), &shader, &buffer_mgr, &texture_mgr, format).unwrap();
+        let pipeline_mgr =
+            PipelineManager::new(dm.device(), &shader, &buffer_mgr, &texture_mgr, format).unwrap();
 
         // Verify bind group exists
         let _bg = pipeline_mgr.bind_group();
@@ -220,7 +226,7 @@ mod tests {
     fn test_blend_state_configuration() {
         // Verify blend state is correct (ALPHA_BLENDING)
         let blend = BlendState::ALPHA_BLENDING;
-        
+
         // ALPHA_BLENDING should have:
         // - color: src_alpha * src + (1 - src_alpha) * dst
         // - alpha: 1 * src + (1 - src_alpha) * dst
