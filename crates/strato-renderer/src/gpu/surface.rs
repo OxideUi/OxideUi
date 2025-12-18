@@ -156,7 +156,7 @@ mod tests {
         let surface = dm.instance().create_surface(window.clone()).unwrap();
         // Safety: for test purposes
         let surface: Surface<'static> = unsafe { std::mem::transmute(surface) };
-        
+
         let surface_mgr = SurfaceManager::new(surface, dm.device(), dm.adapter(), 800, 600);
 
         assert!(surface_mgr.is_ok());
@@ -178,8 +178,9 @@ mod tests {
         let surface = dm.instance().create_surface(window.clone()).unwrap();
         // Safety: for test purposes
         let surface: Surface<'static> = unsafe { std::mem::transmute(surface) };
-        
-        let surface_mgr = SurfaceManager::new(surface, dm.device(), dm.adapter(), 800, 600).unwrap();
+
+        let surface_mgr =
+            SurfaceManager::new(surface, dm.device(), dm.adapter(), 800, 600).unwrap();
 
         let format = surface_mgr.format();
         assert!(matches!(

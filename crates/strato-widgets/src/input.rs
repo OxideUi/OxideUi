@@ -1,21 +1,21 @@
 //! Text input widget implementation
-//! 
+//!
 //! Provides text input components with various input types, validation, and formatting options.
 
+use crate::widget::{generate_id, Widget, WidgetId};
+use std::{any::Any, sync::Arc};
 use strato_core::{
-    layout::{Size, Constraints, Layout},
-    state::{Signal},
-    theme::{Theme},
-    types::{Point, Rect, Color, Transform},
-    event::{Event, EventResult, KeyboardEvent, KeyCode, KeyEvent, MouseEvent},
-    vdom::{VNode},
+    event::{Event, EventResult, KeyCode, KeyEvent, KeyboardEvent, MouseEvent},
+    layout::{Constraints, Layout, Size},
+    state::Signal,
+    theme::Theme,
+    types::{Color, Point, Rect, Transform},
+    vdom::VNode,
 };
 use strato_renderer::{
-    vertex::{Vertex, VertexBuilder},
     batch::RenderBatch,
+    vertex::{Vertex, VertexBuilder},
 };
-use crate::widget::{Widget, WidgetId, generate_id};
-use std::{sync::Arc, any::Any};
 
 /// Input type enumeration
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -72,16 +72,16 @@ impl Default for InputStyle {
         // Use platform-specific default fonts
         #[cfg(target_os = "windows")]
         let font_family = "Segoe UI";
-        
+
         #[cfg(target_os = "macos")]
         let font_family = "SF Pro Display";
-        
+
         #[cfg(target_os = "linux")]
         let font_family = "Ubuntu";
-        
+
         #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
         let font_family = "Arial";
-        
+
         Self {
             background_color: Color::WHITE,
             border_color: Color::GRAY,
@@ -164,37 +164,37 @@ pub struct TextInput {
     multiline: bool,
     rows: usize,
     cols: usize,
-    
+
     // State management
     state: Signal<InputState>,
     validation_state: Signal<ValidationState>,
     validation_message: Signal<Option<String>>,
     focused: Signal<bool>,
     hovered: Signal<bool>,
-    
+
     // Cursor and selection
     cursor_position: Signal<usize>,
     selection_start: Signal<Option<usize>>,
     selection_end: Signal<Option<usize>>,
-    
+
     // Layout and rendering
     bounds: Signal<Rect>,
     content_bounds: Signal<Rect>,
     visible: Signal<bool>,
-    
+
     // Styling
     style: InputStyle,
     theme: Option<Arc<Theme>>,
-    
+
     // Validation
     validators: Vec<ValidationFn>,
-    
+
     // Event handlers
     on_change: Option<Box<dyn Fn(&str) + Send + Sync>>,
     on_focus: Option<Box<dyn Fn() + Send + Sync>>,
     on_blur: Option<Box<dyn Fn() + Send + Sync>>,
     on_submit: Option<Box<dyn Fn(&str) + Send + Sync>>,
-    
+
     // Internal state
     cursor_blink_timer: Signal<f32>,
     scroll_offset: Signal<f32>,
@@ -229,11 +229,23 @@ impl std::fmt::Debug for TextInput {
             .field("visible", &self.visible)
             .field("style", &self.style)
             .field("theme", &self.theme)
-            .field("validators", &format!("{} validators", self.validators.len()))
-            .field("on_change", &self.on_change.as_ref().map(|_| "Some(callback)"))
-            .field("on_focus", &self.on_focus.as_ref().map(|_| "Some(callback)"))
+            .field(
+                "validators",
+                &format!("{} validators", self.validators.len()),
+            )
+            .field(
+                "on_change",
+                &self.on_change.as_ref().map(|_| "Some(callback)"),
+            )
+            .field(
+                "on_focus",
+                &self.on_focus.as_ref().map(|_| "Some(callback)"),
+            )
             .field("on_blur", &self.on_blur.as_ref().map(|_| "Some(callback)"))
-            .field("on_submit", &self.on_submit.as_ref().map(|_| "Some(callback)"))
+            .field(
+                "on_submit",
+                &self.on_submit.as_ref().map(|_| "Some(callback)"),
+            )
             .field("cursor_blink_timer", &self.cursor_blink_timer)
             .field("scroll_offset", &self.scroll_offset)
             .finish()
@@ -257,37 +269,37 @@ impl TextInput {
             multiline: false,
             rows: 1,
             cols: 20,
-            
+
             // State management
             state: Signal::new(InputState::Normal),
             validation_state: Signal::new(ValidationState::Valid),
             validation_message: Signal::new(None),
             focused: Signal::new(false),
             hovered: Signal::new(false),
-            
+
             // Cursor and selection
             cursor_position: Signal::new(0),
             selection_start: Signal::new(None),
             selection_end: Signal::new(None),
-            
+
             // Layout and rendering
             bounds: Signal::new(Rect::new(0.0, 0.0, 0.0, 0.0)),
             content_bounds: Signal::new(Rect::new(0.0, 0.0, 0.0, 0.0)),
             visible: Signal::new(true),
-            
+
             // Styling
             style: InputStyle::default(),
             theme: None,
-            
+
             // Validation
             validators: Vec::new(),
-            
+
             // Event handlers
             on_change: None,
             on_focus: None,
             on_blur: None,
             on_submit: None,
-            
+
             // Internal state
             cursor_blink_timer: Signal::new(0.0),
             scroll_offset: Signal::new(0.0),
@@ -392,7 +404,7 @@ impl TextInput {
     }
 
     /// Add validator
-    pub fn validator<F>(mut self, validator: F) -> Self 
+    pub fn validator<F>(mut self, validator: F) -> Self
     where
         F: Fn(&str) -> Result<(), String> + Send + Sync + 'static,
     {
@@ -449,19 +461,19 @@ impl TextInput {
     /// Set value programmatically
     pub fn set_value(&self, value: impl Into<String>) {
         let new_value = value.into();
-        
+
         // Validate length constraints
         if let Some(max_len) = self.max_length {
             if new_value.len() > max_len {
                 return;
             }
         }
-        
+
         self.value.set(new_value.clone());
-        
+
         // Trigger validation
         self.validate();
-        
+
         // Trigger change callback
         if let Some(ref callback) = self.on_change {
             callback(&new_value);
@@ -509,7 +521,7 @@ impl TextInput {
         if !self.is_disabled() && !self.is_readonly() {
             self.focused.set(true);
             self.state.set(InputState::Focused);
-            
+
             // Trigger focus callback
             if let Some(ref callback) = self.on_focus {
                 callback();
@@ -521,7 +533,7 @@ impl TextInput {
     pub fn blur(&self) {
         self.focused.set(false);
         self.clear_selection();
-        
+
         // Update state
         if self.is_disabled() {
             self.state.set(InputState::Disabled);
@@ -532,7 +544,7 @@ impl TextInput {
         } else {
             self.state.set(InputState::Normal);
         }
-        
+
         // Trigger blur callback
         if let Some(ref callback) = self.on_blur {
             callback();
@@ -542,31 +554,34 @@ impl TextInput {
     /// Validate input
     pub fn validate(&self) -> bool {
         let value = self.value.get();
-        
+
         // Check required
         if self.required && value.is_empty() {
             self.validation_state.set(ValidationState::Invalid);
-            self.validation_message.set(Some("This field is required".to_string()));
+            self.validation_message
+                .set(Some("This field is required".to_string()));
             return false;
         }
-        
+
         // Check length constraints
         if let Some(min_len) = self.min_length {
             if value.len() < min_len {
                 self.validation_state.set(ValidationState::Invalid);
-                self.validation_message.set(Some(format!("Minimum length is {}", min_len)));
+                self.validation_message
+                    .set(Some(format!("Minimum length is {}", min_len)));
                 return false;
             }
         }
-        
+
         if let Some(max_len) = self.max_length {
             if value.len() > max_len {
                 self.validation_state.set(ValidationState::Invalid);
-                self.validation_message.set(Some(format!("Maximum length is {}", max_len)));
+                self.validation_message
+                    .set(Some(format!("Maximum length is {}", max_len)));
                 return false;
             }
         }
-        
+
         // Run custom validators
         for validator in &self.validators {
             if let Err(error) = validator(&value) {
@@ -575,7 +590,7 @@ impl TextInput {
                 return false;
             }
         }
-        
+
         self.validation_state.set(ValidationState::Valid);
         self.validation_message.set(None);
         true
@@ -585,7 +600,7 @@ impl TextInput {
     pub fn calculate_size(&self, available_size: Size) -> Size {
         let style = self.style.for_state(self.state.get());
         let padding = style.padding;
-        
+
         let text_width = if self.multiline {
             if available_size.width.is_finite() {
                 available_size.width - padding.1 - padding.3
@@ -595,13 +610,13 @@ impl TextInput {
         } else {
             (self.cols as f32) * (style.font_size * 0.6) // Approximate character width
         };
-        
+
         let text_height = if self.multiline {
             (self.rows as f32) * (style.font_size * style.line_height)
         } else {
             style.font_size * style.line_height
         };
-        
+
         Size::new(
             text_width + padding.1 + padding.3,
             text_height + padding.0 + padding.2,
@@ -611,17 +626,17 @@ impl TextInput {
     /// Layout the input
     pub fn layout(&self, bounds: Rect) {
         self.bounds.set(bounds);
-        
+
         let style = self.style.for_state(self.state.get());
         let padding = style.padding;
-        
+
         let content_bounds = Rect::new(
             bounds.x + padding.3,
             bounds.y + padding.0,
             bounds.width - padding.1 - padding.3,
             bounds.height - padding.0 - padding.2,
         );
-        
+
         self.content_bounds.set(content_bounds);
     }
 
@@ -629,31 +644,31 @@ impl TextInput {
     pub fn handle_mouse_event(&self, event: &MouseEvent) -> bool {
         let bounds = self.bounds.get();
         let point = Point::new(event.position.x, event.position.y);
-        
+
         if !bounds.contains(point) {
             return false;
         }
-        
+
         match event.button {
             Some(strato_core::event::MouseButton::Left) => {
                 // For mouse down events, we need to check if this is a press event
                 // Since MouseEvent doesn't have a pressed field, we'll assume this is called for press events
                 self.focus();
-                
+
                 // Calculate cursor position from click
                 let content_bounds = self.content_bounds.get();
                 let relative_x = point.x - content_bounds.x;
-                
+
                 // Simple cursor positioning (would need proper text measurement)
                 let char_width = self.style.font_size * 0.6;
                 let cursor_pos = ((relative_x / char_width) as usize).min(self.value.get().len());
                 self.cursor_position.set(cursor_pos);
-                
+
                 return true;
             }
             _ => {}
         }
-        
+
         false
     }
 
@@ -662,7 +677,7 @@ impl TextInput {
         if !self.is_focused() || self.is_disabled() || self.is_readonly() {
             return false;
         }
-        
+
         // Handle text input from KeyboardEvent
         // NOTE: In many systems, character input comes via Event::TextInput, not KeyboardEvent::text
         // We keep this for compatibility if the platform sends text here.
@@ -675,7 +690,7 @@ impl TextInput {
             }
             return true;
         }
-        
+
         // Handle special keys
         match event.key_code {
             KeyCode::Backspace => {
@@ -718,25 +733,25 @@ impl TextInput {
     fn insert_char(&self, ch: char) {
         let mut value = self.value.get();
         let cursor_pos = self.cursor_position.get();
-        
+
         // Check max length
         if let Some(max_len) = self.max_length {
             if value.len() >= max_len {
                 return;
             }
         }
-        
+
         // Insert character
         if cursor_pos <= value.len() {
             value.insert(cursor_pos, ch);
             self.value.set(value.clone());
             self.cursor_position.set(cursor_pos + 1);
-            
+
             // Trigger change callback
             if let Some(ref callback) = self.on_change {
                 callback(&value);
             }
-            
+
             // Validate
             self.validate();
         }
@@ -746,17 +761,17 @@ impl TextInput {
     fn delete_backward(&self) {
         let mut value = self.value.get();
         let cursor_pos = self.cursor_position.get();
-        
+
         if cursor_pos > 0 && cursor_pos <= value.len() {
             value.remove(cursor_pos - 1);
             self.value.set(value.clone());
             self.cursor_position.set(cursor_pos - 1);
-            
+
             // Trigger change callback
             if let Some(ref callback) = self.on_change {
                 callback(&value);
             }
-            
+
             // Validate
             self.validate();
         }
@@ -766,16 +781,16 @@ impl TextInput {
     fn delete_forward(&self) {
         let mut value = self.value.get();
         let cursor_pos = self.cursor_position.get();
-        
+
         if cursor_pos < value.len() {
             value.remove(cursor_pos);
             self.value.set(value.clone());
-            
+
             // Trigger change callback
             if let Some(ref callback) = self.on_change {
                 callback(&value);
             }
-            
+
             // Validate
             self.validate();
         }
@@ -814,14 +829,10 @@ impl TextInput {
         let bounds = self.bounds.get();
         let content_bounds = self.content_bounds.get();
         let style = self.style.for_state(self.state.get());
-        
+
         // Render background
-        batch.add_rect(
-            bounds,
-            style.background_color,
-            Transform::identity(),
-        );
-        
+        batch.add_rect(bounds, style.background_color, Transform::identity());
+
         // Render text or placeholder
         let value = self.value.get();
         let text_to_render = if value.is_empty() && !self.placeholder.is_empty() {
@@ -829,13 +840,13 @@ impl TextInput {
         } else {
             &value
         };
-        
+
         let text_color = if value.is_empty() && !self.placeholder.is_empty() {
             style.placeholder_color
         } else {
             style.text_color
         };
-        
+
         if !text_to_render.is_empty() {
             let text_x = content_bounds.x;
             let text_y = content_bounds.y;
@@ -847,13 +858,13 @@ impl TextInput {
                 0.0, // Default letter spacing
             );
         }
-        
+
         // Render cursor if focused
         if self.is_focused() && self.cursor_blink_timer.get() < 0.5 {
             let cursor_pos = self.cursor_position.get();
             let char_width = style.font_size * 0.6;
             let cursor_x = content_bounds.x + (cursor_pos as f32) * char_width;
-            
+
             batch.add_line(
                 (cursor_x, content_bounds.y),
                 (cursor_x, content_bounds.y + content_bounds.height),
@@ -861,13 +872,13 @@ impl TextInput {
                 1.0,
             );
         }
-        
+
         // Render selection if any
         if let Some((start, end)) = self.get_selection() {
             let char_width = style.font_size * 0.6;
             let selection_start_x = content_bounds.x + (start as f32) * char_width;
             let selection_end_x = content_bounds.x + (end as f32) * char_width;
-            
+
             batch.add_rect(
                 Rect::new(
                     selection_start_x,
@@ -995,7 +1006,7 @@ impl Clone for TextInput {
             style: self.style.clone(),
             theme: self.theme.clone(),
             validators: Vec::new(), // Don't clone validators as they contain closures
-            on_change: None, // Don't clone event handlers
+            on_change: None,        // Don't clone event handlers
             on_focus: None,
             on_blur: None,
             on_submit: None,
@@ -1049,7 +1060,7 @@ impl TextInputBuilder {
     }
 
     /// Add validator
-    pub fn validator<F>(mut self, validator: F) -> Self 
+    pub fn validator<F>(mut self, validator: F) -> Self
     where
         F: Fn(&str) -> Result<(), String> + Send + Sync + 'static,
     {
@@ -1097,19 +1108,17 @@ mod tests {
 
     #[test]
     fn test_input_validation() {
-        let input = TextInput::new()
-            .required(true)
-            .validator(|value| {
-                if value.len() < 3 {
-                    Err("Too short".to_string())
-                } else {
-                    Ok(())
-                }
-            });
-        
+        let input = TextInput::new().required(true).validator(|value| {
+            if value.len() < 3 {
+                Err("Too short".to_string())
+            } else {
+                Ok(())
+            }
+        });
+
         // Empty value should fail validation
         assert!(!input.validate());
-        
+
         // Set valid value
         input.set_value("test");
         assert!(input.validate());
@@ -1121,7 +1130,7 @@ mod tests {
             .placeholder("Enter text")
             .required(true)
             .build();
-        
+
         assert_eq!(input.placeholder, "Enter text");
         assert!(input.required);
     }

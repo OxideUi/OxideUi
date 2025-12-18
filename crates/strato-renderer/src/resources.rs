@@ -10,14 +10,14 @@
 //! - Memory pressure detection and adaptive strategies
 //! - Resource dependency tracking and batch operations
 
-use std::collections::{HashMap, BTreeSet, VecDeque};
-use slotmap::{SlotMap, DefaultKey};
-use std::sync::{Arc, Weak, Mutex};
-use std::time::{Duration, Instant};
-use parking_lot::RwLock;
-use wgpu::{Device, Buffer, BufferUsages, BufferDescriptor, MapMode, Maintain, *};
 use anyhow::Result;
-use serde::{Serialize, Deserialize};
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use slotmap::{DefaultKey, SlotMap};
+use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::sync::{Arc, Mutex, Weak};
+use std::time::{Duration, Instant};
+use wgpu::{Buffer, BufferDescriptor, BufferUsages, Device, Maintain, MapMode, *};
 
 use crate::device::ManagedDevice;
 
@@ -64,7 +64,7 @@ pub enum ResourceType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MemoryCategory {
     Vertex,
-    Index, 
+    Index,
     Uniform,
     Storage,
     Texture2D,
@@ -78,10 +78,10 @@ pub enum MemoryCategory {
 /// Resource priority for memory management decisions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourcePriority {
-    Critical = 4,  // Never evict
-    High = 3,      // Evict only under extreme pressure
-    Medium = 2,    // Default priority
-    Low = 1,       // First to be evicted
+    Critical = 4,   // Never evict
+    High = 3,       // Evict only under extreme pressure
+    Medium = 2,     // Default priority
+    Low = 1,        // First to be evicted
     Disposable = 0, // Can be recreated easily
 }
 
@@ -233,11 +233,7 @@ impl BufferPool {
 
         // Pre-allocate initial buffers
         for i in 0..config.initial_size {
-            let buffer = PooledBuffer::new(
-                device,
-                &config,
-                Some(&format!("PooledBuffer_{}", i)),
-            );
+            let buffer = PooledBuffer::new(device, &config, Some(&format!("PooledBuffer_{}", i)));
             pool.total_allocated += buffer.size;
             pool.available.push_back(buffer);
         }
@@ -277,7 +273,7 @@ impl BufferPool {
                 i += 1;
             }
         }
-        
+
         // Update peak usage
         let current_usage = self.in_use.len() as u64 * self.config.buffer_size;
         self.peak_usage = self.peak_usage.max(current_usage);
@@ -286,12 +282,12 @@ impl BufferPool {
     /// Clean up old unused buffers
     pub fn cleanup(&mut self, max_age: std::time::Duration) {
         let now = std::time::Instant::now();
-        self.available.retain(|buffer| {
-            now.duration_since(buffer.last_used) < max_age
-        });
-        
+        self.available
+            .retain(|buffer| now.duration_since(buffer.last_used) < max_age);
+
         // Recalculate total allocation
-        self.total_allocated = (self.available.len() + self.in_use.len()) as u64 * self.config.buffer_size;
+        self.total_allocated =
+            (self.available.len() + self.in_use.len()) as u64 * self.config.buffer_size;
     }
 
     /// Get pool statistics
@@ -358,7 +354,7 @@ impl TextureAtlas {
         });
 
         let view = texture.create_view(&TextureViewDescriptor::default());
-        
+
         let sampler = device.create_sampler(&SamplerDescriptor {
             label: Some("AtlasSampler"),
             address_mode_u: AddressMode::ClampToEdge,
@@ -441,7 +437,7 @@ impl TextureAtlas {
 
             let id = self.next_id;
             self.next_id += 1;
-            
+
             self.allocations.insert(id, allocation.clone());
 
             Some(AtlasHandle {
@@ -491,7 +487,7 @@ impl TextureAtlas {
     /// Clean up unused allocations
     pub fn cleanup(&mut self) {
         let mut to_remove = Vec::new();
-        
+
         for (&id, allocation) in &self.allocations {
             if Arc::strong_count(&allocation.ref_count) == 1 {
                 to_remove.push(id);
@@ -532,10 +528,12 @@ impl TextureAtlas {
     /// Get atlas statistics
     pub fn stats(&self) -> AtlasStats {
         let total_area = self.size * self.size;
-        let used_area: u32 = self.allocations.values()
+        let used_area: u32 = self
+            .allocations
+            .values()
             .map(|alloc| alloc.region.width * alloc.region.height)
             .sum();
-        
+
         AtlasStats {
             size: self.size,
             allocations: self.allocations.len(),
@@ -590,16 +588,16 @@ pub struct AtlasStats {
 /// Comprehensive resource manager
 pub struct ResourceManager {
     managed_device: Arc<ManagedDevice>,
-    
+
     // Buffer pools
     vertex_pool: Mutex<BufferPool>,
     index_pool: Mutex<BufferPool>,
     uniform_pool: Mutex<BufferPool>,
-    
+
     // Texture management
     texture_atlas: RwLock<TextureAtlas>,
     textures: RwLock<SlotMap<DefaultKey, Arc<Texture>>>,
-    
+
     // Resource tracking
     memory_usage: Mutex<MemoryUsage>,
     cleanup_interval: std::time::Duration,
@@ -636,7 +634,7 @@ impl ResourceManager {
 
         let device_ref = &managed_device.device;
         let _queue_ref = &managed_device.queue;
-        
+
         Ok(Self {
             vertex_pool: Mutex::new(BufferPool::new(device_ref, vertex_config)?),
             index_pool: Mutex::new(BufferPool::new(device_ref, index_config)?),
@@ -683,7 +681,7 @@ impl ResourceManager {
         let mut textures = self.textures.write();
         textures.insert(Arc::new(texture))
     }
-    
+
     /// Get a texture by handle
     pub fn get_texture(&self, handle: DefaultKey) -> Option<Arc<Texture>> {
         let textures = self.textures.read();
@@ -694,21 +692,30 @@ impl ResourceManager {
     pub fn cleanup(&self) {
         let mut last_cleanup = self.last_cleanup.lock().unwrap();
         let now = std::time::Instant::now();
-        
+
         if now.duration_since(*last_cleanup) > self.cleanup_interval {
             // Clean up buffer pools
-            self.vertex_pool.lock().unwrap().cleanup(self.cleanup_interval);
-            self.index_pool.lock().unwrap().cleanup(self.cleanup_interval);
-            self.uniform_pool.lock().unwrap().cleanup(self.cleanup_interval);
-            
+            self.vertex_pool
+                .lock()
+                .unwrap()
+                .cleanup(self.cleanup_interval);
+            self.index_pool
+                .lock()
+                .unwrap()
+                .cleanup(self.cleanup_interval);
+            self.uniform_pool
+                .lock()
+                .unwrap()
+                .cleanup(self.cleanup_interval);
+
             // Clean up atlas
             self.texture_atlas.write().cleanup();
-            
+
             // Release unused buffers
             self.vertex_pool.lock().unwrap().release_unused();
             self.index_pool.lock().unwrap().release_unused();
             self.uniform_pool.lock().unwrap().release_unused();
-            
+
             *last_cleanup = now;
         }
     }
@@ -729,28 +736,28 @@ impl ResourceManager {
     pub fn force_gc(&self) {
         // More aggressive cleanup
         let long_duration = std::time::Duration::from_secs(0);
-        
+
         self.vertex_pool.lock().unwrap().cleanup(long_duration);
         self.index_pool.lock().unwrap().cleanup(long_duration);
         self.uniform_pool.lock().unwrap().cleanup(long_duration);
-        
+
         self.texture_atlas.write().cleanup();
-        
+
         self.vertex_pool.lock().unwrap().release_unused();
         self.index_pool.lock().unwrap().release_unused();
         self.uniform_pool.lock().unwrap().release_unused();
     }
-    
+
     /// Get active resource count for integration
     pub fn get_active_count(&self) -> usize {
         self.textures.read().len()
     }
-    
+
     /// Cleanup unused resources (integration method)
     pub fn cleanup_unused(&self) {
         self.cleanup();
     }
-    
+
     /// Cleanup all resources (integration method)
     pub fn cleanup_all(&self) {
         self.force_gc();
@@ -771,21 +778,21 @@ pub struct ResourceStats {
 impl ResourceStats {
     /// Get total memory usage in bytes
     pub fn total_memory(&self) -> u64 {
-        self.vertex_pool.total_allocated +
-        self.index_pool.total_allocated +
-        self.uniform_pool.total_allocated +
-        self.memory_usage.texture_memory
+        self.vertex_pool.total_allocated
+            + self.index_pool.total_allocated
+            + self.uniform_pool.total_allocated
+            + self.memory_usage.texture_memory
     }
 
     /// Get total resource count
     pub fn total_resources(&self) -> usize {
-        self.vertex_pool.available_count +
-        self.vertex_pool.in_use_count +
-        self.index_pool.available_count +
-        self.index_pool.in_use_count +
-        self.uniform_pool.available_count +
-        self.uniform_pool.in_use_count +
-        self.texture_count
+        self.vertex_pool.available_count
+            + self.vertex_pool.in_use_count
+            + self.index_pool.available_count
+            + self.index_pool.in_use_count
+            + self.uniform_pool.available_count
+            + self.uniform_pool.in_use_count
+            + self.texture_count
     }
 }
 
@@ -795,10 +802,25 @@ mod tests {
 
     #[test]
     fn test_region_ordering() {
-        let region1 = Region { x: 0, y: 0, width: 10, height: 10 };
-        let region2 = Region { x: 0, y: 0, width: 20, height: 10 };
-        let region3 = Region { x: 10, y: 0, width: 10, height: 10 };
-        
+        let region1 = Region {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+        };
+        let region2 = Region {
+            x: 0,
+            y: 0,
+            width: 20,
+            height: 10,
+        };
+        let region3 = Region {
+            x: 10,
+            y: 0,
+            width: 10,
+            height: 10,
+        };
+
         assert!(region1 < region2);
         assert!(region1 < region3);
     }
@@ -807,11 +829,16 @@ mod tests {
     fn test_atlas_handle_uv() {
         let handle = AtlasHandle {
             id: 1,
-            region: Region { x: 100, y: 200, width: 50, height: 75 },
+            region: Region {
+                x: 100,
+                y: 200,
+                width: 50,
+                height: 75,
+            },
             atlas_size: 1000,
             _ref: Weak::new(),
         };
-        
+
         let (u, v, w, h) = handle.uv_coords();
         assert_eq!(u, 0.1);
         assert_eq!(v, 0.2);

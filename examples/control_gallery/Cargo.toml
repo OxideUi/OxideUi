@@ -1,0 +1,10 @@
+[package]
+name = "control_gallery"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+strato-sdk = { path = "../.." }
+
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }
+anyhow = "1.0"

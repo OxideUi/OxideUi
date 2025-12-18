@@ -1,9 +1,9 @@
 //! Event handling system for StratoUI
 
-use std::any::Any;
-use std::sync::Arc;
-use std::fmt::Debug;
 use glam::Vec2;
+use std::any::Any;
+use std::fmt::Debug;
+use std::sync::Arc;
 
 /// Result of event handling
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,17 +27,77 @@ pub enum MouseButton {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyCode {
     // Letters
-    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
     // Numbers
-    Num0, Num1, Num2, Num3, Num4, Num5, Num6, Num7, Num8, Num9,
+    Num0,
+    Num1,
+    Num2,
+    Num3,
+    Num4,
+    Num5,
+    Num6,
+    Num7,
+    Num8,
+    Num9,
     // Function keys
-    F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
     // Control keys
-    Enter, Escape, Backspace, Tab, Space,
-    Left, Right, Up, Down,
-    Shift, Control, Alt, Super,
+    Enter,
+    Escape,
+    Backspace,
+    Tab,
+    Space,
+    Left,
+    Right,
+    Up,
+    Down,
+    Shift,
+    Control,
+    Alt,
+    Super,
     // Special
-    Delete, Insert, Home, End, PageUp, PageDown,
+    Delete,
+    Insert,
+    Home,
+    End,
+    PageUp,
+    PageDown,
 }
 
 /// High-level key event for text input and navigation
@@ -130,17 +190,17 @@ pub enum Event {
     MouseEnter,
     /// Mouse left widget
     MouseExit,
-    
+
     /// Key pressed
     KeyDown(KeyboardEvent),
     /// Key released
     KeyUp(KeyboardEvent),
     /// Text input
     TextInput(String),
-    
+
     /// Window event
     Window(WindowEvent),
-    
+
     /// Touch started
     TouchStart(TouchEvent),
     /// Touch moved
@@ -149,7 +209,7 @@ pub enum Event {
     TouchEnd(TouchEvent),
     /// Touch cancelled
     TouchCancel(TouchEvent),
-    
+
     /// Custom user event
     Custom(Arc<dyn Any + Send + Sync>),
 }
@@ -158,7 +218,7 @@ pub enum Event {
 pub trait EventHandler: Send + Sync {
     /// Handle an event
     fn handle(&mut self, event: &Event) -> EventResult;
-    
+
     /// Check if handler can handle this event type
     fn can_handle(&self, _event: &Event) -> bool {
         true
@@ -256,7 +316,7 @@ mod tests {
     fn test_event_dispatcher() {
         let mut dispatcher = EventDispatcher::new();
         dispatcher.add_handler(Box::new(TestHandler { handled_count: 0 }));
-        
+
         let event = Event::MouseEnter;
         let result = dispatcher.dispatch(&event);
         assert_eq!(result, EventResult::Handled);

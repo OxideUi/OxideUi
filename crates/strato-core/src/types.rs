@@ -107,7 +107,7 @@ impl Color {
         if hex.len() != 6 && hex.len() != 8 {
             return Err(format!("Invalid hex color: {}", hex));
         }
-        
+
         let r = u8::from_str_radix(&hex[0..2], 16).map_err(|e| e.to_string())?;
         let g = u8::from_str_radix(&hex[2..4], 16).map_err(|e| e.to_string())?;
         let b = u8::from_str_radix(&hex[4..6], 16).map_err(|e| e.to_string())?;
@@ -116,7 +116,7 @@ impl Color {
         } else {
             255
         };
-        
+
         Ok(Self {
             r: r as f32 / 255.0,
             g: g as f32 / 255.0,
@@ -127,7 +127,8 @@ impl Color {
 
     /// Convert to hex string
     pub fn to_hex(&self) -> String {
-        format!("#{:02x}{:02x}{:02x}{:02x}",
+        format!(
+            "#{:02x}{:02x}{:02x}{:02x}",
             (self.r * 255.0).round() as u8,
             (self.g * 255.0).round() as u8,
             (self.b * 255.0).round() as u8,
@@ -161,22 +162,92 @@ impl Color {
     }
 
     /// Common colors
-    pub const WHITE: Self = Self { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
-    pub const BLACK: Self = Self { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
-    pub const RED: Self = Self { r: 1.0, g: 0.0, b: 0.0, a: 1.0 };
-    pub const GREEN: Self = Self { r: 0.0, g: 1.0, b: 0.0, a: 1.0 };
-    pub const BLUE: Self = Self { r: 0.0, g: 0.0, b: 1.0, a: 1.0 };
-    pub const TRANSPARENT: Self = Self { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
-    pub const GRAY: Self = Self { r: 0.5, g: 0.5, b: 0.5, a: 1.0 };
-    pub const LIGHT_GRAY: Self = Self { r: 0.8, g: 0.8, b: 0.8, a: 1.0 };
-    pub const DARK_GRAY: Self = Self { r: 0.3, g: 0.3, b: 0.3, a: 1.0 };
-    
+    pub const WHITE: Self = Self {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+        a: 1.0,
+    };
+    pub const BLACK: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const RED: Self = Self {
+        r: 1.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const GREEN: Self = Self {
+        r: 0.0,
+        g: 1.0,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const BLUE: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 1.0,
+        a: 1.0,
+    };
+    pub const TRANSPARENT: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.0,
+    };
+    pub const GRAY: Self = Self {
+        r: 0.5,
+        g: 0.5,
+        b: 0.5,
+        a: 1.0,
+    };
+    pub const LIGHT_GRAY: Self = Self {
+        r: 0.8,
+        g: 0.8,
+        b: 0.8,
+        a: 1.0,
+    };
+    pub const DARK_GRAY: Self = Self {
+        r: 0.3,
+        g: 0.3,
+        b: 0.3,
+        a: 1.0,
+    };
+
     // Material Design colors
-    pub const PRIMARY: Self = Self { r: 0.129, g: 0.588, b: 0.953, a: 1.0 }; // Blue 500
-    pub const SECONDARY: Self = Self { r: 0.0, g: 0.737, b: 0.831, a: 1.0 }; // Cyan 500
-    pub const SUCCESS: Self = Self { r: 0.298, g: 0.686, b: 0.314, a: 1.0 }; // Green 500
-    pub const WARNING: Self = Self { r: 1.0, g: 0.757, b: 0.027, a: 1.0 }; // Amber 500
-    pub const ERROR: Self = Self { r: 0.956, g: 0.263, b: 0.212, a: 1.0 }; // Red 500
+    pub const PRIMARY: Self = Self {
+        r: 0.129,
+        g: 0.588,
+        b: 0.953,
+        a: 1.0,
+    }; // Blue 500
+    pub const SECONDARY: Self = Self {
+        r: 0.0,
+        g: 0.737,
+        b: 0.831,
+        a: 1.0,
+    }; // Cyan 500
+    pub const SUCCESS: Self = Self {
+        r: 0.298,
+        g: 0.686,
+        b: 0.314,
+        a: 1.0,
+    }; // Green 500
+    pub const WARNING: Self = Self {
+        r: 1.0,
+        g: 0.757,
+        b: 0.027,
+        a: 1.0,
+    }; // Amber 500
+    pub const ERROR: Self = Self {
+        r: 0.956,
+        g: 0.263,
+        b: 0.212,
+        a: 1.0,
+    }; // Red 500
 }
 
 impl Default for Color {
@@ -232,7 +303,12 @@ pub struct Rect {
 impl Rect {
     /// Create a new rectangle
     pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     /// Create from position and size
@@ -252,16 +328,18 @@ impl Rect {
 
     /// Check if a point is inside the rectangle
     pub fn contains(&self, point: Point) -> bool {
-        point.x >= self.x && point.x <= self.x + self.width &&
-        point.y >= self.y && point.y <= self.y + self.height
+        point.x >= self.x
+            && point.x <= self.x + self.width
+            && point.y >= self.y
+            && point.y <= self.y + self.height
     }
 
     /// Check if this rectangle intersects with another
     pub fn intersects(&self, other: &Rect) -> bool {
-        self.x < other.x + other.width &&
-        self.x + self.width > other.x &&
-        self.y < other.y + other.height &&
-        self.y + self.height > other.y
+        self.x < other.x + other.width
+            && self.x + self.width > other.x
+            && self.y < other.y + other.height
+            && self.y + self.height > other.y
     }
 
     /// Get the intersection of two rectangles

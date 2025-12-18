@@ -1,12 +1,13 @@
 //! Slider and Progress widgets implementation for StratoUI
 
+use crate::control::{ControlRole, ControlState};
+use crate::widget::{generate_id, Widget, WidgetContext, WidgetId, WidgetState};
 use std::any::Any;
-use crate::widget::{Widget, WidgetId, generate_id};
 use strato_core::{
     event::{Event, EventResult, MouseButton},
-    layout::{Size, Constraints, Layout},
+    layout::{Constraints, Layout, Size},
     state::Signal,
-    types::{Point, Rect, Color, Transform},
+    types::{Color, Point, Rect, Transform},
 };
 use strato_renderer::batch::RenderBatch;
 
@@ -24,6 +25,7 @@ pub struct Slider {
     style: SliderStyle,
     dragging: Signal<bool>,
     bounds: Signal<Rect>,
+    control: ControlState,
 }
 
 /// Styling options for slider
@@ -45,20 +47,31 @@ impl Default for SliderStyle {
         Self {
             track_height: 4.0,
             thumb_size: 20.0,
-            track_color: [0.8, 0.8, 0.8, 1.0], // Light gray
+            track_color: [0.8, 0.8, 0.8, 1.0],      // Light gray
             track_fill_color: [0.2, 0.6, 1.0, 1.0], // Blue
-            thumb_color: [1.0, 1.0, 1.0, 1.0], // White
+            thumb_color: [1.0, 1.0, 1.0, 1.0],      // White
             thumb_hover_color: [0.95, 0.95, 0.95, 1.0], // Light gray
             thumb_active_color: [0.9, 0.9, 0.9, 1.0], // Darker gray
-            disabled_color: [0.7, 0.7, 0.7, 1.0], // Gray
+            disabled_color: [0.7, 0.7, 0.7, 1.0],   // Gray
             border_radius: 2.0,
         }
     }
 }
 
+fn color_from(values: [f32; 4]) -> Color {
+    Color::rgba(values[0], values[1], values[2], values[3])
+}
+
+fn blend_color(a: Color, b: Color, t: f32) -> Color {
+    let mix = |from: f32, to: f32| from + (to - from) * t;
+    Color::rgba(mix(a.r, b.r), mix(a.g, b.g), mix(a.b, b.b), mix(a.a, b.a))
+}
+
 impl Slider {
     /// Create a new slider
     pub fn new(min: f32, max: f32) -> Self {
+        let mut control = ControlState::new(ControlRole::Slider);
+        control.set_value(format!("{}", min));
         Self {
             id: generate_id(),
             value: Signal::new(min),
@@ -71,6 +84,7 @@ impl Slider {
             style: SliderStyle::default(),
             dragging: Signal::new(false),
             bounds: Signal::new(Rect::new(0.0, 0.0, 0.0, 0.0)),
+            control,
         }
     }
 
@@ -78,6 +92,7 @@ impl Slider {
     pub fn value(mut self, value: f32) -> Self {
         let clamped = value.clamp(self.min, self.max);
         self.value.set(clamped);
+        self.control.set_value(format!("{:.2}", clamped));
         self
     }
 
@@ -97,6 +112,7 @@ impl Slider {
     /// Set enabled state
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
+        self.control.set_disabled(!enabled);
         self
     }
 
@@ -117,7 +133,7 @@ impl Slider {
     }
 
     /// Set the value
-    pub fn set_value(&self, value: f32) {
+    pub fn set_value(&mut self, value: f32) {
         let clamped = value.clamp(self.min, self.max);
         let stepped = if self.step > 0.0 {
             (clamped / self.step).round() * self.step
@@ -125,13 +141,14 @@ impl Slider {
             clamped
         };
         self.value.set(stepped);
+        self.control.set_value(format!("{:.2}", stepped));
     }
 
     /// Calculate value from position
     fn value_from_position(&self, x: f32, track_width: f32) -> f32 {
         let ratio = (x / track_width).clamp(0.0, 1.0);
         let value = self.min + ratio * (self.max - self.min);
-        
+
         if self.step > 0.0 {
             (value / self.step).round() * self.step
         } else {
@@ -150,7 +167,7 @@ impl Slider {
     }
 
     /// Handle mouse events using stored bounds
-    fn handle_mouse_event(&self, event: &Event) -> EventResult {
+    fn handle_mouse_event(&mut self, event: &Event) -> EventResult {
         if !self.enabled {
             return EventResult::Ignored;
         }
@@ -165,8 +182,9 @@ impl Slider {
                 if !bounds.contains(point) {
                     return EventResult::Ignored;
                 }
-                
+
                 if let Some(MouseButton::Left) = mouse_event.button {
+                    self.control.press(point, bounds);
                     let local_x = mouse_event.position.x - track_start_x;
                     let new_value = self.value_from_position(local_x, track_width);
                     self.set_value(new_value);
@@ -180,11 +198,19 @@ impl Slider {
                 let local_x = mouse_event.position.x - track_start_x;
                 let new_value = self.value_from_position(local_x, track_width);
                 self.set_value(new_value);
+                self.control.set_state(WidgetState::Pressed);
                 EventResult::Handled
+            }
+            Event::MouseMove(mouse_event) => {
+                let point = Point::new(mouse_event.position.x, mouse_event.position.y);
+                self.control.hover(bounds.contains(point));
+                EventResult::Ignored
             }
             Event::MouseUp(mouse_event) => {
                 if let Some(MouseButton::Left) = mouse_event.button {
                     self.dragging.set(false);
+                    let point = Point::new(mouse_event.position.x, mouse_event.position.y);
+                    self.control.release(point, bounds);
                     EventResult::Handled
                 } else {
                     EventResult::Ignored
@@ -219,34 +245,29 @@ impl Widget for Slider {
         );
         self.bounds.set(bounds);
 
-        if !self.enabled {
-            let disabled_color = Color::rgba(
-                self.style.disabled_color[0],
-                self.style.disabled_color[1],
-                self.style.disabled_color[2],
-                self.style.disabled_color[3],
-            );
-            batch.add_rect(bounds, disabled_color, Transform::identity());
-            return;
-        }
-
         let track_width = (bounds.width - self.style.thumb_size).max(0.0);
         let track_x = bounds.x + self.style.thumb_size * 0.5;
         let track_y = bounds.y + (bounds.height - self.style.track_height) * 0.5;
 
-        let track_rect = Rect::new(
-            track_x,
-            track_y,
-            track_width,
-            self.style.track_height,
-        );
+        let track_rect = Rect::new(track_x, track_y, track_width, self.style.track_height);
 
-        let track_color = Color::rgba(
-            self.style.track_color[0],
-            self.style.track_color[1],
-            self.style.track_color[2],
-            self.style.track_color[3],
-        );
+        let state = if !self.enabled {
+            WidgetState::Disabled
+        } else if self.dragging.get() {
+            WidgetState::Pressed
+        } else {
+            self.control.state()
+        };
+        let interaction = if self.dragging.get() {
+            1.0
+        } else {
+            self.control.interaction_factor()
+        };
+
+        let track_color = match state {
+            WidgetState::Disabled => color_from(self.style.disabled_color),
+            _ => color_from(self.style.track_color),
+        };
 
         batch.add_rect(track_rect, track_color, Transform::identity());
 
@@ -258,12 +279,10 @@ impl Widget for Slider {
             self.style.track_height,
         );
 
-        let fill_color = Color::rgba(
-            self.style.track_fill_color[0],
-            self.style.track_fill_color[1],
-            self.style.track_fill_color[2],
-            self.style.track_fill_color[3],
-        );
+        let mut fill_color = color_from(self.style.track_fill_color);
+        if matches!(state, WidgetState::Disabled) {
+            fill_color = blend_color(fill_color, track_color, 0.6);
+        }
 
         batch.add_rect(fill_rect, fill_color, Transform::identity());
 
@@ -271,12 +290,14 @@ impl Widget for Slider {
         let thumb_center_y = bounds.y + bounds.height * 0.5;
         let thumb_radius = self.style.thumb_size * 0.5;
 
-        let thumb_color = Color::rgba(
-            self.style.thumb_color[0],
-            self.style.thumb_color[1],
-            self.style.thumb_color[2],
-            self.style.thumb_color[3],
-        );
+        let thumb_base = color_from(self.style.thumb_color);
+        let thumb_target = match state {
+            WidgetState::Pressed => color_from(self.style.thumb_active_color),
+            WidgetState::Hovered => color_from(self.style.thumb_hover_color),
+            WidgetState::Disabled => color_from(self.style.disabled_color),
+            _ => thumb_base,
+        };
+        let thumb_color = blend_color(thumb_base, thumb_target, interaction);
 
         batch.add_circle(
             (thumb_center_x, thumb_center_y),
@@ -288,12 +309,25 @@ impl Widget for Slider {
     }
 
     fn handle_event(&mut self, event: &Event) -> EventResult {
-        match event {
-            Event::MouseDown(_) | Event::MouseUp(_) | Event::MouseMove(_) => {
-                self.handle_mouse_event(event)
+        if matches!(
+            event,
+            Event::MouseDown(_) | Event::MouseUp(_) | Event::MouseMove(_)
+        ) {
+            let result = self.handle_mouse_event(event);
+            if let EventResult::Handled = result {
+                return result;
             }
-            _ => EventResult::Ignored,
         }
+
+        if let EventResult::Handled = self.control.handle_keyboard_activation(event) {
+            return EventResult::Handled;
+        }
+
+        EventResult::Ignored
+    }
+
+    fn update(&mut self, ctx: &WidgetContext) {
+        self.control.update(ctx.delta_time);
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -337,7 +371,7 @@ impl Default for ProgressStyle {
     fn default() -> Self {
         Self {
             background_color: [0.9, 0.9, 0.9, 1.0], // Light gray
-            fill_color: [0.2, 0.6, 1.0, 1.0], // Blue
+            fill_color: [0.2, 0.6, 1.0, 1.0],       // Blue
             border_radius: 4.0,
             border_width: 1.0,
             border_color: [0.8, 0.8, 0.8, 1.0], // Gray
@@ -492,22 +526,22 @@ mod tests {
 
     #[test]
     fn test_slider_value_clamping() {
-        let slider = Slider::new(0.0, 100.0);
-        
+        let mut slider = Slider::new(0.0, 100.0);
+
         slider.set_value(150.0);
         assert_eq!(slider.get_value(), 100.0);
-        
+
         slider.set_value(-50.0);
         assert_eq!(slider.get_value(), 0.0);
     }
 
     #[test]
     fn test_slider_step() {
-        let slider = Slider::new(0.0, 100.0).step(10.0);
-        
+        let mut slider = Slider::new(0.0, 100.0).step(10.0);
+
         slider.set_value(23.0);
         assert_eq!(slider.get_value(), 20.0); // Rounded to nearest step
-        
+
         slider.set_value(27.0);
         assert_eq!(slider.get_value(), 30.0);
     }
@@ -523,13 +557,13 @@ mod tests {
     #[test]
     fn test_progress_bar_progress() {
         let progress = ProgressBar::new(100.0);
-        
+
         progress.set_value(50.0);
         assert_eq!(progress.progress(), 0.5);
-        
+
         progress.set_value(100.0);
         assert_eq!(progress.progress(), 1.0);
-        
+
         progress.set_value(150.0); // Should clamp
         assert_eq!(progress.progress(), 1.0);
     }

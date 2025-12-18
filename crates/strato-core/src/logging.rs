@@ -3,11 +3,11 @@
 //! This module provides a comprehensive logging system with rate limiting,
 //! contextual error information, and category-based filtering.
 
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock, OnceLock};
-use std::time::{Duration, Instant};
-use serde::{Serialize, Deserialize};
 use crate::config::LoggingConfig;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Arc, OnceLock, RwLock};
+use std::time::{Duration, Instant};
 
 /// Log levels supported by the system
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -70,7 +70,7 @@ impl LogLevel {
             _ => None,
         }
     }
-    
+
     /// Convert LogLevel to string
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -107,16 +107,16 @@ impl RateLimitState {
             duration,
         }
     }
-    
+
     fn should_allow(&mut self) -> bool {
         let now = Instant::now();
-        
+
         // Reset counter if duration has passed
         if now.duration_since(self.last_reset) >= self.duration {
             self.last_reset = now;
             self.count = 0;
         }
-        
+
         if self.count < self.max_count {
             self.count += 1;
             true
@@ -141,21 +141,21 @@ impl LoggerConfig {
             config,
         }
     }
-    
+
     /// Check if a log message should be allowed based on rate limiting
     pub fn should_allow_log(&self, category: &str) -> bool {
         let mut limiters = self.rate_limiters.write().unwrap();
-        
+
         let limiter = limiters.entry(category.to_string()).or_insert_with(|| {
             RateLimitState::new(
                 self.config.max_rate_limit_count,
                 Duration::from_secs(self.config.rate_limit_seconds),
             )
         });
-        
+
         limiter.should_allow()
     }
-    
+
     /// Check if a log level is enabled for a category
     pub fn is_level_enabled(&self, category: &str, level: LogLevel) -> bool {
         if let Some(category_level_str) = self.config.category_levels.get(category) {
@@ -163,11 +163,11 @@ impl LoggerConfig {
                 return level >= category_level;
             }
         }
-        
+
         // Default to Info level if category not found
         level >= LogLevel::Info
     }
-    
+
     /// Update the configuration
     pub fn update_config(&mut self, config: LoggingConfig) {
         self.config = config;
@@ -195,25 +195,36 @@ fn get_logger() -> Option<Arc<RwLock<LoggerConfig>>> {
 pub fn log_internal(level: LogLevel, category: &str, message: &str, rate_limited: bool) {
     if let Some(logger) = get_logger() {
         let logger_guard = logger.read().unwrap();
-        
+
         // Check if level is enabled for this category
         if !logger_guard.is_level_enabled(category, level) {
             return;
         }
-        
+
         // Check rate limiting if requested
         if rate_limited && !logger_guard.should_allow_log(category) {
             return;
         }
-        
+
         drop(logger_guard); // Release the lock before printing
-        
+
         // Format and print the log message
         let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S%.3f");
-        println!("[{}] [{}] [{}] {}", timestamp, level.as_str().to_uppercase(), category, message);
+        println!(
+            "[{}] [{}] [{}] {}",
+            timestamp,
+            level.as_str().to_uppercase(),
+            category,
+            message
+        );
     } else {
         // Fallback if logger not initialized
-        println!("[UNINITIALIZED] [{}] [{}] {}", level.as_str().to_uppercase(), category, message);
+        println!(
+            "[UNINITIALIZED] [{}] [{}] {}",
+            level.as_str().to_uppercase(),
+            category,
+            message
+        );
     }
 }
 
@@ -306,17 +317,17 @@ macro_rules! strato_text_debug {
 }
 
 // Re-export macros for easier use
-pub use strato_trace;
 pub use strato_debug;
-pub use strato_info;
-pub use strato_warn;
-pub use strato_error;
-pub use strato_trace_rate_limited;
 pub use strato_debug_rate_limited;
-pub use strato_info_rate_limited;
-pub use strato_warn_rate_limited;
+pub use strato_error;
 pub use strato_error_rate_limited;
+pub use strato_info;
+pub use strato_info_rate_limited;
 pub use strato_text_debug;
+pub use strato_trace;
+pub use strato_trace_rate_limited;
+pub use strato_warn;
+pub use strato_warn_rate_limited;
 
 #[cfg(test)]
 mod tests {
@@ -328,7 +339,7 @@ mod tests {
         assert_eq!(LogLevel::from_str("info"), Some(LogLevel::Info));
         assert_eq!(LogLevel::from_str("INFO"), Some(LogLevel::Info));
         assert_eq!(LogLevel::from_str("invalid"), None);
-        
+
         assert_eq!(LogLevel::Info.as_str(), "info");
         assert_eq!(LogLevel::Error.as_str(), "error");
     }
@@ -336,14 +347,14 @@ mod tests {
     #[test]
     fn test_rate_limiting() {
         let mut state = RateLimitState::new(2, Duration::from_millis(100));
-        
+
         // First two should be allowed
         assert!(state.should_allow());
         assert!(state.should_allow());
-        
+
         // Third should be blocked
         assert!(!state.should_allow());
-        
+
         // After waiting, should be allowed again
         std::thread::sleep(Duration::from_millis(150));
         assert!(state.should_allow());
@@ -353,7 +364,7 @@ mod tests {
     fn test_logger_config() {
         let mut category_levels = HashMap::new();
         category_levels.insert("test".to_string(), "debug".to_string());
-        
+
         let config = LoggingConfig {
             category_levels,
             enable_text_debug: true,
@@ -361,14 +372,14 @@ mod tests {
             rate_limit_seconds: 1,
             max_rate_limit_count: 5,
         };
-        
+
         let logger_config = LoggerConfig::new(config);
-        
+
         // Test level checking
         assert!(logger_config.is_level_enabled("test", LogLevel::Debug));
         assert!(logger_config.is_level_enabled("test", LogLevel::Error));
         assert!(!logger_config.is_level_enabled("test", LogLevel::Trace));
-        
+
         // Test rate limiting
         assert!(logger_config.should_allow_log("test"));
     }

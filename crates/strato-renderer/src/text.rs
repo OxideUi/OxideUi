@@ -1,16 +1,15 @@
 //! Text rendering with cosmic-text
 
+use crate::glyph_atlas::GlyphAtlasManager;
+use crate::vertex::{TextVertex, Vertex};
 use cosmic_text::{
-    Attrs, Buffer, Family, FontSystem, Metrics, Shaping,
-    Weight, Wrap, SwashCache, CacheKey,
+    Attrs, Buffer, CacheKey, Family, FontSystem, Metrics, Shaping, SwashCache, Weight, Wrap,
 };
-use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
-use parking_lot::RwLock;
 use dashmap::DashMap;
 use image::{DynamicImage, ImageBuffer, Rgba};
-use crate::glyph_atlas::{GlyphAtlasManager};
-use crate::vertex::{Vertex, TextVertex};
+use parking_lot::RwLock;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use strato_core::types::{Color, Point, Size};
 
 /// Font wrapper
@@ -64,16 +63,16 @@ impl Default for Font {
         // Use platform-specific default fonts
         #[cfg(target_os = "windows")]
         let default_family = "Segoe UI";
-        
+
         #[cfg(target_os = "macos")]
         let default_family = "San Francisco";
-        
+
         #[cfg(target_os = "linux")]
         let default_family = "Ubuntu";
-        
+
         #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
         let default_family = "sans-serif";
-        
+
         Self::new(default_family, 16.0)
     }
 }
@@ -142,81 +141,101 @@ impl TextRenderer {
         let mut font_system = self.font_system.write();
         let mut glyph_cache = self.glyph_cache.write();
         let mut glyph_atlas = self.glyph_atlas_manager.write();
-        
+
         // Create buffer for layout
         let metrics = Metrics::new(font.size, font.size * 1.2);
         let mut buffer = Buffer::new(&mut font_system, metrics);
         buffer.set_text(&mut font_system, text, font.to_attrs(), Shaping::Advanced);
-        
+
         if let Some(width) = max_width {
             buffer.set_wrap(&mut font_system, Wrap::Word);
             buffer.set_size(&mut font_system, Some(width), Some(f32::MAX));
         } else {
             buffer.set_size(&mut font_system, None, Some(f32::MAX));
         }
-        
+
         buffer.shape_until_scroll(&mut font_system, false);
-        
+
         let start_x = position.x;
         let start_y = position.y;
-        
+
         // Iterate over layout runs
         for run in buffer.layout_runs() {
             for glyph in run.glyphs.iter() {
                 let physical_glyph = glyph.physical((start_x, start_y + run.line_y), 1.0);
-                
+
                 // Get texture coordinates from atlas
                 if let Some((_atlas_index, glyph_info)) = glyph_atlas.get_or_create_glyph(
                     &mut font_system,
                     &mut glyph_cache.cache,
-                    physical_glyph.cache_key
+                    physical_glyph.cache_key,
                 ) {
                     let glyph_x = physical_glyph.x as f32;
                     let glyph_y = physical_glyph.y as f32;
                     let glyph_w = glyph_info.size.0 as f32;
                     let glyph_h = glyph_info.size.1 as f32;
-                    
+
                     let (u0, v0, u1, v1) = glyph_info.uv_rect;
-                    
+
                     // Create quad vertices for this glyph
                     vertices.extend_from_slice(&[
-                        TextVertex::new([glyph_x, glyph_y, 0.0], [u0, v0], [color.r, color.g, color.b, color.a], 0),
-                        TextVertex::new([glyph_x + glyph_w, glyph_y, 0.0], [u1, v0], [color.r, color.g, color.b, color.a], 0),
-                        TextVertex::new([glyph_x + glyph_w, glyph_y + glyph_h, 0.0], [u1, v1], [color.r, color.g, color.b, color.a], 0),
-                        TextVertex::new([glyph_x, glyph_y + glyph_h, 0.0], [u0, v1], [color.r, color.g, color.b, color.a], 0),
+                        TextVertex::new(
+                            [glyph_x, glyph_y, 0.0],
+                            [u0, v0],
+                            [color.r, color.g, color.b, color.a],
+                            0,
+                        ),
+                        TextVertex::new(
+                            [glyph_x + glyph_w, glyph_y, 0.0],
+                            [u1, v0],
+                            [color.r, color.g, color.b, color.a],
+                            0,
+                        ),
+                        TextVertex::new(
+                            [glyph_x + glyph_w, glyph_y + glyph_h, 0.0],
+                            [u1, v1],
+                            [color.r, color.g, color.b, color.a],
+                            0,
+                        ),
+                        TextVertex::new(
+                            [glyph_x, glyph_y + glyph_h, 0.0],
+                            [u0, v1],
+                            [color.r, color.g, color.b, color.a],
+                            0,
+                        ),
                     ]);
                 }
             }
         }
-        
+
         vertices
     }
 
     /// Measure text dimensions
     pub fn measure_text(&self, text: &str, font: &Font, max_width: Option<f32>) -> Size {
         let mut font_system = self.font_system.write();
-        
+
         // Create buffer for measurement
         let metrics = Metrics::new(font.size, font.size * 1.2);
         let mut buffer = Buffer::new(&mut font_system, metrics);
         buffer.set_text(&mut font_system, text, font.to_attrs(), Shaping::Advanced);
-        
+
         if let Some(width) = max_width {
             buffer.set_wrap(&mut font_system, Wrap::Word);
             buffer.set_size(&mut font_system, Some(width), Some(f32::MAX));
         }
-        
+
         buffer.shape_until_scroll(&mut font_system, false);
-        
+
         let mut max_width: f32 = 0.0;
         let mut total_height = 0.0;
-        
+
         for run in buffer.layout_runs() {
             let line_width = run.glyphs.iter().map(|g| g.w).sum::<f32>();
             max_width = max_width.max(line_width);
             total_height += run.line_height;
         }
-        
+
         Size::new(max_width, total_height)
     }
 
@@ -225,7 +244,7 @@ impl TextRenderer {
     fn hash_text(text: &str, font: &Font) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
-        
+
         let mut hasher = DefaultHasher::new();
         text.hash(&mut hasher);
         font.size.to_bits().hash(&mut hasher);
@@ -249,32 +268,32 @@ impl TextRenderer {
     ) -> DynamicImage {
         let mut font_system = self.font_system.write();
         let mut swash_cache = SwashCache::new();
-        
+
         // Create buffer for text layout
         let metrics = Metrics::new(font.size, font.size * 1.2);
         let mut buffer = Buffer::new(&mut font_system, metrics);
         buffer.set_text(&mut font_system, text, font.to_attrs(), Shaping::Advanced);
-        
+
         if let Some(width) = max_width {
             buffer.set_wrap(&mut font_system, cosmic_text::Wrap::Word);
             buffer.set_size(&mut font_system, Some(width), Some(f32::MAX));
         }
-        
+
         buffer.shape_until_scroll(&mut font_system, false);
-        
+
         // Calculate dimensions
         let size = self.measure_text(text, font, max_width);
         let width = size.width.ceil().max(1.0) as u32;
         let height = size.height.ceil().max(1.0) as u32;
-        
+
         // Create pixel buffer
         let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(width, height);
-        
+
         // Render each glyph
         for run in buffer.layout_runs() {
             for glyph in run.glyphs {
                 let physical_glyph = glyph.physical((0.0, 0.0), 1.0);
-                
+
                 swash_cache.with_pixels(
                     &mut font_system,
                     physical_glyph.cache_key,
@@ -282,7 +301,7 @@ impl TextRenderer {
                     |x, y, color| {
                         let px = (physical_glyph.x as i32 + x) as u32;
                         let py = (physical_glyph.y as i32 + y) as u32;
-                        
+
                         if px < width && py < height {
                             let pixel = img.get_pixel_mut(px, py);
                             pixel[0] = color.r();
@@ -294,7 +313,7 @@ impl TextRenderer {
                 );
             }
         }
-        
+
         DynamicImage::ImageRgba8(img)
     }
 }

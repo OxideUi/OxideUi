@@ -85,16 +85,16 @@ impl Default for FontDescriptor {
         // Use platform-specific default fonts instead of generic "system-ui"
         #[cfg(target_os = "windows")]
         let default_family = "Segoe UI";
-        
+
         #[cfg(target_os = "macos")]
         let default_family = "SF Pro Display";
-        
+
         #[cfg(target_os = "linux")]
         let default_family = "Ubuntu";
-        
+
         #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
         let default_family = "Arial";
-        
+
         Self {
             family: default_family.to_string(),
             size: 14.0,
@@ -254,12 +254,17 @@ impl FontManager {
     pub fn load_font_from_file(&mut self, path: &str, family: &str) -> Result<(), TextError> {
         let data = std::fs::read(path)
             .map_err(|e| TextError::FontLoadError(format!("Failed to read font file: {}", e)))?;
-        
+
         self.load_font_from_data(data, family, 0)
     }
 
     /// Load a font from raw data
-    pub fn load_font_from_data(&mut self, data: Vec<u8>, family: &str, index: u32) -> Result<(), TextError> {
+    pub fn load_font_from_data(
+        &mut self,
+        data: Vec<u8>,
+        family: &str,
+        index: u32,
+    ) -> Result<(), TextError> {
         let font_data = FontData {
             family: family.to_string(),
             data,
@@ -295,12 +300,15 @@ impl TextShaper {
     }
 
     /// Shape text into positioned glyphs
-    pub fn shape_text(&self, text: &str, style: &TextStyle) -> Result<Vec<PositionedGlyph>, TextError> {
-     
+    pub fn shape_text(
+        &self,
+        text: &str,
+        style: &TextStyle,
+    ) -> Result<Vec<PositionedGlyph>, TextError> {
         // TODO: Use self.font_manager to get proper font metrics
         let mut glyphs = Vec::new();
         let mut x = 0.0;
-        
+
         for (_i, ch) in text.char_indices() {
             let glyph = PositionedGlyph {
                 glyph_id: ch as u32, // Simplified glyph ID
@@ -310,11 +318,11 @@ impl TextShaper {
                 advance_y: 0.0,
                 font_size: style.font.size,
             };
-            
+
             x += glyph.advance_x + style.letter_spacing;
             glyphs.push(glyph);
         }
-        
+
         Ok(glyphs)
     }
 }
@@ -332,40 +340,58 @@ impl TextLayoutEngine {
     }
 
     /// Layout text according to the given configuration
-    pub fn layout_text(&self, text: &str, style: &TextStyle, layout: &TextLayout) -> Result<LayoutResult, TextError> {
+    pub fn layout_text(
+        &self,
+        text: &str,
+        style: &TextStyle,
+        layout: &TextLayout,
+    ) -> Result<LayoutResult, TextError> {
         let glyphs = self.shaper.shape_text(text, style)?;
-        
+
         // Simple line breaking and layout
         let mut lines = Vec::new();
         let mut current_line_glyphs = Vec::new();
         let mut current_x = 0.0;
         let line_height = style.font.size * layout.line_height;
-        
+
         for glyph in glyphs {
             if let Some(max_width) = layout.max_width {
                 if current_x + glyph.advance_x > max_width && !current_line_glyphs.is_empty() {
                     // Create line from current glyphs
-                    let line = self.create_text_line(current_line_glyphs, style, current_x, line_height * lines.len() as f32);
+                    let line = self.create_text_line(
+                        current_line_glyphs,
+                        style,
+                        current_x,
+                        line_height * lines.len() as f32,
+                    );
                     lines.push(line);
                     current_line_glyphs = Vec::new();
                     current_x = 0.0;
                 }
             }
-            
+
             current_line_glyphs.push(glyph.clone());
             current_x += glyph.advance_x;
         }
-        
+
         // Add remaining glyphs as final line
         if !current_line_glyphs.is_empty() {
-            let line = self.create_text_line(current_line_glyphs, style, current_x, line_height * lines.len() as f32);
+            let line = self.create_text_line(
+                current_line_glyphs,
+                style,
+                current_x,
+                line_height * lines.len() as f32,
+            );
             lines.push(line);
         }
-        
+
         // Calculate overall bounds
-        let total_width = lines.iter().map(|line| line.bounds.width).fold(0.0, f32::max);
+        let total_width = lines
+            .iter()
+            .map(|line| line.bounds.width)
+            .fold(0.0, f32::max);
         let total_height = lines.len() as f32 * line_height;
-        
+
         Ok(LayoutResult {
             lines: lines.clone(),
             bounds: TextBounds {
@@ -378,7 +404,13 @@ impl TextLayoutEngine {
         })
     }
 
-    fn create_text_line(&self, glyphs: Vec<PositionedGlyph>, style: &TextStyle, width: f32, y: f32) -> TextLine {
+    fn create_text_line(
+        &self,
+        glyphs: Vec<PositionedGlyph>,
+        style: &TextStyle,
+        width: f32,
+        y: f32,
+    ) -> TextLine {
         let run = TextRun {
             text: String::new(), // Would be populated in real implementation
             style: style.clone(),
@@ -390,7 +422,7 @@ impl TextLayoutEngine {
                 height: style.font.size,
             },
         };
-        
+
         TextLine {
             runs: vec![run],
             bounds: TextBounds {
@@ -417,7 +449,12 @@ impl TextMeasurer {
     }
 
     /// Measure text dimensions
-    pub fn measure_text(&self, text: &str, style: &TextStyle, layout: &TextLayout) -> Result<TextBounds, TextError> {
+    pub fn measure_text(
+        &self,
+        text: &str,
+        style: &TextStyle,
+        layout: &TextLayout,
+    ) -> Result<TextBounds, TextError> {
         let result = self.layout_engine.layout_text(text, style, layout)?;
         Ok(result.bounds)
     }
@@ -433,19 +470,19 @@ impl TextMeasurer {
 pub enum TextError {
     #[error("Font loading error: {0}")]
     FontLoadError(String),
-    
+
     #[error("Text shaping error: {0}")]
     ShapingError(String),
-    
+
     #[error("Layout error: {0}")]
     LayoutError(String),
-    
+
     #[error("Rendering error: {0}")]
     RenderingError(String),
-    
+
     #[error("Invalid font data")]
     InvalidFontData,
-    
+
     #[error("Unsupported text feature: {0}")]
     UnsupportedFeature(String),
 }
@@ -466,7 +503,7 @@ impl TextSystem {
         let font_manager = Arc::new(FontManager::new());
         let layout_engine = TextLayoutEngine::new(font_manager.clone());
         let measurer = TextMeasurer::new(font_manager.clone());
-        
+
         Self {
             font_manager,
             layout_engine,
@@ -505,16 +542,16 @@ mod tests {
     #[test]
     fn test_font_descriptor_default() {
         let font = FontDescriptor::default();
-        
+
         #[cfg(target_os = "windows")]
         assert_eq!(font.family, "Segoe UI");
-        
+
         #[cfg(target_os = "macos")]
         assert_eq!(font.family, "SF Pro Display");
-        
+
         #[cfg(target_os = "linux")]
         assert_eq!(font.family, "Ubuntu");
-        
+
         #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
         assert_eq!(font.family, "Arial");
 
@@ -533,7 +570,7 @@ mod tests {
     fn test_font_manager() {
         let mut manager = FontManager::new();
         assert!(manager.get_font("nonexistent").is_none());
-        
+
         manager.add_fallback_font("Test Font".to_string());
         assert!(manager.fallback_fonts.contains(&"Test Font".to_string()));
     }

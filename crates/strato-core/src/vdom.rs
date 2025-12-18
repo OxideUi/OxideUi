@@ -184,7 +184,12 @@ impl VNode {
 impl fmt::Display for VNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            VNode::Element { tag, attributes, children, .. } => {
+            VNode::Element {
+                tag,
+                attributes,
+                children,
+                ..
+            } => {
                 write!(f, "<{}", tag)?;
                 for (key, value) in attributes {
                     write!(f, " {}=\"{}\"", key, value)?;
@@ -200,7 +205,12 @@ impl fmt::Display for VNode {
                 }
             }
             VNode::Text(content) => write!(f, "{}", content),
-            VNode::Component { name, props, children, .. } => {
+            VNode::Component {
+                name,
+                props,
+                children,
+                ..
+            } => {
                 write!(f, "<{}", name)?;
                 for (key, value) in props {
                     write!(f, " {}=\"{}\"", key, value)?;
@@ -261,7 +271,10 @@ impl VDomDiffer {
     pub fn diff(&mut self, new_tree: VNode) -> Vec<DiffOp> {
         let ops = match &self.current {
             Some(old_tree) => self.diff_nodes(old_tree, &new_tree, 0),
-            None => vec![DiffOp::Insert { index: 0, node: new_tree.clone() }],
+            None => vec![DiffOp::Insert {
+                index: 0,
+                node: new_tree.clone(),
+            }],
         };
 
         self.current = Some(new_tree);
@@ -285,8 +298,18 @@ impl VDomDiffer {
 
             // Both are elements with the same tag
             (
-                VNode::Element { tag: old_tag, attributes: old_attrs, children: old_children, .. },
-                VNode::Element { tag: new_tag, attributes: new_attrs, children: new_children, .. },
+                VNode::Element {
+                    tag: old_tag,
+                    attributes: old_attrs,
+                    children: old_children,
+                    ..
+                },
+                VNode::Element {
+                    tag: new_tag,
+                    attributes: new_attrs,
+                    children: new_children,
+                    ..
+                },
             ) if old_tag == new_tag => {
                 // Diff attributes
                 let attr_diff = self.diff_attributes(old_attrs, new_attrs);
@@ -303,8 +326,18 @@ impl VDomDiffer {
 
             // Both are components with the same name
             (
-                VNode::Component { name: old_name, props: old_props, children: old_children, .. },
-                VNode::Component { name: new_name, props: new_props, children: new_children, .. },
+                VNode::Component {
+                    name: old_name,
+                    props: old_props,
+                    children: old_children,
+                    ..
+                },
+                VNode::Component {
+                    name: new_name,
+                    props: new_props,
+                    children: new_children,
+                    ..
+                },
             ) if old_name == new_name => {
                 // Diff props (treated like attributes)
                 let prop_diff = self.diff_attributes(old_props, new_props);
@@ -368,7 +401,12 @@ impl VDomDiffer {
     }
 
     /// Diff children using a keyed diffing algorithm
-    fn diff_children(&self, old_children: &[VNode], new_children: &[VNode], parent_index: usize) -> Vec<DiffOp> {
+    fn diff_children(
+        &self,
+        old_children: &[VNode],
+        new_children: &[VNode],
+        parent_index: usize,
+    ) -> Vec<DiffOp> {
         let mut ops = Vec::new();
 
         // Simple algorithm for now - can be optimized with keyed diffing later
@@ -486,13 +524,13 @@ mod tests {
     #[test]
     fn test_vdom_diff_text_change() {
         let mut differ = VDomDiffer::new();
-        
+
         let old_tree = VNode::text("Hello");
         let new_tree = VNode::text("World");
-        
+
         differ.current = Some(old_tree);
         let ops = differ.diff(new_tree);
-        
+
         assert_eq!(ops.len(), 1);
         match &ops[0] {
             DiffOp::UpdateText { text, .. } => assert_eq!(text, "World"),
@@ -503,13 +541,13 @@ mod tests {
     #[test]
     fn test_vdom_diff_attribute_change() {
         let mut differ = VDomDiffer::new();
-        
+
         let old_tree = VNode::element("div").attr("class", "old");
         let new_tree = VNode::element("div").attr("class", "new");
-        
+
         differ.current = Some(old_tree);
         let ops = differ.diff(new_tree);
-        
+
         assert_eq!(ops.len(), 1);
         match &ops[0] {
             DiffOp::UpdateAttributes { attributes, .. } => {
@@ -522,13 +560,12 @@ mod tests {
     #[test]
     fn test_vdom_tree_update() {
         let mut tree = VDomTree::new();
-        
-        let root = VNode::element("div")
-            .child(VNode::text("Hello"));
-        
+
+        let root = VNode::element("div").child(VNode::text("Hello"));
+
         let ops = tree.update(root);
         assert_eq!(ops.len(), 1);
-        
+
         match &ops[0] {
             DiffOp::Insert { node, .. } => {
                 assert_eq!(node.get_tag(), Some("div"));

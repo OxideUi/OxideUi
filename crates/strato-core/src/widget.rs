@@ -5,16 +5,12 @@
 //! creation, rendering, and interaction.
 
 use crate::{
+    error::StratoResult,
     event::Event,
     layout::{LayoutConstraints, Size},
     types::Rect,
-    error::StratoResult,
 };
-use std::{
-    any::Any,
-    collections::HashMap,
-    fmt::Debug,
-};
+use std::{any::Any, collections::HashMap, fmt::Debug};
 
 /// Unique identifier for widgets
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -88,7 +84,11 @@ pub trait Widget: Debug + Send + Sync {
     fn update(&mut self, context: &mut WidgetContext) -> StratoResult<()>;
 
     /// Calculate the widget's layout
-    fn layout(&mut self, constraints: &LayoutConstraints, context: &mut WidgetContext) -> StratoResult<Size>;
+    fn layout(
+        &mut self,
+        constraints: &LayoutConstraints,
+        context: &mut WidgetContext,
+    ) -> StratoResult<Size>;
 
     /// Render the widget
     fn render(&self, context: &WidgetContext) -> StratoResult<()>;
@@ -150,7 +150,11 @@ impl<T: Widget + ?Sized> Widget for Box<T> {
         (**self).update(context)
     }
 
-    fn layout(&mut self, constraints: &LayoutConstraints, context: &mut WidgetContext) -> StratoResult<Size> {
+    fn layout(
+        &mut self,
+        constraints: &LayoutConstraints,
+        context: &mut WidgetContext,
+    ) -> StratoResult<Size> {
         (**self).layout(constraints, context)
     }
 
@@ -298,10 +302,9 @@ impl WidgetManager {
     pub fn handle_event(&mut self, event: &Event) -> StratoResult<bool> {
         if let Some(root) = self.tree.root() {
             let id = root.id();
-            if let (Some(widget), Some(context)) = (
-                self.tree.get_widget_mut(id),
-                self.contexts.get_mut(&id)
-            ) {
+            if let (Some(widget), Some(context)) =
+                (self.tree.get_widget_mut(id), self.contexts.get_mut(&id))
+            {
                 return widget.handle_event(event, context);
             }
         }
@@ -311,10 +314,9 @@ impl WidgetManager {
     /// Update all widgets
     pub fn update(&mut self) -> StratoResult<()> {
         for id in self.tree.widget_ids() {
-            if let (Some(widget), Some(context)) = (
-                self.tree.get_widget_mut(id),
-                self.contexts.get_mut(&id)
-            ) {
+            if let (Some(widget), Some(context)) =
+                (self.tree.get_widget_mut(id), self.contexts.get_mut(&id))
+            {
                 widget.update(context)?;
             }
         }
@@ -325,10 +327,9 @@ impl WidgetManager {
     pub fn layout(&mut self, constraints: &LayoutConstraints) -> StratoResult<()> {
         if let Some(root) = self.tree.root() {
             let id = root.id();
-            if let (Some(widget), Some(context)) = (
-                self.tree.get_widget_mut(id),
-                self.contexts.get_mut(&id)
-            ) {
+            if let (Some(widget), Some(context)) =
+                (self.tree.get_widget_mut(id), self.contexts.get_mut(&id))
+            {
                 widget.layout(constraints, context)?;
             }
         }
@@ -338,10 +339,9 @@ impl WidgetManager {
     /// Render all widgets
     pub fn render(&self) -> StratoResult<()> {
         for id in self.tree.widget_ids() {
-            if let (Some(widget), Some(context)) = (
-                self.tree.get_widget(id),
-                self.contexts.get(&id)
-            ) {
+            if let (Some(widget), Some(context)) =
+                (self.tree.get_widget(id), self.contexts.get(&id))
+            {
                 widget.render(context)?;
             }
         }
@@ -412,7 +412,11 @@ mod tests {
             self.id
         }
 
-        fn handle_event(&mut self, _event: &Event, _context: &mut WidgetContext) -> StratoResult<bool> {
+        fn handle_event(
+            &mut self,
+            _event: &Event,
+            _context: &mut WidgetContext,
+        ) -> StratoResult<bool> {
             Ok(false)
         }
 
@@ -420,7 +424,11 @@ mod tests {
             Ok(())
         }
 
-        fn layout(&mut self, _constraints: &LayoutConstraints, _context: &mut WidgetContext) -> StratoResult<Size> {
+        fn layout(
+            &mut self,
+            _constraints: &LayoutConstraints,
+            _context: &mut WidgetContext,
+        ) -> StratoResult<Size> {
             Ok(Size::new(100.0, 50.0))
         }
 
@@ -448,7 +456,7 @@ mod tests {
     fn test_widget_context() {
         let id = WidgetId::new();
         let mut context = WidgetContext::new(id);
-        
+
         context.set_property("test", 42i32);
         assert_eq!(context.get_property::<i32>("test"), Some(&42));
     }
@@ -458,10 +466,10 @@ mod tests {
         let mut tree = WidgetTree::new();
         let widget = Box::new(TestWidget::new());
         let id = widget.id();
-        
+
         tree.add_widget(widget);
         assert!(tree.get_widget(id).is_some());
-        
+
         tree.remove_widget(id);
         assert!(tree.get_widget(id).is_none());
     }
@@ -471,10 +479,10 @@ mod tests {
         let mut manager = WidgetManager::new();
         let widget = Box::new(TestWidget::new());
         let id = widget.id();
-        
+
         manager.set_root(widget);
         assert!(manager.get_context(id).is_some());
-        
+
         manager.set_focus(Some(id)).unwrap();
         assert_eq!(manager.focused_widget(), Some(id));
     }

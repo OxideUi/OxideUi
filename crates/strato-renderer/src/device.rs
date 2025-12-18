@@ -8,19 +8,22 @@
 //! - Power management and thermal monitoring
 //! - Vendor-specific optimizations (NVIDIA, AMD, Intel, Apple)
 
-use std::collections::HashMap;
-use std::sync::{Arc, atomic::{AtomicBool, AtomicU64, Ordering}};
-use std::time::{Duration, Instant};
+use anyhow::{bail, Result};
 use parking_lot::RwLock;
-use wgpu::{
-    Adapter, Device, DeviceDescriptor, Features, Instance, Limits, Queue, RequestDeviceError, Surface, SurfaceConfiguration,
-    DeviceType, InstanceDescriptor, Backends, InstanceFlags, Dx12Compiler, Gles3MinorVersion,
-    PowerPreference, RequestAdapterOptions
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, Ordering},
+    Arc,
 };
-use anyhow::{Result, bail};
-use tracing::{info, warn, debug, instrument};
-use serde::{Serialize, Deserialize};
-use strato_core::{strato_error_rate_limited, strato_warn, strato_debug, logging::LogCategory};
+use std::time::{Duration, Instant};
+use strato_core::{logging::LogCategory, strato_debug, strato_error_rate_limited, strato_warn};
+use tracing::{debug, info, instrument, warn};
+use wgpu::{
+    Adapter, Backends, Device, DeviceDescriptor, DeviceType, Dx12Compiler, Features,
+    Gles3MinorVersion, Instance, InstanceDescriptor, InstanceFlags, Limits, PowerPreference, Queue,
+    RequestAdapterOptions, RequestDeviceError, Surface, SurfaceConfiguration,
+};
 
 /// GPU vendor identification
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -100,10 +103,10 @@ impl GpuCapabilities {
         let info = adapter.get_info();
         let limits = adapter.limits();
         let features = adapter.features();
-        
+
         let vendor = GpuVendor::from(info.vendor);
         let performance_tier = Self::classify_performance_tier(&info, &limits);
-        
+
         Self {
             vendor,
             device_name: info.name.clone(),
@@ -134,11 +137,12 @@ impl GpuCapabilities {
             limits,
         }
     }
-    
+
     fn classify_performance_tier(info: &AdapterInfo, limits: &Limits) -> PerformanceTier {
         let memory_score = (limits.max_buffer_size / (1024 * 1024 * 1024)) as u32; // GB
-        let compute_score = limits.max_compute_workgroup_size_x * limits.max_compute_workgroup_size_y;
-        
+        let compute_score =
+            limits.max_compute_workgroup_size_x * limits.max_compute_workgroup_size_y;
+
         match info.device_type {
             DeviceType::DiscreteGpu => {
                 if memory_score >= 16 && compute_score >= 1024 * 1024 {
@@ -163,7 +167,7 @@ impl GpuCapabilities {
             DeviceType::Other => PerformanceTier::Entry,
         }
     }
-    
+
     fn estimate_memory_size(info: &AdapterInfo, limits: &Limits) -> u64 {
         // Rough estimation based on buffer limits and device type
         match info.device_type {
@@ -179,12 +183,12 @@ impl GpuCapabilities {
             _ => limits.max_buffer_size,
         }
     }
-    
+
     fn estimate_memory_bandwidth(_info: &AdapterInfo, _limits: &Limits) -> Option<u64> {
         // Would need vendor-specific APIs or lookup tables
         None
     }
-    
+
     fn estimate_compute_units(info: &AdapterInfo) -> Option<u32> {
         // Would need vendor-specific detection
         match GpuVendor::from(info.vendor) {
@@ -199,7 +203,7 @@ impl GpuCapabilities {
             _ => None,
         }
     }
-    
+
     /// Get vendor-specific optimization hints
     pub fn get_optimization_hints(&self) -> OptimizationHints {
         match self.vendor {
@@ -349,27 +353,32 @@ impl DeviceManager {
     /// Create a new device manager
     #[instrument(skip(instance, surface))]
     pub async fn new(instance: Option<Instance>, surface: Option<&Surface<'_>>) -> Result<Self> {
-        let instance = instance.unwrap_or_else(|| Instance::new(InstanceDescriptor {
-            backends: Backends::all(),
-            flags: InstanceFlags::default(),
-            dx12_shader_compiler: Dx12Compiler::Fxc,
-            gles_minor_version: Gles3MinorVersion::Automatic,
-        }));
-        
+        let instance = instance.unwrap_or_else(|| {
+            Instance::new(InstanceDescriptor {
+                backends: Backends::all(),
+                flags: InstanceFlags::default(),
+                dx12_shader_compiler: Dx12Compiler::Fxc,
+                gles_minor_version: Gles3MinorVersion::Automatic,
+            })
+        });
+
         info!("Enumerating GPU adapters...");
         let adapters = Self::enumerate_adapters(&instance, surface).await?;
-        
+
         if adapters.is_empty() {
             bail!("No compatible GPU adapters found");
         }
-        
+
         info!("Found {} compatible GPU adapter(s)", adapters.len());
         for (i, (_, caps)) in adapters.iter().enumerate() {
-            info!("  [{}] {} ({:?}, {:?})", i, caps.device_name, caps.vendor, caps.performance_tier);
+            info!(
+                "  [{}] {} ({:?}, {:?})",
+                i, caps.device_name, caps.vendor, caps.performance_tier
+            );
         }
-        
+
         let fallback_chain = Self::create_fallback_chain(&adapters);
-        
+
         Ok(Self {
             instance,
             adapters,
@@ -381,159 +390,200 @@ impl DeviceManager {
             monitoring_enabled: AtomicBool::new(true),
         })
     }
-    
+
     /// Enumerate and analyze all available adapters
-    async fn enumerate_adapters(instance: &Instance, surface: Option<&Surface<'_>>) -> Result<Vec<(Adapter, GpuCapabilities)>> {
+    async fn enumerate_adapters(
+        instance: &Instance,
+        surface: Option<&Surface<'_>>,
+    ) -> Result<Vec<(Adapter, GpuCapabilities)>> {
         let mut adapters = Vec::new();
-        
+
         // Try all power preferences to find all adapters
         for power_pref in [PowerPreference::HighPerformance, PowerPreference::LowPower] {
-            if let Some(adapter) = instance.request_adapter(&RequestAdapterOptions {
-                power_preference: power_pref,
-                compatible_surface: surface,
-                force_fallback_adapter: false,
-            }).await {
+            if let Some(adapter) = instance
+                .request_adapter(&RequestAdapterOptions {
+                    power_preference: power_pref,
+                    compatible_surface: surface,
+                    force_fallback_adapter: false,
+                })
+                .await
+            {
                 let capabilities = GpuCapabilities::from_adapter(&adapter);
-                
+
                 // Check if we already have this adapter
-                if !adapters.iter().any(|(_, caps): &(Adapter, GpuCapabilities)| {
-                    caps.device_id == capabilities.device_id && 
-                    caps.vendor_id == capabilities.vendor_id
-                }) {
+                if !adapters
+                    .iter()
+                    .any(|(_, caps): &(Adapter, GpuCapabilities)| {
+                        caps.device_id == capabilities.device_id
+                            && caps.vendor_id == capabilities.vendor_id
+                    })
+                {
                     adapters.push((adapter, capabilities));
                 }
             }
         }
-        
+
         // Also try fallback adapter
-        if let Some(adapter) = instance.request_adapter(&RequestAdapterOptions {
-            power_preference: PowerPreference::default(),
-            compatible_surface: surface,
-            force_fallback_adapter: true,
-        }).await {
+        if let Some(adapter) = instance
+            .request_adapter(&RequestAdapterOptions {
+                power_preference: PowerPreference::default(),
+                compatible_surface: surface,
+                force_fallback_adapter: true,
+            })
+            .await
+        {
             let capabilities = GpuCapabilities::from_adapter(&adapter);
-            
+
             if !adapters.iter().any(|(_, caps)| {
-                caps.device_id == capabilities.device_id && 
-                caps.vendor_id == capabilities.vendor_id
+                caps.device_id == capabilities.device_id && caps.vendor_id == capabilities.vendor_id
             }) {
                 adapters.push((adapter, capabilities));
             }
         }
-        
+
         Ok(adapters)
     }
-    
+
     /// Create fallback chain ordered by preference
     fn create_fallback_chain(adapters: &[(Adapter, GpuCapabilities)]) -> Vec<usize> {
         let mut indices: Vec<usize> = (0..adapters.len()).collect();
-        
+
         // Sort by performance tier (descending), then by memory size (descending)
         indices.sort_by(|&a, &b| {
             let caps_a = &adapters[a].1;
             let caps_b = &adapters[b].1;
-            
-            caps_b.performance_tier.cmp(&caps_a.performance_tier)
+
+            caps_b
+                .performance_tier
+                .cmp(&caps_a.performance_tier)
                 .then(caps_b.memory_size.cmp(&caps_a.memory_size))
         });
-        
+
         indices
     }
-    
+
     /// Initialize device with automatic selection
     #[instrument]
     pub async fn initialize_device(&self) -> Result<Arc<ManagedDevice>> {
         let criteria = self.selection_criteria.read().clone();
         self.initialize_device_with_criteria(criteria).await
     }
-    
+
     /// Initialize device with specific criteria
     #[instrument]
-    pub async fn initialize_device_with_criteria(&self, criteria: DeviceSelectionCriteria) -> Result<Arc<ManagedDevice>> {
+    pub async fn initialize_device_with_criteria(
+        &self,
+        criteria: DeviceSelectionCriteria,
+    ) -> Result<Arc<ManagedDevice>> {
         let fallback_chain = self.fallback_chain.read().clone();
-        
+
         for &adapter_idx in &fallback_chain {
             let (adapter, capabilities) = &self.adapters[adapter_idx];
-            
+
             if !Self::meets_criteria(capabilities, &criteria) {
-                debug!("Adapter {} doesn't meet criteria, skipping", capabilities.device_name);
+                debug!(
+                    "Adapter {} doesn't meet criteria, skipping",
+                    capabilities.device_name
+                );
                 continue;
             }
-            
+
             match self.create_device(adapter, capabilities, &criteria).await {
                 Ok(device) => {
-                    info!("Successfully initialized device: {}", capabilities.device_name);
+                    info!(
+                        "Successfully initialized device: {}",
+                        capabilities.device_name
+                    );
                     let managed_device = Arc::new(device);
                     *self.active_device.write() = Some(managed_device.clone());
                     *self.active_adapter_index.write() = Some(adapter_idx);
                     return Ok(managed_device);
                 }
                 Err(e) => {
-                    warn!("Failed to create device {}: {}", capabilities.device_name, e);
+                    warn!(
+                        "Failed to create device {}: {}",
+                        capabilities.device_name, e
+                    );
                     continue;
                 }
             }
         }
-        
+
         bail!("Failed to initialize any compatible device");
     }
-    
+
     /// Check if capabilities meet selection criteria
     fn meets_criteria(capabilities: &GpuCapabilities, criteria: &DeviceSelectionCriteria) -> bool {
         if capabilities.memory_size < criteria.min_memory_size {
             return false;
         }
-        
+
         if capabilities.performance_tier < criteria.min_performance_tier {
             return false;
         }
-        
-        if !capabilities.supported_features.contains(criteria.required_features) {
+
+        if !capabilities
+            .supported_features
+            .contains(criteria.required_features)
+        {
             return false;
         }
-        
+
         if let Some(preferred_vendor) = criteria.preferred_vendor {
             if capabilities.vendor != preferred_vendor {
                 return false;
             }
         }
-        
-        if criteria.require_timestamp_queries && !capabilities.supported_features.contains(Features::TIMESTAMP_QUERY) {
+
+        if criteria.require_timestamp_queries
+            && !capabilities
+                .supported_features
+                .contains(Features::TIMESTAMP_QUERY)
+        {
             return false;
         }
-        
-        if criteria.require_pipeline_statistics && !capabilities.supported_features.contains(Features::PIPELINE_STATISTICS_QUERY) {
+
+        if criteria.require_pipeline_statistics
+            && !capabilities
+                .supported_features
+                .contains(Features::PIPELINE_STATISTICS_QUERY)
+        {
             return false;
         }
-        
+
         true
     }
-    
+
     /// Create managed device from adapter
-    async fn create_device(&self, adapter: &Adapter, capabilities: &GpuCapabilities, criteria: &DeviceSelectionCriteria) -> Result<ManagedDevice> {
+    async fn create_device(
+        &self,
+        adapter: &Adapter,
+        capabilities: &GpuCapabilities,
+        criteria: &DeviceSelectionCriteria,
+    ) -> Result<ManagedDevice> {
         info!("Creating device for adapter: {}", capabilities.device_name);
-        
+
         let mut required_features = criteria.required_features;
-        
+
         // Enable timestamp queries if requested
         if criteria.require_timestamp_queries {
             required_features |= Features::TIMESTAMP_QUERY;
         }
-        
+
         // Enable pipeline statistics if requested
         if criteria.require_pipeline_statistics {
             required_features |= Features::PIPELINE_STATISTICS_QUERY;
         }
-        
+
         let required_limits = Limits::default();
-        
+
         // Set up error callback for Vulkan validation errors
         let device_descriptor = DeviceDescriptor {
             label: Some(&format!("StratoUI Device - {}", capabilities.device_name)),
             required_features,
             required_limits: required_limits.clone(),
         };
-        
+
         match adapter.request_device(&device_descriptor, None).await {
             Ok((device, queue)) => {
                 // Set up error callback to handle Vulkan validation errors with rate limiting
@@ -541,36 +591,50 @@ impl DeviceManager {
                     match error {
                         wgpu::Error::Validation { description, .. } => {
                             // Rate limit Vulkan validation errors, especially VUID-vkQueueSubmit
-                            if description.contains("VUID-vkQueueSubmit") || 
-                               description.contains("pSignalSemaphores") {
-                                strato_error_rate_limited!(LogCategory::Vulkan, 
-                                    "Vulkan validation warning (known WGPU issue): {}", description);
+                            if description.contains("VUID-vkQueueSubmit")
+                                || description.contains("pSignalSemaphores")
+                            {
+                                strato_error_rate_limited!(
+                                    LogCategory::Vulkan,
+                                    "Vulkan validation warning (known WGPU issue): {}",
+                                    description
+                                );
                             } else {
-                                strato_error_rate_limited!(LogCategory::Vulkan, 
-                                    "Vulkan validation error: {}", description);
+                                strato_error_rate_limited!(
+                                    LogCategory::Vulkan,
+                                    "Vulkan validation error: {}",
+                                    description
+                                );
                             }
                         }
                         wgpu::Error::OutOfMemory { .. } => {
-                            strato_error_rate_limited!(LogCategory::Vulkan, 
-                                "GPU out of memory: {}", error);
+                            strato_error_rate_limited!(
+                                LogCategory::Vulkan,
+                                "GPU out of memory: {}",
+                                error
+                            );
                         }
                         _ => {
                             strato_warn!(LogCategory::Vulkan, "GPU error: {}", error);
                         }
                     }
                 }));
-                
+
                 let health = Arc::new(DeviceHealth::default());
-                health.last_successful_operation.write().clone_from(&Instant::now());
-                
+                health
+                    .last_successful_operation
+                    .write()
+                    .clone_from(&Instant::now());
+
                 let optimization_hints = capabilities.get_optimization_hints();
-                
-                strato_debug!(LogCategory::Renderer, 
-                    "Successfully created device '{}' with {} MB memory", 
-                    capabilities.device_name, 
+
+                strato_debug!(
+                    LogCategory::Renderer,
+                    "Successfully created device '{}' with {} MB memory",
+                    capabilities.device_name,
                     capabilities.memory_size / (1024 * 1024)
                 );
-                
+
                 Ok(ManagedDevice {
                     device,
                     queue,
@@ -581,17 +645,19 @@ impl DeviceManager {
                 })
             }
             Err(e) => {
-                strato_error_rate_limited!(LogCategory::Vulkan, 
-                    "Failed to create device for adapter '{}': {}", 
-                    capabilities.device_name, e
+                strato_error_rate_limited!(
+                    LogCategory::Vulkan,
+                    "Failed to create device for adapter '{}': {}",
+                    capabilities.device_name,
+                    e
                 );
-                
+
                 // All device creation errors are treated the same way
                 bail!("Failed to create device: {}", e);
             }
         }
     }
-    
+
     /// Get current active device
     pub fn get_device(&self) -> Option<Arc<ManagedDevice>> {
         self.active_device.read().clone()
@@ -599,9 +665,11 @@ impl DeviceManager {
 
     /// Get current active adapter
     pub fn get_active_adapter(&self) -> Option<&Adapter> {
-        self.active_adapter_index.read().map(|idx| &self.adapters[idx].0)
+        self.active_adapter_index
+            .read()
+            .map(|idx| &self.adapters[idx].0)
     }
-    
+
     /// Check device health and attempt recovery if needed
     #[instrument]
     pub async fn check_device_health(&self) -> Result<()> {
@@ -613,38 +681,38 @@ impl DeviceManager {
         }
         Ok(())
     }
-    
+
     /// Attempt to recover from device loss
     async fn recover_device(&self) -> Result<()> {
         info!("Attempting device recovery...");
-        
+
         // Clear current device
         *self.active_device.write() = None;
         *self.active_adapter_index.write() = None;
-        
+
         // Try to reinitialize with same criteria
         let criteria = self.selection_criteria.read().clone();
         self.initialize_device_with_criteria(criteria).await?;
-        
+
         info!("Device recovery successful");
         Ok(())
     }
-    
+
     /// Update selection criteria
     pub fn update_selection_criteria(&self, criteria: DeviceSelectionCriteria) {
         *self.selection_criteria.write() = criteria;
     }
-    
+
     /// Get adapter capabilities
     pub fn get_adapter_capabilities(&self) -> Vec<GpuCapabilities> {
         self.adapters.iter().map(|(_, caps)| caps.clone()).collect()
     }
-    
+
     /// Get the best available device
     pub fn get_best_device(&self) -> Option<Arc<ManagedDevice>> {
         self.get_device()
     }
-    
+
     /// Get device statistics
     pub fn get_device_stats(&self) -> Option<DeviceStats> {
         self.get_device().map(|device| DeviceStats {
@@ -678,20 +746,20 @@ pub struct DeviceStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_device_manager_creation() {
         let manager = DeviceManager::new(None, None).await;
         assert!(manager.is_ok());
     }
-    
+
     #[test]
     fn test_gpu_vendor_detection() {
         assert_eq!(GpuVendor::from(0x10DE), GpuVendor::Nvidia);
         assert_eq!(GpuVendor::from(0x1002), GpuVendor::Amd);
         assert_eq!(GpuVendor::from(0x8086), GpuVendor::Intel);
     }
-    
+
     #[test]
     fn test_optimization_hints() {
         let caps = GpuCapabilities {
@@ -723,7 +791,7 @@ mod tests {
             supported_features: Features::empty(),
             limits: Limits::default(),
         };
-        
+
         let hints = caps.get_optimization_hints();
         assert_eq!(hints.preferred_workgroup_size, (32, 1, 1));
         assert!(hints.prefers_texture_arrays);

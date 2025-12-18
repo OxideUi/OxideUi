@@ -191,7 +191,7 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
         #[cfg(feature = "serde")]
         {
             // Record inspector snapshot if available.
-            use self::serde_helper::{JsonInspector, Fallback};
+            use self::serde_helper::{Fallback, JsonInspector};
             let detail = JsonInspector(&value).to_json();
             crate::inspector::inspector().record_state_snapshot(self.id, detail);
         }
@@ -214,7 +214,7 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
         };
         #[cfg(feature = "serde")]
         {
-            use self::serde_helper::{JsonInspector, Fallback};
+            use self::serde_helper::{Fallback, JsonInspector};
             let detail = JsonInspector(&value).to_json();
             crate::inspector::inspector().record_state_snapshot(self.id, detail);
         }

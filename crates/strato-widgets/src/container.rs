@@ -1,15 +1,15 @@
 //! Container widget for layout and styling
 
-use crate::widget::{Widget, WidgetId, generate_id};
+use crate::widget::{generate_id, Widget, WidgetId};
+use std::any::Any;
 use strato_core::{
     event::{Event, EventResult},
     layout::{Constraints, EdgeInsets, Layout, Size},
-    types::{Color, Rect, BorderRadius, Shadow, Point},
     state::Signal,
+    types::{BorderRadius, Color, Point, Rect, Shadow},
     Transform,
 };
 use strato_renderer::batch::RenderBatch;
-use std::any::Any;
 
 /// Container widget for grouping and styling child widgets
 pub struct Container {
@@ -73,7 +73,12 @@ impl Container {
 
     /// Set padding with individual values
     pub fn padding_values(mut self, top: f32, right: f32, bottom: f32, left: f32) -> Self {
-        self.style.padding = EdgeInsets { top, right, bottom, left };
+        self.style.padding = EdgeInsets {
+            top,
+            right,
+            bottom,
+            left,
+        };
         self
     }
 
@@ -165,7 +170,7 @@ impl Widget for Container {
 
     fn layout(&mut self, constraints: Constraints) -> Size {
         let constraints = self.constraints.unwrap_or(constraints);
-        
+
         // Apply margin to constraints
         let margin = self.style.margin;
         let inner_constraints = Constraints {
@@ -174,7 +179,7 @@ impl Widget for Container {
             min_height: (constraints.min_height - margin.vertical()).max(0.0),
             max_height: (constraints.max_height - margin.vertical()).max(0.0),
         };
-        
+
         // Apply padding to child constraints
         let padding = self.style.padding;
         let child_constraints = Constraints {
@@ -183,18 +188,18 @@ impl Widget for Container {
             min_height: (inner_constraints.min_height - padding.vertical()).max(0.0),
             max_height: (inner_constraints.max_height - padding.vertical()).max(0.0),
         };
-        
+
         // Calculate child size
         let child_size = if let Some(child) = &mut self.child {
             child.layout(child_constraints)
         } else {
             Size::zero()
         };
-        
+
         // Calculate container size
         let mut width = child_size.width + padding.horizontal();
         let mut height = child_size.height + padding.vertical();
-        
+
         // Apply fixed dimensions if specified
         if let Some(fixed_width) = self.style.width {
             width = fixed_width;
@@ -202,11 +207,11 @@ impl Widget for Container {
         if let Some(fixed_height) = self.style.height {
             height = fixed_height;
         }
-        
+
         // Add margin
         width += margin.horizontal();
         height += margin.vertical();
-        
+
         // Constrain to limits
         Size::new(
             width.clamp(constraints.min_width, constraints.max_width),
@@ -215,12 +220,17 @@ impl Widget for Container {
     }
 
     fn render(&self, batch: &mut RenderBatch, layout: Layout) {
-        let bounds = Rect::new(layout.position.x, layout.position.y, layout.size.width, layout.size.height);
+        let bounds = Rect::new(
+            layout.position.x,
+            layout.position.y,
+            layout.size.width,
+            layout.size.height,
+        );
         self.bounds.set(bounds);
 
         let margin = self.style.margin;
         let padding = self.style.padding;
-        
+
         // Calculate content rect (excluding margin)
         let content_rect = Rect::new(
             layout.position.x + margin.left,
@@ -228,39 +238,36 @@ impl Widget for Container {
             layout.size.width - margin.horizontal(),
             layout.size.height - margin.vertical(),
         );
-        
+
         // Draw shadow if present
         if let Some(shadow) = &self.style.shadow {
             let _shadow_rect = content_rect.expand(shadow.spread_radius);
             // TODO: Implement proper shadow rendering
         }
-        
+
         // Draw background with state feedback
         let mut background_color = self.style.background_color;
         let state = self.state.get();
-        
+
         if state.pressed {
             background_color = background_color.darken(0.2); // Visual feedback for press
         } else if state.hovered {
-             background_color = background_color.lighten(0.1); // Visual feedback for hover
+            background_color = background_color.lighten(0.1); // Visual feedback for hover
         }
 
         if background_color.a > 0.0 {
             batch.add_rect(content_rect, background_color, Transform::identity());
         }
-        
+
         // Draw border
         if self.style.border_width > 0.0 {
             // TODO: Implement proper border rendering
         }
-        
+
         // Render child
         if let Some(child) = &self.child {
             let child_layout = Layout::new(
-                glam::Vec2::new(
-                    content_rect.x + padding.left,
-                    content_rect.y + padding.top,
-                ),
+                glam::Vec2::new(content_rect.x + padding.left, content_rect.y + padding.top),
                 Size::new(
                     content_rect.width - padding.horizontal(),
                     content_rect.height - padding.vertical(),
@@ -279,51 +286,48 @@ impl Widget for Container {
                     let point = Point::new(mouse_event.position.x, mouse_event.position.y);
                     let is_hovered = bounds.contains(point);
                     let mut state = self.state.get();
-                    
+
                     if is_hovered != state.hovered {
                         state.hovered = is_hovered;
                         self.state.set(state);
                         if let Some(handler) = &self.on_hover {
                             handler(is_hovered);
                         }
-                       
                     }
                     if is_hovered {
-                         // Don't necessarily block children, but track state
+                        // Don't necessarily block children, but track state
                     }
                 }
                 Event::MouseDown(mouse_event) => {
-                     let bounds = self.bounds.get();
-                     let point = Point::new(mouse_event.position.x, mouse_event.position.y);
-                     if bounds.contains(point) {
-                         let mut state = self.state.get();
-                         state.pressed = true;
-                         self.state.set(state);
-                         
-                
-                     }
+                    let bounds = self.bounds.get();
+                    let point = Point::new(mouse_event.position.x, mouse_event.position.y);
+                    if bounds.contains(point) {
+                        let mut state = self.state.get();
+                        state.pressed = true;
+                        self.state.set(state);
+                    }
                 }
                 Event::MouseUp(mouse_event) => {
                     let bounds = self.bounds.get();
                     let point = Point::new(mouse_event.position.x, mouse_event.position.y);
                     let mut state = self.state.get();
-                    
+
                     if state.pressed {
                         state.pressed = false;
                         self.state.set(state);
                         if bounds.contains(point) {
-                             if let Some(handler) = &self.on_click {
-                                 handler();
-                                 // If we clicked, we probably handled it. But child might have handled it?
-                                 // If child handled it, its result would be Handled.
-                             }
+                            if let Some(handler) = &self.on_click {
+                                handler();
+                                // If we clicked, we probably handled it. But child might have handled it?
+                                // If child handled it, its result would be Handled.
+                            }
                         }
                     }
                 }
-                 _ => {}
+                _ => {}
             }
         }
-        
+
         // Delegate to child FIRST to allow inner interactive elements to work
         if let Some(child) = &mut self.child {
             let child_result = child.handle_event(event);
@@ -334,23 +338,24 @@ impl Widget for Container {
 
         // If child didn't handle it, AND we have interactions, check if we should handle it
         if self.on_click.is_some() {
-             match event {
-                 Event::MouseDown(e) => {
-                      let bounds = self.bounds.get();
-                      if bounds.contains(Point::new(e.position.x, e.position.y)) {
-                          return EventResult::Handled;
-                      }
-                 }
-                 Event::MouseUp(e) => {
-                      let bounds = self.bounds.get();
-                      if bounds.contains(Point::new(e.position.x, e.position.y)) { // And was pressed logic...
-                          return EventResult::Handled;
-                      }
-                 }
-                 _ => {}
-             }
+            match event {
+                Event::MouseDown(e) => {
+                    let bounds = self.bounds.get();
+                    if bounds.contains(Point::new(e.position.x, e.position.y)) {
+                        return EventResult::Handled;
+                    }
+                }
+                Event::MouseUp(e) => {
+                    let bounds = self.bounds.get();
+                    if bounds.contains(Point::new(e.position.x, e.position.y)) {
+                        // And was pressed logic...
+                        return EventResult::Handled;
+                    }
+                }
+                _ => {}
+            }
         }
-        
+
         EventResult::Ignored
     }
 
