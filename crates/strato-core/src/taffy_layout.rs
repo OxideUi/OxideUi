@@ -365,31 +365,12 @@ impl TaffyLayoutManager {
             );
 
             // Return cached layout if available
-            // Note: We don't have the node ID easily if we just return cached layout, 
-            // but we can't really "render" a stale layout correctly without the node ID corresponding to the current tree state.
-            // If the tree was cleared, the old NodeId is invalid.
-            // So we must fail or return a dummy NodeId if we return cached layout?
-            // Actually, if we return cached layout, it implies we assume the tree structure hasn't changed drastically or we just can't render correctly.
-            // But wait, the cached layout is `ComputedLayout` which has `DrawCommand`s.
-            // `DrawCommand` has `NodeId`.
-            // But `render_taffy` needs the root `NodeId`.
-            // If we use cached layout, we likely can't use `render_taffy` with traversal because the tree might be cleared/invalid.
-            // BUT `ComputedLayout` works with the *flat list* approach.
-            // My new approach uses tree traversal.
-            // If I change to tree traversal, `ComputedLayout` (flat list) becomes less useful for rendering, 
-            // but good for debug/hit-testing potentially.
-            // For now, let's return a dummy NodeId or handle this case in Application.
-            // Actually, if we use cached layout, the tree might be gone?
-            // `last_valid_layout` stores `ComputedLayout`.
-            // `tree` is persistent. `tree.clear()` happens on rebuild.
-            // If we fail before `tree.clear()`, the old tree is still there!
-            // If we fail AFTER `tree.clear()` (e.g. build_tree failed), the tree is partial/empty.
-            // So returning cached layout + old NodeId is risky if tree is cleared.
-            
-            // DECISION: For now, if compute fails, we return Err.
-            // The fallback logic in `Application` will then try legacy layout.
-            // This is safer than trying to render a broken/stale Taffy tree.
-            
+            if let Some(ref cached) = self.last_valid_layout {
+                 if let Some(root) = self.last_root_node {
+                     return Ok((root, cached.clone()));
+                 }
+            }
+
             return Err(TaffyLayoutError::InvalidWindowSize {
                 width: window_size.width,
                 height: window_size.height,

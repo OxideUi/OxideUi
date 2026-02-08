@@ -252,8 +252,9 @@ impl ToTokens for WidgetNode {
 
 /// Declarative UI definition macro
 ///
-/// Example:
-/// ```rust
+/// ```rust,ignore
+/// use strato_macros::view;
+///
 /// view! {
 ///     Column {
 ///         spacing: 10.0,
