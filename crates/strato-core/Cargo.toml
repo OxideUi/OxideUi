@@ -20,7 +20,8 @@ smallvec.workspace = true
 glam.workspace = true
 euclid.workspace = true
 
-# Async
+# Layout Engine
+taffy = "0.4"
 tokio = { workspace = true, optional = true, features = ["full"] }
 futures.workspace = true
 
@@ -51,6 +52,7 @@ default = ["serde"]
 serde = ["dep:serde", "dep:serde_json", "glam/serde"]
 async = ["dep:tokio"]
 hot-reload = ["dep:notify", "dep:tokio-tungstenite", "dep:futures-util", "async"]
+perf-metrics = []
 
 [[bench]]
 name = "layout"

@@ -1,6 +1,6 @@
 use strato_core::inspector::{inspector, InspectorConfig};
 use strato_core::Result;
-use strato_ui::{InitBuilder, InitConfig};
+use strato_sdk::{InitBuilder, InitConfig};
 
 fn main() -> Result<()> {
     println!("StratoUI Custom Initialization Example");
@@ -24,7 +24,7 @@ fn main() -> Result<()> {
 
     // Example 2: Check global text renderer
     println!("\n2. Global text renderer status:");
-    match strato_ui::get_text_renderer() {
+    match strato_sdk::get_text_renderer() {
         Some(_renderer) => {
             println!("   Global text renderer: ✓ Available");
         }

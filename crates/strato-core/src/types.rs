@@ -285,6 +285,22 @@ impl Point {
     }
 }
 
+impl std::ops::Add for Point {
+    type Output = Point;
+
+    fn add(self, rhs: Point) -> Self::Output {
+        Point::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+
+impl std::ops::Add for Size {
+    type Output = Size;
+
+    fn add(self, rhs: Size) -> Self::Output {
+        Size::new(self.width + rhs.width, self.height + rhs.height)
+    }
+}
+
 impl From<Vec2> for Point {
     fn from(vec: Vec2) -> Self {
         Self { x: vec.x, y: vec.y }

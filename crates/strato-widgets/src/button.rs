@@ -12,6 +12,11 @@ use strato_core::{
     theme::{Color, Theme},
     types::Rect,
     types::{Point, Transform},
+    taffy::{
+        prelude::*,
+        style::{Dimension, LengthPercentage},
+    },
+    taffy_layout::{TaffyLayoutError, TaffyLayoutResult, TaffyWidget},
 };
 use strato_renderer::{batch::RenderBatch, vertex::VertexBuilder};
 
@@ -722,5 +727,40 @@ impl Widget for Button {
             on_hover: None,
             theme: self.theme.clone(),
         })
+    }
+
+    fn as_taffy(&self) -> Option<&dyn TaffyWidget> {
+        Some(self)
+    }
+}
+
+impl TaffyWidget for Button {
+    fn build_layout(&self, tree: &mut TaffyTree<()>) -> TaffyLayoutResult<NodeId> {
+        let text_width = crate::text::measure_text_width(&self.text, self.style.font_size, 0.0);
+        let text_height = self.style.font_size;
+        
+        let width = (text_width + self.style.padding * 2.0).max(self.style.min_width);
+        let height = (text_height + self.style.padding * 2.0).max(self.style.min_height);
+
+        let style = Style {
+            size: strato_core::taffy::geometry::Size {
+                width: length(width),
+                height: length(height),
+            },
+            min_size: strato_core::taffy::geometry::Size {
+                width: length(self.style.min_width),
+                height: length(self.style.min_height),
+            },
+            padding: strato_core::taffy::geometry::Rect {
+                left: length(self.style.padding),
+                right: length(self.style.padding),
+                top: length(self.style.padding),
+                bottom: length(self.style.padding),
+            },
+            ..Default::default()
+        };
+
+        tree.new_leaf(style)
+            .map_err(|e| TaffyLayoutError::from(e))
     }
 }

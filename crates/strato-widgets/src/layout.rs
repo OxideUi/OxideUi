@@ -1,13 +1,18 @@
 //! Layout widgets for arranging child widgets
 
-use crate::widget::{generate_id, Widget, WidgetId};
 use std::any::Any;
+use crate::widget::{generate_id, Widget, WidgetId};
+use strato_core::taffy::{
+    prelude::*,
+    style::{AlignItems, Dimension, FlexDirection, JustifyContent},
+};
 use strato_core::{
     event::{Event, EventResult},
     layout::{
-        AlignItems, Constraints, FlexContainer, FlexDirection, FlexItem, JustifyContent, Layout,
-        Size,
+        AlignItems as CoreAlignItems, Constraints, FlexContainer, FlexDirection as CoreFlexDirection,
+        FlexItem, JustifyContent as CoreJustifyContent, Layout, Size,
     },
+    taffy_layout::{TaffyLayoutError, TaffyLayoutResult, TaffyWidget},
 };
 use strato_renderer::batch::RenderBatch;
 
@@ -22,6 +27,30 @@ pub enum MainAxisAlignment {
     SpaceEvenly,
 }
 
+impl MainAxisAlignment {
+    fn to_taffy(&self) -> JustifyContent {
+        match self {
+            MainAxisAlignment::Start => JustifyContent::FlexStart,
+            MainAxisAlignment::Center => JustifyContent::Center,
+            MainAxisAlignment::End => JustifyContent::FlexEnd,
+            MainAxisAlignment::SpaceBetween => JustifyContent::SpaceBetween,
+            MainAxisAlignment::SpaceAround => JustifyContent::SpaceAround,
+            MainAxisAlignment::SpaceEvenly => JustifyContent::SpaceEvenly,
+        }
+    }
+
+    fn to_core(&self) -> CoreJustifyContent {
+        match self {
+            MainAxisAlignment::Start => CoreJustifyContent::FlexStart,
+            MainAxisAlignment::Center => CoreJustifyContent::Center,
+            MainAxisAlignment::End => CoreJustifyContent::FlexEnd,
+            MainAxisAlignment::SpaceBetween => CoreJustifyContent::SpaceBetween,
+            MainAxisAlignment::SpaceAround => CoreJustifyContent::SpaceAround,
+            MainAxisAlignment::SpaceEvenly => CoreJustifyContent::SpaceEvenly,
+        }
+    }
+}
+
 /// Cross axis alignment for flex layouts
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CrossAxisAlignment {
@@ -30,6 +59,28 @@ pub enum CrossAxisAlignment {
     End,
     Stretch,
     Baseline,
+}
+
+impl CrossAxisAlignment {
+    fn to_taffy(&self) -> AlignItems {
+        match self {
+            CrossAxisAlignment::Start => AlignItems::FlexStart,
+            CrossAxisAlignment::Center => AlignItems::Center,
+            CrossAxisAlignment::End => AlignItems::FlexEnd,
+            CrossAxisAlignment::Stretch => AlignItems::Stretch,
+            CrossAxisAlignment::Baseline => AlignItems::Baseline,
+        }
+    }
+
+    fn to_core(&self) -> CoreAlignItems {
+        match self {
+            CrossAxisAlignment::Start => CoreAlignItems::FlexStart,
+            CrossAxisAlignment::Center => CoreAlignItems::Center,
+            CrossAxisAlignment::End => CoreAlignItems::FlexEnd,
+            CrossAxisAlignment::Stretch => CoreAlignItems::Stretch,
+            CrossAxisAlignment::Baseline => CoreAlignItems::Baseline,
+        }
+    }
 }
 
 /// Row widget for horizontal layout
@@ -43,6 +94,11 @@ pub struct Row {
     // Layout cache computed during layout()
     cached_child_sizes: Vec<Size>,
 }
+
+
+
+
+
 
 impl Row {
     /// Create a new row
@@ -122,22 +178,9 @@ impl Widget for Row {
 
         // Calculate layout
         let container = FlexContainer {
-            direction: FlexDirection::Row,
-            justify_content: match self.main_axis_alignment {
-                MainAxisAlignment::Start => JustifyContent::FlexStart,
-                MainAxisAlignment::Center => JustifyContent::Center,
-                MainAxisAlignment::End => JustifyContent::FlexEnd,
-                MainAxisAlignment::SpaceBetween => JustifyContent::SpaceBetween,
-                MainAxisAlignment::SpaceAround => JustifyContent::SpaceAround,
-                MainAxisAlignment::SpaceEvenly => JustifyContent::SpaceEvenly,
-            },
-            align_items: match self.cross_axis_alignment {
-                CrossAxisAlignment::Start => AlignItems::FlexStart,
-                CrossAxisAlignment::Center => AlignItems::Center,
-                CrossAxisAlignment::End => AlignItems::FlexEnd,
-                CrossAxisAlignment::Stretch => AlignItems::Stretch,
-                CrossAxisAlignment::Baseline => AlignItems::Baseline,
-            },
+            direction: CoreFlexDirection::Row,
+            justify_content: self.main_axis_alignment.to_core(),
+            align_items: self.cross_axis_alignment.to_core(),
             ..Default::default()
         };
         let layouts = engine.calculate_flex_layout(&container, &child_data, constraints);
@@ -177,22 +220,9 @@ impl Widget for Row {
         }
 
         let container = FlexContainer {
-            direction: FlexDirection::Row,
-            justify_content: match self.main_axis_alignment {
-                MainAxisAlignment::Start => JustifyContent::FlexStart,
-                MainAxisAlignment::Center => JustifyContent::Center,
-                MainAxisAlignment::End => JustifyContent::FlexEnd,
-                MainAxisAlignment::SpaceBetween => JustifyContent::SpaceBetween,
-                MainAxisAlignment::SpaceAround => JustifyContent::SpaceAround,
-                MainAxisAlignment::SpaceEvenly => JustifyContent::SpaceEvenly,
-            },
-            align_items: match self.cross_axis_alignment {
-                CrossAxisAlignment::Start => AlignItems::FlexStart,
-                CrossAxisAlignment::Center => AlignItems::Center,
-                CrossAxisAlignment::End => AlignItems::FlexEnd,
-                CrossAxisAlignment::Stretch => AlignItems::Stretch,
-                CrossAxisAlignment::Baseline => AlignItems::Baseline,
-            },
+            direction: CoreFlexDirection::Row,
+            justify_content: self.main_axis_alignment.to_core(),
+            align_items: self.cross_axis_alignment.to_core(),
             ..Default::default()
         };
         let layouts = engine.calculate_flex_layout(
@@ -246,6 +276,63 @@ impl Widget for Row {
             spacing: self.spacing,
             cached_child_sizes: Vec::new(),
         })
+    }
+
+    fn as_taffy(&self) -> Option<&dyn TaffyWidget> {
+        Some(self)
+    }
+
+    fn render_taffy(
+        &self,
+        batch: &mut RenderBatch,
+        tree: &TaffyTree<()>,
+        node: NodeId,
+        parent_offset: strato_core::types::Point,
+    ) {
+        if let Ok(layout) = tree.layout(node) {
+            let my_position = parent_offset + strato_core::types::Point::new(layout.location.x, layout.location.y);
+            
+            // Render children
+            if let Ok(children_nodes) = tree.children(node) {
+                let mut child_node_idx = 0;
+                for child in &self.children {
+                    if child.as_taffy().is_some() {
+                        if child_node_idx < children_nodes.len() {
+                            let child_node = children_nodes[child_node_idx];
+                            child.render_taffy(batch, tree, child_node, my_position);
+                            child_node_idx += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl TaffyWidget for Row {
+    fn build_layout(&self, tree: &mut TaffyTree<()>) -> TaffyLayoutResult<NodeId> {
+        let mut children_nodes = Vec::with_capacity(self.children.len());
+        for child in &self.children {
+            if let Some(taffy_child) = child.as_taffy() {
+                let node = taffy_child.build_layout(tree)?;
+                children_nodes.push(node);
+            }
+        }
+
+        let style = Style {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            justify_content: Some(self.main_axis_alignment.to_taffy()),
+            align_items: Some(self.cross_axis_alignment.to_taffy()),
+            gap: strato_core::taffy::prelude::Size {
+                width: length(self.spacing),
+                height: length(0.0),
+            },
+            ..Default::default()
+        };
+
+        tree.new_with_children(style, &children_nodes)
+            .map_err(|e| TaffyLayoutError::from(e))
     }
 }
 
@@ -339,22 +426,9 @@ impl Widget for Column {
 
         // Calculate layout
         let container = FlexContainer {
-            direction: FlexDirection::Column,
-            justify_content: match self.main_axis_alignment {
-                MainAxisAlignment::Start => JustifyContent::FlexStart,
-                MainAxisAlignment::Center => JustifyContent::Center,
-                MainAxisAlignment::End => JustifyContent::FlexEnd,
-                MainAxisAlignment::SpaceBetween => JustifyContent::SpaceBetween,
-                MainAxisAlignment::SpaceAround => JustifyContent::SpaceAround,
-                MainAxisAlignment::SpaceEvenly => JustifyContent::SpaceEvenly,
-            },
-            align_items: match self.cross_axis_alignment {
-                CrossAxisAlignment::Start => AlignItems::FlexStart,
-                CrossAxisAlignment::Center => AlignItems::Center,
-                CrossAxisAlignment::End => AlignItems::FlexEnd,
-                CrossAxisAlignment::Stretch => AlignItems::Stretch,
-                CrossAxisAlignment::Baseline => AlignItems::Baseline,
-            },
+            direction: CoreFlexDirection::Column,
+            justify_content: self.main_axis_alignment.to_core(),
+            align_items: self.cross_axis_alignment.to_core(),
             ..Default::default()
         };
         let layouts = engine.calculate_flex_layout(&container, &child_data, constraints);
@@ -394,22 +468,9 @@ impl Widget for Column {
         }
 
         let container = FlexContainer {
-            direction: FlexDirection::Column,
-            justify_content: match self.main_axis_alignment {
-                MainAxisAlignment::Start => JustifyContent::FlexStart,
-                MainAxisAlignment::Center => JustifyContent::Center,
-                MainAxisAlignment::End => JustifyContent::FlexEnd,
-                MainAxisAlignment::SpaceBetween => JustifyContent::SpaceBetween,
-                MainAxisAlignment::SpaceAround => JustifyContent::SpaceAround,
-                MainAxisAlignment::SpaceEvenly => JustifyContent::SpaceEvenly,
-            },
-            align_items: match self.cross_axis_alignment {
-                CrossAxisAlignment::Start => AlignItems::FlexStart,
-                CrossAxisAlignment::Center => AlignItems::Center,
-                CrossAxisAlignment::End => AlignItems::FlexEnd,
-                CrossAxisAlignment::Stretch => AlignItems::Stretch,
-                CrossAxisAlignment::Baseline => AlignItems::Baseline,
-            },
+            direction: CoreFlexDirection::Column,
+            justify_content: self.main_axis_alignment.to_core(),
+            align_items: self.cross_axis_alignment.to_core(),
             ..Default::default()
         };
         let layouts = engine.calculate_flex_layout(
@@ -463,6 +524,63 @@ impl Widget for Column {
             spacing: self.spacing,
             cached_child_sizes: Vec::new(),
         })
+    }
+
+    fn as_taffy(&self) -> Option<&dyn TaffyWidget> {
+        Some(self)
+    }
+
+    fn render_taffy(
+        &self,
+        batch: &mut RenderBatch,
+        tree: &TaffyTree<()>,
+        node: NodeId,
+        parent_offset: strato_core::types::Point,
+    ) {
+        if let Ok(layout) = tree.layout(node) {
+            let my_position = parent_offset + strato_core::types::Point::new(layout.location.x, layout.location.y);
+            
+            // Render children
+            if let Ok(children_nodes) = tree.children(node) {
+                let mut child_node_idx = 0;
+                for child in &self.children {
+                    if child.as_taffy().is_some() {
+                        if child_node_idx < children_nodes.len() {
+                            let child_node = children_nodes[child_node_idx];
+                            child.render_taffy(batch, tree, child_node, my_position);
+                            child_node_idx += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl TaffyWidget for Column {
+    fn build_layout(&self, tree: &mut TaffyTree<()>) -> TaffyLayoutResult<NodeId> {
+        let mut children_nodes = Vec::with_capacity(self.children.len());
+        for child in &self.children {
+            if let Some(taffy_child) = child.as_taffy() {
+                let node = taffy_child.build_layout(tree)?;
+                children_nodes.push(node);
+            }
+        }
+
+        let style = Style {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
+            justify_content: Some(self.main_axis_alignment.to_taffy()),
+            align_items: Some(self.cross_axis_alignment.to_taffy()),
+            gap: strato_core::taffy::prelude::Size {
+                width: length(0.0),
+                height: length(self.spacing),
+            },
+            ..Default::default()
+        };
+
+        tree.new_with_children(style, &children_nodes)
+            .map_err(|e| TaffyLayoutError::from(e))
     }
 }
 
@@ -555,6 +673,64 @@ impl Widget for Stack {
             children: self.children.iter().map(|c| c.clone_widget()).collect(),
         })
     }
+
+    fn as_taffy(&self) -> Option<&dyn TaffyWidget> {
+        Some(self)
+    }
+
+    fn render_taffy(
+        &self,
+        batch: &mut RenderBatch,
+        tree: &TaffyTree<()>,
+        node: NodeId,
+        parent_offset: strato_core::types::Point,
+    ) {
+        if let Ok(layout) = tree.layout(node) {
+            let my_position = parent_offset + strato_core::types::Point::new(layout.location.x, layout.location.y);
+            
+            // Render children
+            if let Ok(children_nodes) = tree.children(node) {
+                let mut child_node_idx = 0;
+                for child in &self.children {
+                    if child.as_taffy().is_some() {
+                        if child_node_idx < children_nodes.len() {
+                            let child_node = children_nodes[child_node_idx];
+                            child.render_taffy(batch, tree, child_node, my_position);
+                            child_node_idx += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl TaffyWidget for Stack {
+    fn build_layout(&self, tree: &mut TaffyTree<()>) -> TaffyLayoutResult<NodeId> {
+        let mut children_nodes = Vec::with_capacity(self.children.len());
+        for child in &self.children {
+            if let Some(taffy_child) = child.as_taffy() {
+                let node = taffy_child.build_layout(tree)?;
+                // Force absolute positioning for Stack children
+                let mut style = tree.style(node).cloned().unwrap_or_default();
+                style.position = Position::Absolute;
+                tree.set_style(node, style).map_err(|e| TaffyLayoutError::from(e))?;
+                children_nodes.push(node);
+            }
+        }
+
+        let style = Style {
+            display: Display::Flex,
+            size: strato_core::taffy::prelude::Size {
+                width: percent(1.0),
+                height: percent(1.0),
+            },
+            ..Default::default()
+        };
+
+        tree.new_with_children(style, &children_nodes)
+            .map_err(|e| TaffyLayoutError::from(e))
+    }
 }
 
 /// Flexible widget for flex layout
@@ -622,4 +798,36 @@ impl Widget for Flex {
             flex: self.flex,
         })
     }
+
+    fn as_taffy(&self) -> Option<&dyn TaffyWidget> {
+        Some(self)
+    }
+
+    fn render_taffy(
+        &self,
+        batch: &mut RenderBatch,
+        tree: &TaffyTree<()>,
+        node: NodeId,
+        parent_offset: strato_core::types::Point,
+    ) {
+        // Flex doesn't have its own node in Taffy (it configures the child's node).
+        // So we pass the same node to the child.
+        self.child.render_taffy(batch, tree, node, parent_offset);
+    }
 }
+
+impl TaffyWidget for Flex {
+    fn build_layout(&self, tree: &mut TaffyTree<()>) -> TaffyLayoutResult<NodeId> {
+        if let Some(taffy_child) = self.child.as_taffy() {
+            let node = taffy_child.build_layout(tree)?;
+            let mut style = tree.style(node).map_err(|e| TaffyLayoutError::from(e))?.clone();
+            style.flex_grow = self.flex;
+            tree.set_style(node, style).map_err(|e| TaffyLayoutError::from(e))?;
+            Ok(node)
+        } else {
+            Err(TaffyLayoutError::NodeBuildFailed)
+        }
+    }
+}
+
+

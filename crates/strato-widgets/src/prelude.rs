@@ -17,7 +17,7 @@ pub use crate::widget::{Widget, WidgetId, WidgetState};
 // Layout widgets
 pub use crate::container::Container;
 pub use crate::grid::{Grid, GridUnit};
-pub use crate::layout::{Column, CrossAxisAlignment, MainAxisAlignment, Row};
+pub use crate::layout::{Column, CrossAxisAlignment, Flex, MainAxisAlignment, Row, Stack};
 pub use crate::scroll_view::ScrollView;
 pub use crate::wrap::{Wrap, WrapAlignment, WrapCrossAlignment};
 

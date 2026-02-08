@@ -13,21 +13,29 @@ pub mod logging;
 pub mod plugin;
 pub mod reactive;
 pub mod state;
+pub mod taffy_layout;
 pub mod text;
 pub mod theme;
 pub mod types;
 pub mod ui_node;
+pub mod validated_rect;
 pub mod vdom;
 pub mod widget;
 pub mod window;
 
-pub use error::{Result, StratoError, StratoResult};
+pub use error::{
+    Result, StratoError, StratoResult, TaffyLayoutError, TaffyLayoutResult,
+    TaffyRenderError, TaffyRenderResult, TaffyValidationError, TaffyValidationResult,
+};
 pub use event::{Event, EventHandler, EventResult};
 pub use layout::{Constraints, Layout, LayoutConstraints, LayoutEngine, Size};
 pub use logging::{LogCategory, LogLevel};
 pub use reactive::{Computed, Effect, Reactive};
 pub use state::{Signal, State};
+pub use taffy;
+pub use taffy_layout::{ComputedLayout, DrawCommand, TaffyLayoutManager, TaffyWidget};
 pub use types::{Color, Point, Rect, Transform};
+pub use validated_rect::ValidatedRect;
 
 /// Re-export commonly used types
 pub mod prelude {

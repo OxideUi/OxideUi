@@ -1,0 +1,57 @@
+[package]
+name = "oxide-wasm-demo"
+version = "0.1.0"
+edition = "2021"
+authors = ["OxideUI Team"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+oxide-core = { path = "../../crates/oxide-core" }
+oxide-widgets = { path = "../../crates/oxide-widgets" }
+oxide-renderer = { path = "../../crates/oxide-renderer", features = ["webgl"] }
+oxide-platform = { path = "../../crates/oxide-platform" }
+
+# WASM dependencies
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+    "Document",
+    "Window",
+    "HtmlCanvasElement",
+    "WebGl2RenderingContext",
+    "CanvasRenderingContext2d",
+    "Element",
+    "HtmlElement",
+    "MouseEvent",
+    "KeyboardEvent",
+    "WheelEvent",
+    "TouchEvent",
+    "Performance",
+    "console",
+    "RequestAnimationFrame",
+    "CssStyleDeclaration",
+]}
+js-sys = "0.3"
+console_error_panic_hook = "0.1"
+console_log = "1.0"
+log = "0.4"
+
+# Serialization for JS interop
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.wasm]
+inherits = "release"
+opt-level = "z"
+lto = "fat"

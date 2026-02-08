@@ -1,0 +1,12 @@
+[package]
+name = "taffy_demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+strato-core = { path = "../../crates/strato-core" }
+strato-widgets = { path = "../../crates/strato-widgets" }
+strato-platform = { path = "../../crates/strato-platform" }
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }
+anyhow = "1.0"
+tracing = "0.1"

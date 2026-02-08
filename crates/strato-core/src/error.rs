@@ -317,3 +317,113 @@ pub type Result<T> = std::result::Result<T, StratoError>;
 
 /// Alternative result type alias for backward compatibility
 pub type StratoResult<T> = Result<T>;
+
+// =============================================================================
+// Taffy Layout Engine Error Types
+// =============================================================================
+
+/// Layout errors from Taffy engine.
+///
+/// These errors are NON-RECOVERABLE without a fallback layout.
+/// The `TaffyLayoutManager` will attempt to use cached layouts when these occur.
+///
+/// # Error Recovery
+///
+/// - If `last_valid_layout` exists: use cached layout (log warning)
+/// - If no cache: propagate error to caller (log error)
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum TaffyLayoutError {
+    /// Window/container size is invalid (zero, negative, or infinite).
+    #[error("Invalid window size: {width}x{height}")]
+    InvalidWindowSize { width: f32, height: f32 },
+
+    /// Taffy computation failed internally.
+    #[error("Layout computation failed: {reason}")]
+    ComputationFailed { reason: String },
+
+    /// The layout tree structure is corrupted.
+    #[error("Layout tree is corrupted")]
+    CorruptedTree,
+
+    /// Error from Taffy library itself.
+    #[error("Taffy error: {0}")]
+    TaffyError(String),
+
+    /// Failed to build node for widget.
+    #[error("Failed to build layout node for widget")]
+    NodeBuildFailed,
+}
+
+/// Rendering errors from Taffy-based layout.
+///
+/// These errors are RECOVERABLE - skip the widget and continue rendering.
+///
+/// # Recovery Strategy
+///
+/// Log warning, skip rendering the problematic widget, continue with siblings.
+#[derive(Debug, thiserror::Error)]
+pub enum TaffyRenderError {
+    /// Viewport coordinates are invalid after validation.
+    #[error("Invalid viewport: {0:?}")]
+    InvalidViewport(crate::validated_rect::ValidatedRect),
+
+    /// GPU/rendering backend error.
+    #[error("GPU error: {0}")]
+    GpuError(String),
+
+    /// Required resource (texture, font, etc.) not found.
+    #[error("Missing resource: {resource_id}")]
+    MissingResource { resource_id: String },
+}
+
+/// Validation errors caught before layout computation.
+///
+/// These are PREVENTIVE errors - they indicate invalid widget configuration
+/// and should be caught during development/testing.
+///
+/// # Common Causes
+///
+/// - Negative gaps or padding
+/// - Invalid button dimensions
+/// - NaN/Infinite values in style properties
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum TaffyValidationError {
+    /// Gap value is negative.
+    #[error("Negative gap value: {0}")]
+    NegativeGap(f32),
+
+    /// Padding contains invalid values.
+    #[error("Invalid padding configuration")]
+    InvalidPadding,
+
+    /// A value is not finite (NaN or Infinity).
+    #[error("Non-finite value in layout configuration")]
+    NonFiniteValue,
+
+    /// Width or height is negative.
+    #[error("Negative dimension: width={width}, height={height}")]
+    NegativeDimension { width: f32, height: f32 },
+
+    /// Button size is invalid (zero or negative).
+    #[error("Invalid button size: {width}x{height}")]
+    InvalidButtonSize { width: f32, height: f32 },
+
+    /// Border radius is invalid.
+    #[error("Invalid border radius: {0}")]
+    InvalidBorderRadius(f32),
+}
+
+impl From<taffy::TaffyError> for TaffyLayoutError {
+    fn from(err: taffy::TaffyError) -> Self {
+        TaffyLayoutError::TaffyError(format!("{:?}", err))
+    }
+}
+
+/// Result type for Taffy layout operations.
+pub type TaffyLayoutResult<T> = std::result::Result<T, TaffyLayoutError>;
+
+/// Result type for Taffy render operations.
+pub type TaffyRenderResult<T> = std::result::Result<T, TaffyRenderError>;
+
+/// Result type for Taffy validation operations.
+pub type TaffyValidationResult<T> = std::result::Result<T, TaffyValidationError>;

@@ -111,7 +111,10 @@ fn button_state_snapshots() {
         snapshots.insert(format!("{:?}", state), render_button_with_state(state));
     }
     let rendered = format_snapshot(&snapshots);
-    assert_eq!(rendered.trim(), EXPECTED_BUTTON_SNAPSHOT.trim());
+    assert_eq!(
+        rendered.trim(),
+        EXPECTED_BUTTON_SNAPSHOT.replace("\r\n", "\n").trim()
+    );
 }
 
 #[test]
@@ -120,5 +123,8 @@ fn slider_snapshots() {
     snapshots.insert("enabled".to_string(), render_slider_variant(false));
     snapshots.insert("disabled".to_string(), render_slider_variant(true));
     let rendered = format_snapshot(&snapshots);
-    assert_eq!(rendered.trim(), EXPECTED_SLIDER_SNAPSHOT.trim());
+    assert_eq!(
+        rendered.trim(),
+        EXPECTED_SLIDER_SNAPSHOT.replace("\r\n", "\n").trim()
+    );
 }

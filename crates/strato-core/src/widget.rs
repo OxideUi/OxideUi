@@ -133,9 +133,13 @@ pub trait Widget: Debug + Send + Sync {
     fn max_size(&self) -> Size {
         Size::new(f32::INFINITY, f32::INFINITY)
     }
+
+    /// Get the widget as TaffyWidget if supported
+    fn as_taffy(&self) -> Option<&dyn crate::taffy_layout::TaffyWidget> {
+        None
+    }
 }
 
-/// Implement Widget for Box<T> to allow boxed widgets to be treated as widgets
 /// Implement Widget for Box<T> to allow boxed widgets to be treated as widgets
 impl<T: Widget + ?Sized> Widget for Box<T> {
     fn id(&self) -> WidgetId {
@@ -196,6 +200,10 @@ impl<T: Widget + ?Sized> Widget for Box<T> {
 
     fn max_size(&self) -> Size {
         (**self).max_size()
+    }
+
+    fn as_taffy(&self) -> Option<&dyn crate::taffy_layout::TaffyWidget> {
+        (**self).as_taffy()
     }
 }
 

@@ -7,6 +7,7 @@ use strato_core::{
     layout::{Constraints, Layout, Size},
     types::Point, // Removed unused Color and Rect imports
 };
+use strato_core::taffy_layout::TaffyWidget;
 use strato_renderer::batch::RenderBatch;
 
 /// Unique widget identifier
@@ -73,6 +74,29 @@ pub trait Widget: Debug + Send + Sync {
 
     /// Clone the widget
     fn clone_widget(&self) -> Box<dyn Widget>;
+
+    /// Get the widget as TaffyWidget if supported
+    /// Get the widget as TaffyWidget if supported
+    fn as_taffy(&self) -> Option<&dyn TaffyWidget> {
+        None
+    }
+
+    /// Render using Taffy layout
+    fn render_taffy(
+        &self,
+        batch: &mut RenderBatch,
+        tree: &strato_core::taffy::tree::TaffyTree<()>,
+        node: strato_core::taffy::prelude::NodeId,
+        parent_offset: Point,
+    ) {
+        if let Ok(layout) = tree.layout(node) {
+            let position = parent_offset + Point::new(layout.location.x, layout.location.y);
+            let size = Size::new(layout.size.width, layout.size.height);
+            let widget_layout = Layout::new(position.to_vec2(), size);
+            
+            self.render(batch, widget_layout);
+        }
+    }
 }
 
 /// Generate a unique widget ID

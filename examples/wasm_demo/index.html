@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="OxideUI WebAssembly Demo - A Rust UI Framework for the Web">
+    <title>OxideUI WASM Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #ffffff;
+        }
+        
+        header {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        header p {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        main {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        
+        #app-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        #loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        
+        #loading h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            margin: 20px auto;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        #oxide-canvas {
+            width: 100%;
+            height: 400px;
+            border-radius: 10px;
+            background: #1a1a2e;
+            display: none;
+        }
+        
+        #counter-display {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        #counter-value {
+            font-size: 72px;
+            font-weight: bold;
+            color: #4ecdc4;
+            text-shadow: 0 2px 10px rgba(78, 205, 196, 0.5);
+        }
+        
+        #counter-label {
+            font-size: 18px;
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+        
+        #metrics {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        #metrics h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        #metrics p {
+            margin: 5px 0;
+            opacity: 0.9;
+        }
+        
+        footer {
+            padding: 20px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        footer a {
+            color: #4ecdc4;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .error {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid rgba(255, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .error h2 {
+            color: #ff6b6b;
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 600px) {
+            #app-container {
+                padding: 20px;
+            }
+            
+            #counter-value {
+                font-size: 48px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🦀 OxideUI WebAssembly Demo</h1>
+        <p>A high-performance Rust UI framework compiled to WebAssembly</p>
+    </header>
+    
+    <main>
+        <div id="app-container">
+            <div id="loading">
+                <h2>Loading OxideUI...</h2>
+                <div class="spinner"></div>
+                <p>Initializing WebAssembly module</p>
+            </div>
+            
+            <div id="app-content" class="hidden">
+                <canvas id="oxide-canvas"></canvas>
+                
+                <div id="counter-display">
+                    <div id="counter-value">0</div>
+                    <div id="counter-label">Counter Value</div>
+                </div>
+                
+                <div class="button-group">
+                    <button id="btn-decrement" class="btn-secondary">➖ Decrement</button>
+                    <button id="btn-reset" class="btn-danger">🔄 Reset</button>
+                    <button id="btn-increment" class="btn-primary">➕ Increment</button>
+                </div>
+                
+                <div id="metrics">
+                    <h3>📊 Metrics</h3>
+                    <p>Counter: <span id="metric-counter">0</span></p>
+                    <p>Uptime: <span id="metric-uptime">0</span>ms</p>
+                    <p>Browser: <span id="metric-browser">Loading...</span></p>
+                </div>
+            </div>
+            
+            <div id="error" class="hidden error">
+                <h2>⚠️ Error Loading Application</h2>
+                <p id="error-message"></p>
+            </div>
+        </div>
+    </main>
+    
+    <footer>
+        <p>
+            Built with ❤️ using <a href="https://github.com/oxideui/oxide-ui" target="_blank">OxideUI</a> |
+            <a href="https://www.rust-lang.org/" target="_blank">Rust</a> +
+            <a href="https://webassembly.org/" target="_blank">WebAssembly</a>
+        </p>
+    </footer>
+    
+    <script type="module">
+        import init, { WasmApp, get_browser_info, log_message } from './pkg/oxide_wasm_demo.js';
+        
+        let app = null;
+        
+        async function run() {
+            try {
+                log_message('Starting OxideUI WASM application...');
+                
+                // Initialize WASM module
+                await init();
+                log_message('WASM module initialized');
+                
+                // Create app instance
+                app = new WasmApp('oxide-canvas');
+                log_message('App instance created');
+                
+                // Hide loading, show app
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('app-content').classList.remove('hidden');
+                
+                // Set up event listeners
+                setupEventListeners();
+                
+                // Get browser info
+                const browserInfo = get_browser_info();
+                document.getElementById('metric-browser').textContent = browserInfo.userAgent.split(' ')[0];
+                
+                // Start render loop
+                app.start_render_loop();
+                
+                // Update metrics periodically
+                setInterval(updateMetrics, 1000);
+                
+                log_message('Application started successfully');
+                
+            } catch (error) {
+                console.error('Failed to start app:', error);
+                showError(error.message || 'Unknown error occurred');
+            }
+        }
+        
+        function setupEventListeners() {
+            document.getElementById('btn-increment').addEventListener('click', () => {
+                app.increment();
+                updateCounter();
+            });
+            
+            document.getElementById('btn-decrement').addEventListener('click', () => {
+                app.decrement();
+                updateCounter();
+            });
+            
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                app.reset();
+                updateCounter();
+            });
+        }
+        
+        function updateCounter() {
+            const value = app.counter;
+            document.getElementById('counter-value').textContent = value;
+            document.getElementById('metric-counter').textContent = value;
+        }
+        
+        function updateMetrics() {
+            if (!app) return;
+            
+            try {
+                const metrics = app.get_metrics();
+                document.getElementById('metric-counter').textContent = metrics.counter;
+                document.getElementById('metric-uptime').textContent = Math.round(metrics.uptime_ms);
+            } catch (error) {
+                console.error('Failed to update metrics:', error);
+            }
+        }
+        
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('error-message').textContent = message;
+        }
+        
+        // Start the application
+        run();
+    </script>
+</body>
+</html>
