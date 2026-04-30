@@ -19,6 +19,13 @@ members = [
     "examples/taffy_demo",
 ]
 resolver = "2"
+exclude = [
+    # Quarantined MIT source import. These crates are intentionally excluded
+    # until AGPL-inherited Warp workspace dependencies have clean-room
+    # replacements.
+    "crates/strato-warpui-core",
+    "crates/strato-warpui-renderer",
+]
 
 [package]
 name = "strato-sdk"

@@ -1,6 +1,6 @@
 # WarpUI Import License Audit
 
-Status: **stopped before import**
+Status: **MIT source imported under quarantine**
 
 This audit was performed to evaluate whether the MIT-licensed WarpUI crates from
 `https://github.com/warpdotdev/warp` can be copied into StratoSDK without
@@ -47,15 +47,29 @@ failed at the dependency boundary described below.
 
 ## Copied Paths
 
-No source paths were copied into StratoSDK.
+The following MIT-scoped paths were copied after the initial hard stop audit.
+No AGPL-licensed Warp workspace crate was copied.
+
+| Source path | Target path | Status |
+| --- | --- | --- |
+| `crates/warpui_core` | `crates/strato-warpui-core` | Copied, quarantined outside workspace |
+| `crates/warpui` | `crates/strato-warpui-renderer` | Copied, quarantined outside workspace |
+| `LICENSE-MIT` | `LICENSES/WARPUI-MIT.txt` | Copied |
 
 ## Skipped Paths
 
 | Source path | Reason |
 | --- | --- |
-| `crates/warpui_core` | MIT crate, but direct normal dependencies include unsafe local Warp workspace crates that inherit AGPL. |
-| `crates/warpui` | MIT crate, but direct normal, target-specific, and dev dependencies include unsafe local Warp workspace crates that inherit AGPL. |
-| `LICENSE-MIT` | Not copied because no WarpUI source was imported. |
+| `crates/markdown_parser` | Local Warp workspace crate inherits `AGPL-3.0-only`. |
+| `crates/sum_tree` | Local Warp workspace crate inherits `AGPL-3.0-only`. |
+| `crates/warp_util` | Local Warp workspace crate inherits `AGPL-3.0-only`. |
+| `crates/string-offset` | Local Warp workspace crate inherits `AGPL-3.0-only`. |
+| `crates/settings_value` | Local Warp workspace crate inherits `AGPL-3.0-only`. |
+| `crates/command` | Local Warp workspace crate inherits `AGPL-3.0-only`. |
+| `crates/asset_cache` | Local Warp workspace crate inherits `AGPL-3.0-only`. |
+| `crates/virtual_fs` | Local Warp workspace crate inherits `AGPL-3.0-only`. |
+| `crates/ui_components` | Local Warp workspace crate inherits `AGPL-3.0-only`. |
+| `crates/warpui_extras` | Local Warp workspace crate inherits `AGPL-3.0-only`. |
 
 ## Local Workspace Dependency Audit
 
@@ -298,7 +312,9 @@ future compileable import.
 
 ## Conclusion
 
-The repository remains MIT/commercial-license compatible because no WarpUI
-source was copied into StratoSDK. The requested import is blocked at this source
-commit unless the unsafe local dependencies are replaced through clean-room
-implementations, existing StratoSDK modules, or audited external crates.
+The repository remains MIT/commercial-license compatible on the basis of this
+audit because only the two explicitly MIT WarpUI crates and Warp's MIT license
+text were copied. The copied source is not yet buildable or workspace-active.
+Activating it remains blocked until unsafe local dependencies are replaced
+through clean-room implementations, existing StratoSDK modules, or audited
+external crates.
