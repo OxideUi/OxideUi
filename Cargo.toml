@@ -14,18 +14,13 @@ members = [
     "crates/strato-widgets",
     "crates/strato-platform",
     "crates/strato-macros",
+    "crates/strato-ui-core",
+    "crates/strato-ui-renderer",
     "examples/animated_showcase",
     "examples/macro_showcase",
     "examples/taffy_demo",
 ]
 resolver = "2"
-exclude = [
-    # Quarantined MIT source import. These crates are intentionally excluded
-    # until AGPL-inherited Warp workspace dependencies have clean-room
-    # replacements.
-    "crates/strato-warpui-core",
-    "crates/strato-warpui-renderer",
-]
 
 [package]
 name = "strato-sdk"
@@ -69,9 +64,25 @@ strato-macros = { path = "crates/strato-macros", version = "0.1.0" }
 # Core dependencies
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "sync", "time"] }
 futures = "0.3"
+futures-lite = "1.13"
+futures-util = { version = "0.3", default-features = false }
 thiserror = "1.0"
 anyhow = "1.0"
 reqwest = { version = "0.12", features = ["blocking", "rustls-tls"] }
+async-broadcast = "0.7.2"
+async-channel = "2.3.1"
+async-fs = "2.1.2"
+async-io = "2.4.0"
+async-task = "4.2.0"
+bytes = { version = "1.11.1", features = ["serde"] }
+cfg-if = "1.0"
+cfg_aliases = "0.2.1"
+concat-idents = "1.1.4"
+ctrlc = "3.4.7"
+instant = { version = "0.1.12", features = ["wasm-bindgen"] }
+log = { version = "0.4", features = ["serde", "std"] }
+lazy_static = "1.4"
+libc = "0.2"
 
 # State Management
 arc-swap = "1.7"
@@ -79,11 +90,15 @@ dashmap = "6.0"
 parking_lot = "0.12"
 slotmap = "1.0"
 smallvec = "1.13"
+rustc-hash = "2.1.1"
 
 # Math and Graphics
 glam = "0.29"
 euclid = "0.22"
 palette = "0.7"
+ordered-float = { version = "3.0.0", features = ["serde"] }
+pathfinder_color = "0.5"
+pathfinder_geometry = "0.5.1"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -95,12 +110,29 @@ ron = "0.8"
 wgpu = { version = "0.20", features = ["webgl"] }
 lyon = "1.0"
 cosmic-text = "0.12"
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 bytemuck = { version = "1.16", features = ["derive"] }
+arboard = { version = "3.6.1", default-features = false }
+font-kit = { version = "0.14", default-features = false, features = ["source"] }
+resvg = "0.47.0"
 
 # Platform
 winit = { version = "0.29", features = ["serde"] }
 raw-window-handle = "0.6"
+block = "0.1.6"
+blocking = "1.6.2"
+chrono = { version = "0.4", features = ["serde"] }
+cocoa = "=0.26.0"
+core-foundation = "0.9.4"
+core-graphics = "0.23.2"
+core-text = "20.1.0"
+nix = { version = "0.26.4", default-features = false, features = ["signal"] }
+objc = "0.2"
+windows = { version = "0.62.2", features = ["Win32", "Win32_System", "Win32_System_Com"] }
+windows-core = "0.62.2"
+winreg = "0.55.0"
+x11rb = "0.13.0"
+zbus = "5.9.0"
 
 # Web
 wasm-bindgen = "0.2"
@@ -108,6 +140,7 @@ web-sys = "0.3"
 js-sys = "0.3"
 wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "0.1"
+gloo = { version = "0.11.0", default-features = false, features = ["events", "futures", "utils"] }
 
 # Development
 tracing = "0.1"
@@ -115,6 +148,26 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-wasm = "0.2"
 criterion = { version = "0.5", features = ["html_reports"] }
 pretty_assertions = "1.4"
+derivative = "2.2.0"
+derive_more = "0.99.17"
+dirs = "6.0.0"
+enum-iterator = "1.1.3"
+env_logger = "0.10.0"
+float-cmp = "0.9.0"
+itertools = "0.14.0"
+minimp4 = "0.1.2"
+num-traits = "0.2"
+openh264 = "0.8"
+rand = "0.8.2"
+rangemap = "1.3.0"
+rust-embed = { version = "8.7.0", features = ["include-exclude"] }
+similar = { version = "2.7", features = ["inline"] }
+simplelog = "0.12.2"
+strum = "0.27"
+strum_macros = "0.27"
+tempfile = "3.8.0"
+vec1 = { version = "1.8.0", features = ["serde"] }
+version-compare = "0.1"
 
 # Procedural macros
 syn = { version = "2.0", features = ["full", "extra-traits"] }

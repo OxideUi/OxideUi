@@ -2,12 +2,12 @@
 
 use std::any::Any;
 use std::fmt::Debug;
+use strato_core::taffy_layout::TaffyWidget;
 use strato_core::{
     event::{Event, EventResult},
     layout::{Constraints, Layout, Size},
     types::Point, // Removed unused Color and Rect imports
 };
-use strato_core::taffy_layout::TaffyWidget;
 use strato_renderer::batch::RenderBatch;
 
 /// Unique widget identifier
@@ -93,7 +93,7 @@ pub trait Widget: Debug + Send + Sync {
             let position = parent_offset + Point::new(layout.location.x, layout.location.y);
             let size = Size::new(layout.size.width, layout.size.height);
             let widget_layout = Layout::new(position.to_vec2(), size);
-            
+
             self.render(batch, widget_layout);
         }
     }

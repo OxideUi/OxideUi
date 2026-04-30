@@ -24,8 +24,8 @@ pub mod widget;
 pub mod window;
 
 pub use error::{
-    Result, StratoError, StratoResult, TaffyLayoutError, TaffyLayoutResult,
-    TaffyRenderError, TaffyRenderResult, TaffyValidationError, TaffyValidationResult,
+    Result, StratoError, StratoResult, TaffyLayoutError, TaffyLayoutResult, TaffyRenderError,
+    TaffyRenderResult, TaffyValidationError, TaffyValidationResult,
 };
 pub use event::{Event, EventHandler, EventResult};
 pub use layout::{Constraints, Layout, LayoutConstraints, LayoutEngine, Size};

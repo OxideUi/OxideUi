@@ -8,6 +8,6 @@ Imported from commit: `c61ad5b8a8c3980148f91c76a4ce17d1bf8105fc`
 Licensed under the MIT License. See `LICENSES/WARPUI-MIT.txt`.
 
 The imported WarpUI source is currently quarantined under
-`crates/strato-warpui-core` and `crates/strato-warpui-renderer`. It is excluded
+`crates/strato-ui-core` and `crates/strato-ui-renderer`. It is excluded
 from the Cargo workspace until AGPL-inherited Warp workspace dependencies have
 been replaced by clean-room or Strato-native implementations.
