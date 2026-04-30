@@ -213,7 +213,8 @@ impl TableSampleView {
             if auto_capture && !is_last_demo {
                 ctx.spawn(
                     async {
-                        strato_ui::r#async::Timer::after(std::time::Duration::from_millis(350)).await;
+                        strato_ui::r#async::Timer::after(std::time::Duration::from_millis(350))
+                            .await;
                     },
                     |_, _, ctx| {
                         ctx.dispatch_typed_action(&SampleAction::NextDemo);

@@ -6,8 +6,8 @@ mod util;
 
 use frame::Frame;
 use pathfinder_geometry::vector::Vector2F;
-use util::with_error_scope;
 use strato_ui_core::platform::CapturedFrame;
+use util::with_error_scope;
 use wgpu::wgc::{device::DeviceError, present::SurfaceError};
 
 use crate::r#async::block_on;

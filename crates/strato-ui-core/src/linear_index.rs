@@ -17,6 +17,10 @@ pub trait Dimension<'a, Summary> {
     fn add_summary(&mut self, summary: &'a Summary);
 }
 
+impl<'a, Summary> Dimension<'a, Summary> for () {
+    fn add_summary(&mut self, _summary: &'a Summary) {}
+}
+
 #[derive(Clone, Debug)]
 pub struct SumTree<T: Item + Clone> {
     items: Vec<T>,

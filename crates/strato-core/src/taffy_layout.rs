@@ -30,8 +30,8 @@
 //! - Target: < 5ms per 1000 nodes
 //! - Frame budget: 16ms (60 FPS)
 
+pub use crate::error::{TaffyLayoutError, TaffyLayoutResult};
 use crate::error::{TaffyValidationError, TaffyValidationResult};
-pub use crate::error::{TaffyLayoutResult, TaffyLayoutError};
 use crate::layout::EdgeInsets;
 use crate::validated_rect::ValidatedRect;
 
@@ -366,9 +366,9 @@ impl TaffyLayoutManager {
 
             // Return cached layout if available
             if let Some(ref cached) = self.last_valid_layout {
-                 if let Some(root) = self.last_root_node {
-                     return Ok((root, cached.clone()));
-                 }
+                if let Some(root) = self.last_root_node {
+                    return Ok((root, cached.clone()));
+                }
             }
 
             return Err(TaffyLayoutError::InvalidWindowSize {
@@ -378,14 +378,14 @@ impl TaffyLayoutManager {
         }
 
         // STEP 2: Check dirty flag (optimization)
-        // We need to know the root node ID even if cached. 
+        // We need to know the root node ID even if cached.
         // We don't store the root node ID in `TaffyLayoutManager`. We should.
         // Let's add `root_node: Option<NodeId>` to struct.
         if !self.is_dirty && self.last_window_size == Some(window_size) {
             if let Some(ref cached) = self.last_valid_layout {
-                 if let Some(root) = self.last_root_node {
-                     return Ok((root, cached.clone()));
-                 }
+                if let Some(root) = self.last_root_node {
+                    return Ok((root, cached.clone()));
+                }
             }
         }
 
@@ -478,11 +478,12 @@ impl TaffyLayoutManager {
         commands: &mut Vec<DrawCommand>,
     ) -> TaffyLayoutResult<()> {
         // Get layout for this node
-        let layout = self.tree.layout(node).map_err(|e| {
-            TaffyLayoutError::ComputationFailed {
+        let layout = self
+            .tree
+            .layout(node)
+            .map_err(|e| TaffyLayoutError::ComputationFailed {
                 reason: format!("Failed to get layout: {:?}", e),
-            }
-        })?;
+            })?;
 
         // Validate coordinates (CRITICAL)
         let validated_viewport = ValidatedRect::from_taffy(layout).map_err(|e| {
@@ -494,11 +495,12 @@ impl TaffyLayoutManager {
         commands.push(DrawCommand::new(node, validated_viewport, depth));
 
         // Traverse children
-        let children = self.tree.children(node).map_err(|e| {
-            TaffyLayoutError::ComputationFailed {
-                reason: format!("Failed to get children: {:?}", e),
-            }
-        })?;
+        let children =
+            self.tree
+                .children(node)
+                .map_err(|e| TaffyLayoutError::ComputationFailed {
+                    reason: format!("Failed to get children: {:?}", e),
+                })?;
 
         for child in children {
             self.traverse_tree(child, depth + 1, commands)?;

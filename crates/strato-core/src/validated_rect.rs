@@ -240,10 +240,16 @@ mod tests {
     #[test]
     fn test_validated_rect_rejects_negative_dimensions() {
         let result = ValidatedRect::new(0.0, 0.0, -10.0, 10.0);
-        assert!(matches!(result, Err(TaffyValidationError::NegativeDimension { .. })));
+        assert!(matches!(
+            result,
+            Err(TaffyValidationError::NegativeDimension { .. })
+        ));
 
         let result = ValidatedRect::new(0.0, 0.0, 10.0, -5.0);
-        assert!(matches!(result, Err(TaffyValidationError::NegativeDimension { .. })));
+        assert!(matches!(
+            result,
+            Err(TaffyValidationError::NegativeDimension { .. })
+        ));
     }
 
     #[test]

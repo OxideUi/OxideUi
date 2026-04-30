@@ -1,6 +1,6 @@
 use strato_core::taffy::prelude::*;
-use strato_widgets::prelude::*;
 use strato_platform::{ApplicationBuilder, WindowBuilder};
+use strato_widgets::prelude::*;
 
 fn main() {
     strato_core::init();
@@ -16,11 +16,10 @@ fn main() {
                 .spacing(5.0)
                 .child(Box::new(Button::new("Button 1")))
                 .child(Box::new(Button::new("Button 2")))
-                .child(Box::new(Button::new("Button 3")))
+                .child(Box::new(Button::new("Button 3"))),
         ))
         .child(Box::new(
-            Stack::new()
-                .child(Box::new(Button::new("Overlay Button")))
+            Stack::new().child(Box::new(Button::new("Overlay Button"))),
         ));
 
     // 2. Run the application

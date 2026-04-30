@@ -58,13 +58,15 @@ mod loader {
             );
         };
         let mut fonts = Vec::with_capacity(descriptors.len() as usize);
-        for fontdesc in descriptors.into_iter() {
+        for fontdesc in descriptors.iter() {
             // The font size here does not affect our rendering. In CTFont, pt_size
             // is used to calculate font metrics like ascent, descent, etc. However,
             // font-kit creates its own layer of calculating font metrics at render time
             // so we just need a place-holder here for getting the CTFont object. Use
             // 16.0 here as it is consistent with https://docs.rs/core-text/19.2.0/src/core_text/font.rs.html#130
-            let font = Font::from_ct_font(font::new_from_descriptor(&fontdesc, DEFAULT_FONT_SIZE));
+            let font = unsafe {
+                Font::from_native_font(font::new_from_descriptor(&fontdesc, DEFAULT_FONT_SIZE))
+            };
 
             let glyph_id = font.glyph_for_char('m');
             if glyph_id.is_none() {
@@ -387,10 +389,9 @@ impl FontDB {
             }
 
             // We need to push font after releasing the entry of the dashmap to prevent deadlocks.
-            self.push_font(Font::from_ct_font(font::new_from_descriptor(
-                &fontdesc,
-                DEFAULT_FONT_SIZE,
-            )))
+            self.push_font(unsafe {
+                Font::from_native_font(font::new_from_descriptor(&fontdesc, DEFAULT_FONT_SIZE))
+            })
         })
     }
 
@@ -409,14 +410,13 @@ impl FontDB {
                     .collect::<Vec<_>>();
 
                 let font_id = {
-                    if let Ok(idx) = font_kit::matching::find_best_match(
-                        &candidates,
-                        &properties_to_font_kit(properties),
-                    ) {
+                    if let Some(idx) =
+                        best_font_match(&candidates, &properties_to_font_kit(properties))
+                    {
                         self.font(family.font_ids[idx]).properties();
                         family.font_ids[idx]
                     } else {
-                        font_kit::matching::find_best_match(&candidates, &Default::default())
+                        best_font_match(&candidates, &Default::default())
                             .map(|idx| family.font_ids[idx])
                             .unwrap_or(family.font_ids[0])
                     }
@@ -469,7 +469,7 @@ impl FontDB {
             return *font_id.value();
         }
 
-        self.push_font(Font::from_ct_font(native_font))
+        self.push_font(unsafe { Font::from_native_font(native_font) })
     }
 
     fn push_font(&self, font: Font) -> FontId {
@@ -507,6 +507,16 @@ impl FontDB {
 
         Ok(family_id)
     }
+}
+
+fn best_font_match(
+    candidates: &[font_kit::properties::Properties],
+    requested: &font_kit::properties::Properties,
+) -> Option<usize> {
+    candidates
+        .iter()
+        .position(|candidate| candidate == requested)
+        .or_else(|| candidates.first().map(|_| 0))
 }
 
 impl crate::platform::FontDB for FontDB {

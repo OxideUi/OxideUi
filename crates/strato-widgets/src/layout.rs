@@ -1,7 +1,7 @@
 //! Layout widgets for arranging child widgets
 
-use std::any::Any;
 use crate::widget::{generate_id, Widget, WidgetId};
+use std::any::Any;
 use strato_core::taffy::{
     prelude::*,
     style::{AlignItems, Dimension, FlexDirection, JustifyContent},
@@ -9,8 +9,9 @@ use strato_core::taffy::{
 use strato_core::{
     event::{Event, EventResult},
     layout::{
-        AlignItems as CoreAlignItems, Constraints, FlexContainer, FlexDirection as CoreFlexDirection,
-        FlexItem, JustifyContent as CoreJustifyContent, Layout, Size,
+        AlignItems as CoreAlignItems, Constraints, FlexContainer,
+        FlexDirection as CoreFlexDirection, FlexItem, JustifyContent as CoreJustifyContent, Layout,
+        Size,
     },
     taffy_layout::{TaffyLayoutError, TaffyLayoutResult, TaffyWidget},
 };
@@ -94,11 +95,6 @@ pub struct Row {
     // Layout cache computed during layout()
     cached_child_sizes: Vec<Size>,
 }
-
-
-
-
-
 
 impl Row {
     /// Create a new row
@@ -290,8 +286,9 @@ impl Widget for Row {
         parent_offset: strato_core::types::Point,
     ) {
         if let Ok(layout) = tree.layout(node) {
-            let my_position = parent_offset + strato_core::types::Point::new(layout.location.x, layout.location.y);
-            
+            let my_position = parent_offset
+                + strato_core::types::Point::new(layout.location.x, layout.location.y);
+
             // Render children
             if let Ok(children_nodes) = tree.children(node) {
                 let mut child_node_idx = 0;
@@ -538,8 +535,9 @@ impl Widget for Column {
         parent_offset: strato_core::types::Point,
     ) {
         if let Ok(layout) = tree.layout(node) {
-            let my_position = parent_offset + strato_core::types::Point::new(layout.location.x, layout.location.y);
-            
+            let my_position = parent_offset
+                + strato_core::types::Point::new(layout.location.x, layout.location.y);
+
             // Render children
             if let Ok(children_nodes) = tree.children(node) {
                 let mut child_node_idx = 0;
@@ -686,8 +684,9 @@ impl Widget for Stack {
         parent_offset: strato_core::types::Point,
     ) {
         if let Ok(layout) = tree.layout(node) {
-            let my_position = parent_offset + strato_core::types::Point::new(layout.location.x, layout.location.y);
-            
+            let my_position = parent_offset
+                + strato_core::types::Point::new(layout.location.x, layout.location.y);
+
             // Render children
             if let Ok(children_nodes) = tree.children(node) {
                 let mut child_node_idx = 0;
@@ -714,7 +713,8 @@ impl TaffyWidget for Stack {
                 // Force absolute positioning for Stack children
                 let mut style = tree.style(node).cloned().unwrap_or_default();
                 style.position = Position::Absolute;
-                tree.set_style(node, style).map_err(|e| TaffyLayoutError::from(e))?;
+                tree.set_style(node, style)
+                    .map_err(|e| TaffyLayoutError::from(e))?;
                 children_nodes.push(node);
             }
         }
@@ -820,14 +820,16 @@ impl TaffyWidget for Flex {
     fn build_layout(&self, tree: &mut TaffyTree<()>) -> TaffyLayoutResult<NodeId> {
         if let Some(taffy_child) = self.child.as_taffy() {
             let node = taffy_child.build_layout(tree)?;
-            let mut style = tree.style(node).map_err(|e| TaffyLayoutError::from(e))?.clone();
+            let mut style = tree
+                .style(node)
+                .map_err(|e| TaffyLayoutError::from(e))?
+                .clone();
             style.flex_grow = self.flex;
-            tree.set_style(node, style).map_err(|e| TaffyLayoutError::from(e))?;
+            tree.set_style(node, style)
+                .map_err(|e| TaffyLayoutError::from(e))?;
             Ok(node)
         } else {
             Err(TaffyLayoutError::NodeBuildFailed)
         }
     }
 }
-
-

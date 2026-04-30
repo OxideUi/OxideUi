@@ -67,8 +67,8 @@ block.workspace = true
 chrono.workspace = true
 cocoa.workspace = true
 core-foundation.workspace = true
-core-graphics = "0.25.0"
-core-text = "21.0.0"
+core-graphics.workspace = true
+core-text.workspace = true
 dispatch = "0.2.0"
 font-kit.workspace = true
 foreign-types = "0.5.0"
@@ -87,7 +87,7 @@ font-kit.workspace = true
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 bimap = "0.6.2"
 bytemuck.workspace = true
-cosmic-text = { git = "https://github.com/warpdotdev/cosmic-text.git", rev = "15198beba692162201c0ea8b15222cf5643ea068" }
+cosmic-text.workspace = true
 derivative.workspace = true
 fontdb = "0.23.0"
 memmap2 = "0.9.3"
@@ -123,7 +123,6 @@ open = "5.0.0"
 [target.'cfg(target_os = "linux")'.dependencies]
 blocking.workspace = true
 dirs.workspace = true
-fontconfig = { version = "0.8.0", features = ["dlopen"] }
 # On Linux, use dlopen to locate fontconfig at runtime. Other platforms should not depend on fontconfig at all.
 font-kit = { workspace = true, default-features = false, features = [
     "source-fontconfig-dlopen",
@@ -139,7 +138,7 @@ x11-dl = "2.21.0"
 zbus.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
-dwrote = { git = "https://github.com/warpdotdev/dwrote-rs", rev = "a71ce6c0136f7d0954a9a8b181b5b2d8ace5eb9c", default-features = false }
+dwrote = { version = "0.11", default-features = false }
 winreg.workspace = true
 windows = { workspace = true, features = [
     "Win32_Graphics_Dwm",

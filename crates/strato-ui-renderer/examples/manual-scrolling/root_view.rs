@@ -230,7 +230,12 @@ impl NewScrollableElement for ScrollableElement {
         }
     }
 
-    fn scroll(&mut self, delta: strato_ui::units::Pixels, axis: Axis, ctx: &mut strato_ui::EventContext) {
+    fn scroll(
+        &mut self,
+        delta: strato_ui::units::Pixels,
+        axis: Axis,
+        ctx: &mut strato_ui::EventContext,
+    ) {
         match axis {
             Axis::Horizontal => (),
             Axis::Vertical => {

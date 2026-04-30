@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use dashmap::DashMap;
-use font_kit::canvas::{AntialiasingStrategy, Canvas, RasterizationOptions};
+use font_kit::canvas::{Canvas, RasterizationOptions};
 use font_kit::font::Font;
 use font_kit::hinting::HintingOptions;
 use pathfinder_geometry::rect::RectI;
@@ -45,19 +45,14 @@ impl Rasterizer {
         point_size: f32,
         glyph_id: GlyphId,
         scale: Vector2F,
-        glyph_config: &rendering::GlyphConfig,
+        _glyph_config: &rendering::GlyphConfig,
     ) -> Result<RectI> {
         let raw_raster_bounds = self.font_for_id(font_id).raster_bounds(
             glyph_id,
             point_size,
             Transform2F::from_scale(scale),
             HintingOptions::None,
-            RasterizationOptions {
-                antialiasing_strategy: AntialiasingStrategy::GrayscaleAa,
-                use_thin_strokes: glyph_config
-                    .use_thin_strokes
-                    .enabled_for_scale_factor(scale.x()),
-            },
+            RasterizationOptions::GrayscaleAa,
         )?;
         if raw_raster_bounds.size() == Vector2I::zero() {
             // Don't adjust the size of a glyph with a default size of zero.
@@ -113,18 +108,14 @@ impl Rasterizer {
             point_size,
             aligned_transform,
             HintingOptions::None,
-            RasterizationOptions {
-                antialiasing_strategy: AntialiasingStrategy::GrayscaleAa,
-                use_thin_strokes: glyph_config
-                    .use_thin_strokes
-                    .enabled_for_scale_factor(scale.x()),
-            },
+            RasterizationOptions::GrayscaleAa,
         )?;
 
         Ok(RasterizedGlyph {
             canvas: canvas.into(),
-            // TODO(alokedesai): Properly support colored glyphs on Windows.
-            is_emoji: self.font_for_id(font_id).is_colored() && !cfg!(windows),
+            // Crates.io font-kit does not expose Warp's color-font helper. Keep
+            // emoji/color-glyph handling disabled until Strato owns that path.
+            is_emoji: false,
         })
     }
 }

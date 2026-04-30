@@ -9,14 +9,14 @@ use strato_core::{
     event::{Event, EventResult},
     layout::{Constraints, Layout, Size},
     state::Signal,
-    theme::{Color, Theme},
-    types::Rect,
-    types::{Point, Transform},
     taffy::{
         prelude::*,
         style::{Dimension, LengthPercentage},
     },
     taffy_layout::{TaffyLayoutError, TaffyLayoutResult, TaffyWidget},
+    theme::{Color, Theme},
+    types::Rect,
+    types::{Point, Transform},
 };
 use strato_renderer::{batch::RenderBatch, vertex::VertexBuilder};
 
@@ -738,7 +738,7 @@ impl TaffyWidget for Button {
     fn build_layout(&self, tree: &mut TaffyTree<()>) -> TaffyLayoutResult<NodeId> {
         let text_width = crate::text::measure_text_width(&self.text, self.style.font_size, 0.0);
         let text_height = self.style.font_size;
-        
+
         let width = (text_width + self.style.padding * 2.0).max(self.style.min_width);
         let height = (text_height + self.style.padding * 2.0).max(self.style.min_height);
 
@@ -760,7 +760,6 @@ impl TaffyWidget for Button {
             ..Default::default()
         };
 
-        tree.new_leaf(style)
-            .map_err(|e| TaffyLayoutError::from(e))
+        tree.new_leaf(style).map_err(|e| TaffyLayoutError::from(e))
     }
 }

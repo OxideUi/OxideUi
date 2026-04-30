@@ -26,7 +26,9 @@ fn main() -> Result<()> {
     let app_builder =
         platform::AppBuilder::new(platform::AppCallbacks::default(), Box::new(ASSETS), None);
     let _ = app_builder.run(move |ctx| {
-        ctx.add_window(strato_ui::AddWindowOptions::default(), |_| root_view::RootView);
+        ctx.add_window(strato_ui::AddWindowOptions::default(), |_| {
+            root_view::RootView
+        });
     });
 
     Ok(())

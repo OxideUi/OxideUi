@@ -36,13 +36,13 @@ use std::marker::PhantomData;
 use std::ops::Range;
 use std::rc::Rc;
 use std::slice;
-use vec1::Vec1;
 use strato_ui_core::fonts::GlyphId;
 use strato_ui_core::platform::LineStyle;
 use strato_ui_core::text_layout::{
     CaretPosition, ClipConfig, Glyph, Line, Run, StyleAndFont, TextAlignment, TextBorder,
     TextFrame, TextStyle,
 };
+use vec1::Vec1;
 
 use super::fonts::FontDB;
 use super::utils::{cg_color_to_color_u, color_u_to_cg_color};
@@ -772,11 +772,12 @@ fn line_from_ct_line(
                 .unwrap()
         });
 
+        let run_advances = advances(&run);
         let glyphs = itertools::multizip((
             run.glyphs().iter(),
             run.positions().iter(),
             run.string_indices().iter(),
-            advances(&run).iter(),
+            run_advances.iter(),
         ))
         .map(|(glyph_id, position, utf16_offset, advance)| {
             let utf16_offset = usize::try_from(*utf16_offset).expect("Negative character offset");
@@ -797,7 +798,10 @@ fn line_from_ct_line(
         // For text attributes that don't matter in the paint stage (e.g. kerning), treat them as one
         // text run.
         let text_style = attributes_to_text_style(attributes);
-        let width = run.get_typographic_bounds().width as f32;
+        let width = run_advances
+            .iter()
+            .map(|advance| advance.width as f32)
+            .sum();
         match previous_run_font_and_attribute {
             Some((prev_font_id, prev_attribute))
                 if prev_font_id == font_id && text_style == prev_attribute && !runs.is_empty() =>

@@ -1621,7 +1621,7 @@ impl Element for FormattedTextElement {
             let (font_size, texts, indent, line_type) = match line {
                 FormattedTextLine::Heading(header) => (
                     self.heading_to_font_size_multipliers
-                        .get_multiplier(header.heading_size)
+                        .get_multiplier(header.heading_size.into())
                         * self.font_size,
                     &header.text,
                     0,
@@ -1679,7 +1679,7 @@ impl Element for FormattedTextElement {
                         list_numbering
                             // Subtracting by 1 as `indent` of lists starts at 1,
                             // but list_numbering expects it to start at 0.
-                            .advance(indent.saturating_sub(1), texts.number)
+                            .advance(indent.saturating_sub(1), Some(texts.number))
                             .display_label
                     )
                 }

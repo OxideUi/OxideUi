@@ -227,7 +227,7 @@ pub enum Hyperlink {
 
 pub fn parse_markdown(markdown: &str) -> Result<FormattedText, String> {
     let mut lines = Vec::new();
-    let mut code_block_language = None;
+    let mut code_block_language: Option<String> = None;
     let mut code_block = String::new();
 
     for line in markdown.lines() {
@@ -334,4 +334,42 @@ fn parse_fragments(text: &str) -> Vec<FormattedTextFragment> {
     }
 
     fragments
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_basic_strato_markdown_smoke_test() {
+        let formatted = parse_markdown(
+            "# Strato UI\n\n- [Core](https://stratosdk.dev)\n```rust\nlet ui = \"strato\";\n```",
+        )
+        .expect("markdown should parse");
+
+        assert_eq!(formatted.lines.len(), 4);
+
+        match &formatted.lines[0] {
+            FormattedTextLine::Heading(line) => {
+                assert_eq!(line.text[0].text, "Strato UI");
+            }
+            other => panic!("expected heading, got {other:?}"),
+        }
+
+        match &formatted.lines[2] {
+            FormattedTextLine::UnorderedList(line) => {
+                assert_eq!(line.text[0].text, "Core");
+                assert!(matches!(line.text[0].link, Some(Hyperlink::Url(_))));
+            }
+            other => panic!("expected unordered list, got {other:?}"),
+        }
+
+        match &formatted.lines[3] {
+            FormattedTextLine::CodeBlock(block) => {
+                assert_eq!(block.language.as_deref(), Some("rust"));
+                assert_eq!(block.code, "let ui = \"strato\";");
+            }
+            other => panic!("expected code block, got {other:?}"),
+        }
+    }
 }
