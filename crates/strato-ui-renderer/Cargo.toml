@@ -1,0 +1,12 @@
+[package]
+name = "strato-ui-renderer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Clean Strato UI renderer seed evolved from the MIT WarpUI import"
+publish = false
+
+[dependencies]
+strato-ui-core = { workspace = true }
