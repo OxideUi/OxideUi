@@ -1,6 +1,6 @@
 # WarpUI Import License Audit
 
-Status: **MIT source imported under quarantine**
+Status: **MIT source imported under quarantine, with partial dependency cleanup completed**
 
 This audit was performed to evaluate whether the MIT-licensed WarpUI crates from
 `https://github.com/warpdotdev/warp` can be copied into StratoSDK without
@@ -52,8 +52,8 @@ No AGPL-licensed Warp workspace crate was copied.
 
 | Source path | Target path | Status |
 | --- | --- | --- |
-| `crates/warpui_core` | `crates/strato-warpui-core` | Copied, quarantined outside workspace |
-| `crates/warpui` | `crates/strato-warpui-renderer` | Copied, quarantined outside workspace |
+| `crates/warpui_core` | `crates/strato-ui-core` | Copied, quarantined outside workspace, crate boundary renamed for Strato |
+| `crates/warpui` | `crates/strato-ui-renderer` | Copied, quarantined outside workspace, crate boundary renamed for Strato |
 | `LICENSE-MIT` | `LICENSES/WARPUI-MIT.txt` | Copied |
 
 ## Skipped Paths
@@ -83,13 +83,13 @@ Warp workspace license `AGPL-3.0-only`.
 | `warpui_core` | `warpui` | normal, dev | Explicit `license = "MIT"` | SAFE, but not copied because import stopped |
 | `warpui` | `warpui` | dev self-reference | Explicit `license = "MIT"` | SAFE, but not copied because import stopped |
 | `markdown_parser` | `warpui_core`, `warpui` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE |
-| `settings_value` | `warpui_core` | optional normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE |
 | `string-offset` | `warpui_core` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE |
 | `sum_tree` | `warpui_core`, `warpui` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE |
-| `warp_util` | `warpui_core` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE |
-| `command` | `warpui_core`, `warpui` | dev and non-macOS normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE |
-| `asset_cache` | `warpui` | dev | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE |
-| `virtual-fs` | `warpui` | Linux dev | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE |
+| `settings_value` | `warpui_core` | optional normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE at source, removed from imported manifests |
+| `warp_util` | `warpui_core` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE at source, replaced at imported boundary |
+| `command` | `warpui_core`, `warpui` | dev and non-macOS normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE at source, replaced at imported boundary |
+| `asset_cache` | `warpui` | dev | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE at source, removed from imported manifests |
+| `virtual-fs` | `warpui` | Linux dev | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE at source, removed from imported manifests |
 
 Additional local crates named in the migration guard list were also inspected:
 
@@ -107,9 +107,9 @@ non-trivial implementation paths:
 | --- | --- | --- |
 | `markdown_parser` | formatted text and font/header parsing in `warpui_core` and examples | Requires either a clean-room markdown model/parser or substantial feature removal. |
 | `sum_tree` | viewported list and table layout internals | Requires a clean-room tree/cursor data structure with matching behavior. |
-| `warp_util` | platform shell family handling | Requires a clean-room replacement for the narrow platform path API. |
-| `command` | non-macOS windowing process launch paths and tests | Requires replacement with `std::process::Command` or an existing Strato abstraction. |
-| `settings_value` | optional derives and implementations | Feature can likely remain disabled, but must be removed or replaced before import. |
+| `warp_util` | platform shell family handling | Replaced in the imported boundary with a local `ShellFamily` implementation. |
+| `command` | non-macOS windowing process launch paths and tests | Replaced in the imported boundary with `std::process::Command`. |
+| `settings_value` | optional derives and implementations | Removed from imported manifests and code paths in the first cleanup pass. |
 | `string-offset` | normal dependency of `warpui_core` | License is AGPL via workspace inheritance; import cannot depend on it. |
 
 The candidate source is large enough that replacing these safely is not a small

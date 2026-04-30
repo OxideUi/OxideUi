@@ -23,8 +23,8 @@ exclude = [
     # Quarantined MIT source import. These crates are intentionally excluded
     # until AGPL-inherited Warp workspace dependencies have clean-room
     # replacements.
-    "crates/strato-warpui-core",
-    "crates/strato-warpui-renderer",
+    "crates/strato-ui-core",
+    "crates/strato-ui-renderer",
 ]
 
 [package]
