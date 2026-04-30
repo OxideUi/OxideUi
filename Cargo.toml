@@ -14,13 +14,18 @@ members = [
     "crates/strato-widgets",
     "crates/strato-platform",
     "crates/strato-macros",
-    "crates/strato-ui-core",
-    "crates/strato-ui-renderer",
     "examples/animated_showcase",
     "examples/macro_showcase",
     "examples/taffy_demo",
 ]
 resolver = "2"
+exclude = [
+    # Quarantined MIT source import. These crates are intentionally excluded
+    # until AGPL-inherited Warp workspace dependencies have clean-room
+    # replacements.
+    "crates/strato-warpui-core",
+    "crates/strato-warpui-renderer",
+]
 
 [package]
 name = "strato-sdk"
@@ -60,8 +65,6 @@ strato-renderer = { path = "crates/strato-renderer", version = "0.1.0" }
 strato-widgets = { path = "crates/strato-widgets", version = "0.1.0" }
 strato-platform = { path = "crates/strato-platform", version = "0.1.0" }
 strato-macros = { path = "crates/strato-macros", version = "0.1.0" }
-strato-ui-core = { path = "crates/strato-ui-core", version = "0.1.0" }
-strato-ui-renderer = { path = "crates/strato-ui-renderer", version = "0.1.0" }
 
 # Core dependencies
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "sync", "time"] }

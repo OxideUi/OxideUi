@@ -11,16 +11,15 @@ The MIT source has been copied into quarantined Strato crates:
 
 | Warp source | Strato path |
 | --- | --- |
-| `crates/warpui_core` | `crates/strato-ui-core` |
-| `crates/warpui` | `crates/strato-ui-renderer` |
+| `crates/warpui_core` | `crates/strato-warpui-core` |
+| `crates/warpui` | `crates/strato-warpui-renderer` |
 | `LICENSE-MIT` | `LICENSES/WARPUI-MIT.txt` |
 
-The copied source was subsequently pruned into clean Strato-owned seed crates
-because the original MIT crates referenced local Warp workspace crates that
-inherit `AGPL-3.0-only`, including `markdown_parser`, `sum_tree`, `warp_util`,
-`string-offset`, `settings_value`, `command`, `asset_cache`, and `virtual-fs`.
-Those crates were not copied, and references to them were removed from the
-active Strato UI crates.
+The imported crates are intentionally excluded from the Cargo workspace for now.
+The copied source still references local Warp workspace crates that inherit
+`AGPL-3.0-only` from the Warp workspace, including `markdown_parser`,
+`sum_tree`, `warp_util`, `string-offset`, `settings_value`, `command`,
+`asset_cache`, and `virtual-fs`. Those crates were not copied.
 
 Future work, if this migration is resumed:
 
@@ -29,5 +28,5 @@ Future work, if this migration is resumed:
 3. Complete a third-party crates.io license audit.
 4. Import only the MIT source after the dependency boundary can be enforced by
    CI.
-5. Continue rebuilding missing UI functionality with clean-room or Strato-native
-   modules.
+5. Remove the Cargo workspace quarantine only after the imported crates pass the
+   license-boundary script and compile without AGPL-inherited dependencies.

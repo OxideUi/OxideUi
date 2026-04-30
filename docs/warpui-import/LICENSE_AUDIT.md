@@ -1,6 +1,6 @@
 # WarpUI Import License Audit
 
-Status: **MIT source imported, AGPL-inherited dependencies removed**
+Status: **MIT source imported under quarantine**
 
 This audit was performed to evaluate whether the MIT-licensed WarpUI crates from
 `https://github.com/warpdotdev/warp` can be copied into StratoSDK without
@@ -52,8 +52,8 @@ No AGPL-licensed Warp workspace crate was copied.
 
 | Source path | Target path | Status |
 | --- | --- | --- |
-| `crates/warpui_core` | `crates/strato-ui-core` | Copied, then pruned to a clean Strato UI seed |
-| `crates/warpui` | `crates/strato-ui-renderer` | Copied, then pruned to a clean Strato UI renderer seed |
+| `crates/warpui_core` | `crates/strato-warpui-core` | Copied, quarantined outside workspace |
+| `crates/warpui` | `crates/strato-warpui-renderer` | Copied, quarantined outside workspace |
 | `LICENSE-MIT` | `LICENSES/WARPUI-MIT.txt` | Copied |
 
 ## Skipped Paths
@@ -314,7 +314,7 @@ future compileable import.
 
 The repository remains MIT/commercial-license compatible on the basis of this
 audit because only the two explicitly MIT WarpUI crates and Warp's MIT license
-text were copied, and all references to AGPL-inherited local Warp workspace
-dependencies were removed from the active Strato UI crates. Future functionality
-must be rebuilt through clean-room implementations, existing StratoSDK modules,
-or audited external crates.
+text were copied. The copied source is not yet buildable or workspace-active.
+Activating it remains blocked until unsafe local dependencies are replaced
+through clean-room implementations, existing StratoSDK modules, or audited
+external crates.
