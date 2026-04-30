@@ -1,6 +1,6 @@
+use crate::text_offsets::{ByteOffset, CharCounter, CharOffset};
 use anyhow::{anyhow, Result};
 use itertools::Itertools;
-use string_offset::{ByteOffset, CharCounter, CharOffset};
 
 use crate::event::ModifiersState;
 

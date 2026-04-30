@@ -20,9 +20,9 @@ members = [
 ]
 resolver = "2"
 exclude = [
-    # Quarantined MIT source import. These crates are intentionally excluded
-    # until AGPL-inherited Warp workspace dependencies have clean-room
-    # replacements.
+    # Quarantined MIT source import. The AGPL-bound local Warp dependencies
+    # have clean-room replacements; remaining work is normalizing inherited
+    # workspace dependency declarations before enabling these crates.
     "crates/strato-ui-core",
     "crates/strato-ui-renderer",
 ]

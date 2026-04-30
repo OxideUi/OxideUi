@@ -2,13 +2,14 @@ use super::{
     FormattedTextElement, FrameMouseHandlers, HeadingFontSizeMultipliers, HighlightedHyperlink,
     HyperlinkSupport, LaidOutTextFrame, SecretRange,
 };
+use crate::formatted_text::{FormattedText, FormattedTextFragment, FormattedTextLine};
 use crate::text::BlockHeaderSize;
+use crate::text_offsets::ByteOffset;
 use crate::{
     elements::{Point, SelectableElement, ZIndex},
     fonts::FamilyId,
     text_layout::TextFrame,
 };
-use markdown_parser::{FormattedText, FormattedTextFragment, FormattedTextLine};
 use pathfinder_color::ColorU;
 use pathfinder_geometry::{rect::RectF, vector::vec2f};
 use std::borrow::Cow;
@@ -16,7 +17,6 @@ use std::cell::RefCell;
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use string_offset::ByteOffset;
 
 use super::apply_secret_replacements;
 

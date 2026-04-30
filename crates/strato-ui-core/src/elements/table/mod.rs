@@ -10,6 +10,7 @@ use pathfinder_geometry::rect::RectF;
 use pathfinder_geometry::vector::{vec2f, Vector2F};
 
 use crate::event::DispatchedEvent;
+use crate::linear_index::{self, SumTree};
 use crate::scene::ClipBounds;
 use crate::text::word_boundaries::WordBoundariesPolicy;
 use crate::text::{IsRect, SelectionDirection, SelectionType};
@@ -23,7 +24,6 @@ use super::{
     Point, ScrollData, ScrollableElement, SelectableElement, Selection, SelectionFragment,
     SmartSelectFn,
 };
-use sum_tree::SumTree;
 
 // ============================================================================
 // Constants
@@ -58,7 +58,7 @@ struct RowLayoutSummary {
     measured_count: usize,
 }
 
-impl sum_tree::Item for TableRowItem {
+impl linear_index::Item for TableRowItem {
     type Summary = RowLayoutSummary;
 
     fn summary(&self) -> Self::Summary {
@@ -88,7 +88,7 @@ impl From<Pixels> for Height {
     }
 }
 
-impl<'a> sum_tree::Dimension<'a, RowLayoutSummary> for Height {
+impl<'a> linear_index::Dimension<'a, RowLayoutSummary> for Height {
     fn add_summary(&mut self, summary: &'a RowLayoutSummary) {
         self.0 .0 += summary.height;
     }
@@ -98,7 +98,7 @@ impl<'a> sum_tree::Dimension<'a, RowLayoutSummary> for Height {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, DeriveAddAssign)]
 struct RowCount(usize);
 
-impl<'a> sum_tree::Dimension<'a, RowLayoutSummary> for RowCount {
+impl<'a> linear_index::Dimension<'a, RowLayoutSummary> for RowCount {
     fn add_summary(&mut self, summary: &'a RowLayoutSummary) {
         self.0 += summary.count;
     }
@@ -322,7 +322,7 @@ impl TableState {
     /// Get the absolute pixel position of the current scroll top (including header).
     fn scroll_top_pixels(&self) -> Pixels {
         let mut cursor = self.rows.cursor::<RowCount, Height>();
-        cursor.seek(&self.scroll_top.row_index, sum_tree::SeekBias::Right);
+        cursor.seek(&self.scroll_top.row_index, linear_index::SeekBias::Right);
         let row_start_height = cursor.start().0 .0;
         self.header_height + row_start_height + self.scroll_top.offset_from_start
     }
@@ -374,11 +374,11 @@ impl TableState {
         // If the target is within the measured region, seek to exact position
         if approximate_row <= self.last_measured_row_index {
             let mut cursor = self.rows.cursor::<Height, RowCount>();
-            cursor.seek(&Height::from(pixels_in_rows), sum_tree::SeekBias::Right);
+            cursor.seek(&Height::from(pixels_in_rows), linear_index::SeekBias::Right);
             let row_index = *cursor.start();
 
             let mut height_cursor = self.rows.cursor::<RowCount, Height>();
-            height_cursor.seek(&row_index, sum_tree::SeekBias::Right);
+            height_cursor.seek(&row_index, linear_index::SeekBias::Right);
             let row_start_height = height_cursor.start().0 .0;
 
             let offset = pixels_in_rows - row_start_height;
@@ -407,7 +407,7 @@ impl TableState {
 
         let (new_tree, last_measured) = {
             let mut cursor = self.rows.cursor::<RowCount, ()>();
-            let mut new_items = cursor.slice(&RowCount(row_idx), sum_tree::SeekBias::Right);
+            let mut new_items = cursor.slice(&RowCount(row_idx), linear_index::SeekBias::Right);
             let last_measured = new_items.summary().measured_count.saturating_sub(1);
 
             new_items.push(TableRowItem { height: None });
@@ -1046,7 +1046,8 @@ impl Element for Table {
                 let mut state = self.state.inner.borrow_mut();
                 let (new_tree, new_last_measured) = {
                     let mut cursor = state.rows.cursor::<RowCount, ()>();
-                    let mut new_items = cursor.slice(&RowCount(row_idx), sum_tree::SeekBias::Right);
+                    let mut new_items =
+                        cursor.slice(&RowCount(row_idx), linear_index::SeekBias::Right);
                     new_items.push(TableRowItem {
                         height: Some(row_height),
                     });
@@ -1106,10 +1107,12 @@ impl Element for Table {
         let mut state = self.state.inner.borrow_mut();
         let new_tree = {
             let mut cursor = state.rows.cursor::<RowCount, ()>();
-            let mut new_items =
-                cursor.slice(&RowCount(measured_range.start), sum_tree::SeekBias::Right);
+            let mut new_items = cursor.slice(
+                &RowCount(measured_range.start),
+                linear_index::SeekBias::Right,
+            );
             new_items.extend(measured_items);
-            cursor.seek(&RowCount(measured_range.end), sum_tree::SeekBias::Right);
+            cursor.seek(&RowCount(measured_range.end), linear_index::SeekBias::Right);
             new_items.push_tree(cursor.suffix());
             new_items
         };

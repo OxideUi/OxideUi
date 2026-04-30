@@ -14,8 +14,8 @@ use dashmap::{
     DashMap,
 };
 
+use crate::formatted_text::weight::CustomWeight;
 use enum_iterator::Sequence;
-use markdown_parser::weight::CustomWeight;
 use ordered_float::OrderedFloat;
 use pathfinder_geometry::vector::Vector2I;
 use pathfinder_geometry::{

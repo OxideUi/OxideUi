@@ -1,7 +1,7 @@
 //! A UI sample demonstrating how the SelectableArea element can be used.
 
-use markdown_parser::{parse_markdown, FormattedTextFragment, FormattedTextLine};
 use strato_ui::fonts::FamilyId;
+use strato_ui::formatted_text::{parse_markdown, FormattedTextFragment, FormattedTextLine};
 use strato_ui::SingletonEntity as _;
 use strato_ui::{
     elements::{

@@ -17,24 +17,28 @@ the crate boundary for Strato ownership:
 | `LICENSE-MIT` | `LICENSES/WARPUI-MIT.txt` |
 
 The imported crates are intentionally excluded from the Cargo workspace for now.
-The copied source still references local Warp workspace crates that inherit
-`AGPL-3.0-only` from the Warp workspace, with the primary remaining blockers
-currently being `markdown_parser`, `sum_tree`, and `string-offset`.
+The copied source no longer references the AGPL-inherited local Warp crates
+`markdown_parser`, `sum_tree`, or `string-offset`; those integration points now
+use clean-room Strato modules:
+
+| Removed Warp dependency | Strato replacement |
+| --- | --- |
+| `markdown_parser` | `crates/strato-ui-core/src/formatted_text.rs` |
+| `sum_tree` | `crates/strato-ui-core/src/linear_index.rs` |
+| `string-offset` | `crates/strato-ui-core/src/text_offsets.rs` |
 
 The first cleanup pass already removed direct references to `warp_util`,
 `settings_value`, `command`, `asset_cache`, and `virtual-fs` from the active
 crate manifests and narrow integration points. Those dependencies were not
 copied.
 
-Future work, if this migration is resumed:
+Remaining work before enabling these crates in the workspace:
 
-1. Design clean-room replacements for `markdown_parser`, `sum_tree`, and
-   `string-offset`.
-2. Separately audit the forked git dependencies used by WarpUI.
+1. Normalize the remaining inherited `workspace = true` dependency declarations
+   to Strato workspace entries or explicit crates.io versions.
+2. Separately audit the forked git dependencies used by Strato UI.
 3. Complete a third-party crates.io license audit.
-4. Remove or replace remaining in-source references that still assume Warp-only
-   local crates.
-5. Import only the MIT source after the dependency boundary can be enforced by
-   CI.
-6. Remove the Cargo workspace quarantine only after the imported crates pass the
-   license-boundary script and compile without AGPL-inherited dependencies.
+4. Add focused tests for the clean-room formatted text, text offset, and linear
+   index modules.
+5. Remove the Cargo workspace quarantine only after the imported crates compile
+   and continue to pass the license-boundary script.

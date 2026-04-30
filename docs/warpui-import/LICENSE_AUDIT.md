@@ -82,9 +82,9 @@ Warp workspace license `AGPL-3.0-only`.
 | --- | --- | --- | --- | --- |
 | `warpui_core` | `warpui` | normal, dev | Explicit `license = "MIT"` | SAFE, but not copied because import stopped |
 | `warpui` | `warpui` | dev self-reference | Explicit `license = "MIT"` | SAFE, but not copied because import stopped |
-| `markdown_parser` | `warpui_core`, `warpui` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE |
-| `string-offset` | `warpui_core` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE |
-| `sum_tree` | `warpui_core`, `warpui` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE |
+| `markdown_parser` | `warpui_core`, `warpui` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE at source, replaced with clean-room Strato formatted text module |
+| `string-offset` | `warpui_core` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE at source, replaced with clean-room Strato text offset module |
+| `sum_tree` | `warpui_core`, `warpui` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE at source, replaced with clean-room Strato linear index module |
 | `settings_value` | `warpui_core` | optional normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE at source, removed from imported manifests |
 | `warp_util` | `warpui_core` | normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE at source, replaced at imported boundary |
 | `command` | `warpui_core`, `warpui` | dev and non-macOS normal | `license.workspace = true` -> `AGPL-3.0-only` | UNSAFE at source, replaced at imported boundary |
@@ -100,17 +100,18 @@ Additional local crates named in the migration guard list were also inspected:
 
 ## Unsafe Reference Evidence
 
-The MIT candidate source currently references unsafe local dependencies in
-non-trivial implementation paths:
+The MIT candidate source originally referenced unsafe local dependencies in
+non-trivial implementation paths. The current Strato import removes the active
+references listed below:
 
 | Identifier | Example source references | Risk |
 | --- | --- | --- |
-| `markdown_parser` | formatted text and font/header parsing in `warpui_core` and examples | Requires either a clean-room markdown model/parser or substantial feature removal. |
-| `sum_tree` | viewported list and table layout internals | Requires a clean-room tree/cursor data structure with matching behavior. |
+| `markdown_parser` | formatted text and font/header parsing in `warpui_core` and examples | Replaced with `strato_ui_core::formatted_text`, a clean-room minimal formatted text model/parser. |
+| `sum_tree` | viewported list and table layout internals | Replaced with `strato_ui_core::linear_index`, a clean-room linear cursor/index structure. |
 | `warp_util` | platform shell family handling | Replaced in the imported boundary with a local `ShellFamily` implementation. |
 | `command` | non-macOS windowing process launch paths and tests | Replaced in the imported boundary with `std::process::Command`. |
 | `settings_value` | optional derives and implementations | Removed from imported manifests and code paths in the first cleanup pass. |
-| `string-offset` | normal dependency of `warpui_core` | License is AGPL via workspace inheritance; import cannot depend on it. |
+| `string-offset` | normal dependency of `warpui_core` | Replaced with `strato_ui_core::text_offsets`, a clean-room offset module. |
 
 The candidate source is large enough that replacing these safely is not a small
 mechanical edit:

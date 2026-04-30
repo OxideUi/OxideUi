@@ -18,10 +18,10 @@ use crate::platform::LineStyle;
 use crate::text_layout::{
     ClipConfig, Line, PaintStyleOverride, StyleAndFont, TextStyle, DEFAULT_TOP_BOTTOM_RATIO,
 };
+use crate::text_offsets::CharOffset;
 use crate::{AppContext, Element, PaintContext, SizeConstraint};
 use instant::Instant;
 use rangemap::RangeMap;
-use string_offset::CharOffset;
 
 /// A key to determine whether we need to re-layout text to a given invocation of #layout to this
 /// element.

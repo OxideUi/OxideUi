@@ -237,7 +237,7 @@ fn test_sumtree_row_height_invalidation() {
 
     let inner = state.inner.borrow();
     let mut cursor = inner.rows.cursor::<RowCount, ()>();
-    cursor.seek(&RowCount(5), sum_tree::SeekBias::Right);
+    cursor.seek(&RowCount(5), crate::linear_index::SeekBias::Right);
     if let Some(item) = cursor.item() {
         assert!(item.height.is_none());
     }

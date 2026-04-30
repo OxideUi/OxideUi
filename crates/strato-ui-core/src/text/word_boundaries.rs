@@ -1,8 +1,8 @@
 use std::iter::Peekable;
 use std::{borrow::Cow, collections::HashSet};
 
+use crate::text_offsets::CharOffset;
 use itertools::Either;
-use string_offset::CharOffset;
 
 use super::point::Point;
 

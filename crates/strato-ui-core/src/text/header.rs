@@ -1,5 +1,5 @@
+use crate::formatted_text::weight::CustomWeight;
 use enum_iterator::Sequence;
-use markdown_parser::weight::CustomWeight;
 
 /// Header sizes for formatted text blocks.
 #[derive(Eq, PartialEq, Clone, Copy, Debug, Hash, Sequence)]

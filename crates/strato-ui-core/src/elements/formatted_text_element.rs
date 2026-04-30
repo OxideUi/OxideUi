@@ -6,6 +6,7 @@ use crate::elements::{
 };
 use crate::event::ModifiersState;
 use crate::fonts::Weight;
+use crate::formatted_text::{FormattedText, FormattedTextFragment, FormattedTextLine, Hyperlink};
 use crate::geometry::rect::RectF;
 use crate::platform::Cursor;
 use crate::text::word_boundaries::WordBoundariesPolicy;
@@ -14,6 +15,7 @@ use crate::text::{
     TextBuffer,
 };
 use crate::text_layout::{ClipConfig, TextAlignment, DEFAULT_TOP_BOTTOM_RATIO};
+use crate::text_offsets::{ByteOffset, CharOffset};
 use crate::Event;
 use crate::{
     elements::{Axis, Point},
@@ -25,7 +27,6 @@ use crate::{
     SizeConstraint,
 };
 use itertools::Itertools;
-use markdown_parser::{Action, FormattedText, FormattedTextFragment, FormattedTextLine, Hyperlink};
 use pathfinder_color::ColorU;
 use pathfinder_geometry::vector::{vec2f, Vector2F};
 use std::borrow::Cow;
@@ -37,7 +38,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::Once;
-use string_offset::{ByteOffset, CharOffset};
 use vec1::vec1;
 #[derive(Debug, Clone, PartialEq)]
 pub struct HeadingFontSizeMultipliers {
@@ -109,10 +109,10 @@ impl<'a> From<&'a Hyperlink> for HyperlinkLens<'a> {
     }
 }
 
-/// A lens into a [`markdown_parser::Hyperlink`].
+/// A lens into a formatted text hyperlink.
 pub enum HyperlinkLens<'a> {
     Url(&'a str),
-    Action(&'a dyn Action),
+    Action(&'a dyn crate::Action),
 }
 
 #[derive(Clone, Default, PartialEq, Eq, Debug)]

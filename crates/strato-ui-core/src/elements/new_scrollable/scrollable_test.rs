@@ -34,9 +34,9 @@ const SCROLLABLE_VIEWPORT_SIZE: f32 = 250.;
 
 fn select_entire_probe_text(
     _content: &str,
-    _click_offset: string_offset::ByteOffset,
-) -> Option<std::ops::Range<string_offset::ByteOffset>> {
-    Some(string_offset::ByteOffset::zero()..string_offset::ByteOffset::from(1))
+    _click_offset: crate::text_offsets::ByteOffset,
+) -> Option<std::ops::Range<crate::text_offsets::ByteOffset>> {
+    Some(crate::text_offsets::ByteOffset::zero()..crate::text_offsets::ByteOffset::from(1))
 }
 
 #[derive(Clone, Default)]

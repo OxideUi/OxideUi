@@ -13,6 +13,7 @@ use crate::text_layout::{
     ClipConfig, ComputeBaselinePositionFn, Line, StyleAndFont, TextFrame, TextStyle,
     DEFAULT_TOP_BOTTOM_RATIO,
 };
+use crate::text_offsets::CharOffset;
 use crate::text_selection_utils::{
     calculate_tick_width, create_newline_tick_rect, selection_crosses_newline_row_based,
     NewlineTickParams,
@@ -30,7 +31,6 @@ use pathfinder_geometry::vector::{vec2f, Vector2F};
 use std::borrow::Cow;
 use std::mem::swap;
 use std::{borrow::Borrow, ops::Range, sync::Arc};
-use string_offset::CharOffset;
 
 pub const DEFAULT_UI_LINE_HEIGHT_RATIO: f32 = 1.2;
 

@@ -15,11 +15,11 @@ use crate::text::word_boundaries::WordBoundariesPolicy;
 use crate::text::{IsRect, SelectionDirection, SelectionType};
 use pathfinder_geometry::vector::{vec2f, Vector2F};
 
+use crate::text_offsets::ByteOffset;
 use lazy_static::lazy_static;
 use std::ops::Range;
 use std::sync::Arc;
 use std::sync::Mutex;
-use string_offset::ByteOffset;
 
 /// A function that, given some content and a double-click index offset in that content,
 /// returns the resulting smart selection range.

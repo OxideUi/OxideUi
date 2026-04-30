@@ -13,9 +13,9 @@ use pathfinder_geometry::{
     rect::RectF,
     vector::{vec2f, Vector2F},
 };
-use sum_tree::SumTree;
 
 use crate::{
+    linear_index::{self, SumTree},
     units::{IntoPixels, Pixels},
     ClipBounds,
 };
@@ -147,7 +147,7 @@ impl<T> ListState<T> {
         // Get absolute positions of the targets
         let (start_absolute, end_absolute) = {
             let mut cursor = inner.content.cursor::<Count, Height>();
-            cursor.seek(&Count(item_index), sum_tree::SeekBias::Right);
+            cursor.seek(&Count(item_index), linear_index::SeekBias::Right);
             let item_start = cursor.start().0 .0;
             (item_start + start_offset, item_start + end_offset)
         };
@@ -238,7 +238,7 @@ impl<T: 'static> List<T> {
         let mut cursor = list_state.content.cursor::<Count, Count>();
         cursor.seek(
             &list_state.scroll_top.list_item_index,
-            sum_tree::SeekBias::Right,
+            linear_index::SeekBias::Right,
         );
 
         let cursor_start = *cursor.start();
@@ -274,10 +274,10 @@ impl<T: 'static> List<T> {
             let mut cursor = list_state.content.cursor::<Count, ()>();
 
             let mut new_items =
-                cursor.slice(&Count(measured_range.start), sum_tree::SeekBias::Right);
+                cursor.slice(&Count(measured_range.start), linear_index::SeekBias::Right);
             new_items.extend(measured_items);
 
-            cursor.seek(&Count(measured_range.end), sum_tree::SeekBias::Right);
+            cursor.seek(&Count(measured_range.end), linear_index::SeekBias::Right);
 
             new_items.push_tree(cursor.suffix());
             new_items
@@ -327,7 +327,7 @@ impl<T: 'static> Element for List<T> {
                 let new_items = {
                     let mut cursor = list_state.content.cursor::<Count, Count>();
                     let mut new_items =
-                        cursor.slice(&Count(start_index), sum_tree::SeekBias::Right);
+                        cursor.slice(&Count(start_index), linear_index::SeekBias::Right);
                     for index in 0..(end_index - start_index) {
                         let mut element =
                             (list_state.render_fn)(index + start_index, list_state.scroll_top, app);
@@ -502,7 +502,7 @@ struct LayoutSummary {
     measured_count: usize,
 }
 
-impl sum_tree::Item for ListItem {
+impl linear_index::Item for ListItem {
     type Summary = LayoutSummary;
 
     fn summary(&self) -> Self::Summary {
@@ -533,7 +533,7 @@ impl From<Pixels> for Height {
     }
 }
 
-impl<'a> sum_tree::Dimension<'a, LayoutSummary> for Height {
+impl<'a> linear_index::Dimension<'a, LayoutSummary> for Height {
     fn add_summary(&mut self, summary: &'a LayoutSummary) {
         self.0 += summary.height
     }
@@ -542,7 +542,7 @@ impl<'a> sum_tree::Dimension<'a, LayoutSummary> for Height {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, AddAssign)]
 struct Count(usize);
 
-impl<'a> sum_tree::Dimension<'a, LayoutSummary> for Count {
+impl<'a> linear_index::Dimension<'a, LayoutSummary> for Count {
     fn add_summary(&mut self, summary: &'a LayoutSummary) {
         self.0 += summary.count;
     }
@@ -610,7 +610,7 @@ impl<T> ListStateInner<T> {
     /// Gets the height of an item at the given index.
     pub fn height_for_index(&self, index: usize) -> Option<Pixels> {
         let mut cursor = self.content.cursor::<Count, ()>();
-        cursor.seek(&Count(index), sum_tree::SeekBias::Right);
+        cursor.seek(&Count(index), linear_index::SeekBias::Right);
         cursor.item().and_then(|item| item.height)
     }
 
@@ -638,13 +638,16 @@ impl<T> ListStateInner<T> {
         } else {
             let new_scroll_item = {
                 let mut cursor = self.content.cursor::<Height, Count>();
-                cursor.seek(&Height(absolute_pixels.into()), sum_tree::SeekBias::Right);
+                cursor.seek(
+                    &Height(absolute_pixels.into()),
+                    linear_index::SeekBias::Right,
+                );
                 *cursor.start()
             };
 
             let height = {
                 let mut cursor = self.content.cursor::<Count, Height>();
-                cursor.seek(&new_scroll_item, sum_tree::SeekBias::Right);
+                cursor.seek(&new_scroll_item, linear_index::SeekBias::Right);
                 cursor.start().0
             };
 
@@ -688,7 +691,7 @@ impl<T> ListStateInner<T> {
     fn invalidate_height_for_index(&mut self, index: usize) {
         let (new_tree, last_measured) = {
             let mut cursor = self.content.cursor::<Count, ()>();
-            let mut new_items = cursor.slice(&Count(index), sum_tree::SeekBias::Right);
+            let mut new_items = cursor.slice(&Count(index), linear_index::SeekBias::Right);
             // The last measured item is now the last measured item _before_ the index we're invalidating.
             let last_measured = new_items.summary().measured_count.saturating_sub(1);
 
@@ -707,7 +710,7 @@ impl<T> ListStateInner<T> {
     fn remove(&mut self, index: usize) {
         let (new_tree, last_measured) = {
             let mut cursor = self.content.cursor::<Count, ()>();
-            let mut new_items = cursor.slice(&Count(index), sum_tree::SeekBias::Right);
+            let mut new_items = cursor.slice(&Count(index), linear_index::SeekBias::Right);
             cursor.next();
             // The last measured item is now the last measured item _before_ the index we're invalidating.
             let last_measured = new_items.summary().measured_count.saturating_sub(1);
@@ -725,7 +728,10 @@ impl<T> ListStateInner<T> {
     /// Number of pixels scrolled from the top.
     fn scroll_top_pixels(&self) -> Pixels {
         let mut cursor = self.content.cursor::<Count, Height>();
-        cursor.seek(&self.scroll_top.list_item_index, sum_tree::SeekBias::Right);
+        cursor.seek(
+            &self.scroll_top.list_item_index,
+            linear_index::SeekBias::Right,
+        );
         cursor.start().0 .0 + self.scroll_top.offset_from_start
     }
 
@@ -761,13 +767,16 @@ impl<T> ListStateInner<T> {
 
         let index = {
             let mut cursor = self.content.cursor::<Height, Count>();
-            cursor.seek(&Height(max_scroll_top.into()), sum_tree::SeekBias::Right);
+            cursor.seek(
+                &Height(max_scroll_top.into()),
+                linear_index::SeekBias::Right,
+            );
             *cursor.start()
         };
 
         let height = {
             let mut cursor = self.content.cursor::<Count, Height>();
-            cursor.seek(&index, sum_tree::SeekBias::Right);
+            cursor.seek(&index, linear_index::SeekBias::Right);
             cursor.start().0
         };
 
